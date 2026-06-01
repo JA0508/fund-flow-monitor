@@ -1,0 +1,49 @@
+# =========================
+# Python environment
+# =========================
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# =========================
+# Python tooling cache
+# =========================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# =========================
+# macOS
+# =========================
+.DS_Store
+
+# =========================
+# Secrets / local config
+# =========================
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# =========================
+# Logs / cache
+# =========================
+*.log
+cache/
+data/cache/
+
+# =========================
+# Runtime market data
+# Do not upload real-time CSV snapshots
+# =========================
+data/ticks/*.csv
+data/ticks/*.parquet
+
+# Keep data folders
+!data/ticks/.gitkeep
+!data/demo/.gitkeep

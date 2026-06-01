@@ -1,0 +1,9 @@
+streamlit
+streamlit-autorefresh
+akshare
+pandas
+plotly
+python-dotenv
+pytz
+pytest
+
