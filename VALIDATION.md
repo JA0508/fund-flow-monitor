@@ -44,6 +44,48 @@ These summaries describe observed fund-flow state only. They do not predict futu
 
 The project is for learning, research, and visualization only. It is not investment advice.
 
+## v0.6 Delivery Checks
+
+Run the full local validation set:
+
+```bash
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Manual Streamlit checks:
+
+- Page has four tabs: `实时曲线`, `主题雷达`, `排行榜`, `数据说明`.
+- `实时曲线` contains the compact status bar, error/cache/demo notice, and main Plotly curve.
+- `主题雷达` contains 今日资金温度, 关注主题雷达, and 核心/广度分歧提示.
+- `排行榜` contains 今日净流入榜 and 今日净流出榜; inflow rows must be positive only and outflow rows must be negative only.
+- `数据说明` contains the data trust panel, `LIVE / CACHE / DEMO` explanation, theme mode explanation, watchlist instructions, and disclaimer.
+- Page footer shows `养基宝主题资金流雷达 · v0.6 · Streamlit MVP`.
+- No Streamlit default white dataframe should appear in the main dashboard.
+- No trading or prediction wording should appear in user-facing text.
+
+Project documentation checks:
+
+- `README.md` is GitHub-ready and includes overview, features, screenshots placeholder, architecture, data flow, theme modes, watchlist, quick start, validation, limitations, and roadmap.
+- `CHANGELOG.md` records v0.1 through v0.6.
+- `ROADMAP.md` follows the long-term direction: Streamlit MVP, low-frequency concept flow, fund/ETF holdings mapping, holding-related pool, intraday hotspot pool, then FastAPI + React + ECharts.
+- `PROJECT_BRIEF.md` can be used as a portfolio project description.
+
+`tools/smoke_check.py` is intentionally offline. It does not call AKShare; it checks Python version, key imports, project files, watchlist loading, and local CSV summary.
+
+DEMO safety check remains required:
+
+- Enable DEMO mode.
+- Confirm `data/ticks/sector_flow_YYYY-MM-DD.csv` row count does not increase.
+- Confirm `tools/verify_runtime.py` reports no DEMO contamination in real CSV.
+
+Forbidden wording check:
+
+- The app may state that it does not provide trading functions or investment advice.
+- User-facing analysis should not contain action-oriented trading suggestions.
+
 ## Data-source roadmap
 
 This Streamlit MVP intentionally keeps the request strategy small:

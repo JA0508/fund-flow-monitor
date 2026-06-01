@@ -5,7 +5,7 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from src.config import DATA_SOURCE
+from src.config import APP_CN_NAME, APP_VERSION, DATA_SOURCE
 from src.utils import format_billion
 
 
@@ -63,8 +63,18 @@ def inject_global_css() -> None:
         .divergence-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 11px 13px; margin-bottom: 8px; }
         .divergence-title { color: #f0c65a; font-size: 14px; font-weight: 800; margin-bottom: 5px; }
         .divergence-body { color: #aab2c0; font-size: 12.5px; line-height: 1.5; }
+        .trust-panel { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 14px 16px; margin: 8px 0 12px; }
+        .trust-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .trust-item { background: #0b0f14; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 10px 12px; }
+        .trust-label { color: #8b949e; font-size: 12px; margin-bottom: 4px; }
+        .trust-value { color: #e5e7eb; font-size: 15px; font-weight: 800; }
+        .trust-copy { color: #aab2c0; font-size: 13px; line-height: 1.65; margin-top: 8px; }
+        .footer-note { color: #6b7280; text-align: center; font-size: 12px; margin: 18px 0 4px; }
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+        .stTabs [data-baseweb="tab"] { background: #080808; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 8px 8px 0 0; color: #aab2c0; padding: 8px 14px; }
+        .stTabs [aria-selected="true"] { color: #f0c65a !important; background: #0b0f14 !important; }
         pre, code { background: #0b0f14 !important; color: #d1d5db !important; border-color: rgba(255,255,255,.08) !important; }
-        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -294,3 +304,68 @@ def render_error_box(error: str | None, has_cache: bool) -> None:
             )
         with st.expander("查看错误详情", expanded=False, icon=":material/error:"):
             st.code(error)
+
+
+def render_data_trust_panel(
+    *,
+    data_status: str,
+    status_note: str,
+    latest_label: str,
+    latest_time: str | None,
+    market_status: str,
+    sector_type: str,
+    display_mode: str,
+    theme_mode_label: str | None,
+    snapshot_count: int,
+    captured_time_count: int,
+) -> None:
+    market_text = STATUS_TEXT.get(market_status, market_status)
+    theme_text = theme_mode_label if display_mode == "基金观察池" else "原始板块"
+    status_class = {
+        "LIVE": "status-live",
+        "CACHE": "status-cache",
+        "DEMO": "status-demo",
+    }.get(data_status, "")
+    items = [
+        ("数据源", DATA_SOURCE),
+        ("数据状态", data_status),
+        (latest_label, latest_time or "--:--:--"),
+        ("市场状态", market_text),
+        ("主题口径", theme_text or "--"),
+        ("CSV 快照 / 时间点", f"{snapshot_count} 行 / {captured_time_count} 个时间点"),
+        ("展示模式", display_mode),
+        ("板块类型", sector_type),
+        ("状态说明", status_note),
+    ]
+    cells = []
+    for label, value in items:
+        value_html = (
+            f"<span class='{status_class}'>{escape(str(value))}</span>"
+            if label == "数据状态"
+            else escape(str(value))
+        )
+        cells.append(
+            "<div class='trust-item'>"
+            f"<div class='trust-label'>{escape(label)}</div>"
+            f"<div class='trust-value'>{value_html}</div>"
+            "</div>"
+        )
+    html = (
+        "<div class='trust-panel'>"
+        f"<div class='trust-grid'>{''.join(cells)}</div>"
+        "<div class='trust-copy'>"
+        "<b>LIVE</b>：本轮页面刷新成功抓取 AKShare 数据，并使用本轮快照。<br>"
+        "<b>CACHE</b>：本轮抓取失败或处于非交易时段，当前展示最近一次真实 CSV 缓存。<br>"
+        "<b>DEMO</b>：模拟数据仅用于 UI 调试，不代表真实行情；DEMO 不会写入真实 CSV。"
+        "</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_app_footer() -> None:
+    st.markdown(
+        f"<div class='footer-note'>{escape(APP_CN_NAME)} · {escape(APP_VERSION)} · Streamlit MVP<br>"
+        "数据仅用于学习研究和可视化展示，不构成投资建议。</div>",
+        unsafe_allow_html=True,
+    )

@@ -5,6 +5,7 @@
 venv/
 env/
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 
@@ -47,3 +48,4 @@ data/ticks/*.parquet
 # Keep data folders
 !data/ticks/.gitkeep
 !data/demo/.gitkeep
+!docs/screenshots/.gitkeep

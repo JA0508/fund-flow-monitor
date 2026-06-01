@@ -8,6 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 
 from src.chart import build_flow_chart
 from src.config import (
+    APP_CN_NAME,
     DEFAULT_SECTOR_TYPE,
     DEFAULT_TOP_IN,
     DEFAULT_TOP_OUT,
@@ -25,6 +26,8 @@ from src.transform import normalize_sector_flow
 from src.ui_components import (
     inject_global_css,
     render_divergence_cards,
+    render_app_footer,
+    render_data_trust_panel,
     render_error_box,
     render_header,
     render_market_temperature_card,
@@ -37,8 +40,8 @@ from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_
 
 
 st.set_page_config(
-    page_title="A股板块主力资金净流入实时监测",
-    page_icon="📈",
+    page_title=APP_CN_NAME,
+    page_icon=":material/query_stats:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -233,39 +236,7 @@ def main() -> None:
         display_ticks_df = apply_theme_pool_to_ticks(ticks_df, theme_mode=theme_mode)
         display_ticks_df = build_theme_radar_snapshot(display_ticks_df)
 
-    render_header(header_date, latest_time)
-    extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
-    render_status_bar(
-        market_status=market_status,
-        refresh_interval=refresh_interval,
-        data_status=data_status,
-        status_note=status_note,
-        sector_type=sector_type,
-        latest_label=latest_label,
-        latest_time=latest_status_time,
-        extra_text=extra_status,
-    )
-    if display_mode == "基金观察池":
-        note = (
-            "严格代表口径：只使用主题核心板块的精确匹配，最克制，适合默认观察。"
-            if theme_mode == "strict_representative"
-            else (
-                "代表口径：优先使用核心板块，必要时使用近似板块补充。"
-                if theme_mode == "representative"
-                else "广度观察：聚合更多相关板块，用于观察主题热度，可能包含上下级重叠，不代表严格净流入。"
-            )
-        )
-        st.markdown(
-            f"<div class='small-note'>基金观察池会将相近行业/概念归并为基金主题，仅用于辅助观察。{note}</div>",
-            unsafe_allow_html=True,
-        )
-    if not can_fetch and not demo_mode and has_display_cache:
-        st.caption("非交易时间，展示最近缓存数据。")
-    render_error_box(error, has_cache=has_display_cache)
-
     fig = build_flow_chart(display_ticks_df, top_in=int(top_in), top_out=int(top_out))
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
-
     latest_df = _latest_snapshot(display_ticks_df)
     raw_latest_df = _latest_snapshot(ticks_df)
     radar_theme_df = latest_df
@@ -279,19 +250,93 @@ def main() -> None:
     watchlist_themes = get_watchlist_themes(watchlist)
     watchlist_radar_df = filter_watchlist_theme_df(radar_theme_df, watchlist_themes)
     watchlist_divergence_df = filter_watchlist_theme_df(divergence_df, watchlist_themes)
-
-    render_market_temperature_card(build_market_temperature(radar_theme_df))
-    render_theme_radar_cards(watchlist_radar_df, max_cards=8)
-    render_divergence_cards(watchlist_divergence_df, max_cards=5)
-
-    render_rank_tables(latest_df)
-
-    with st.expander("数据说明", expanded=False):
-        st.write(
-            "第一版使用 AKShare 获取东方财富板块资金流排名数据，页面每次 rerun 抓取并保存 CSV 快照。"
-            "本项目仅用于学习和可视化，不构成投资建议；资金温度、雷达标签和分歧提示只用于资金流观察。"
+    snapshot_count = 0 if ticks_df.empty else len(ticks_df)
+    captured_time_count = ticks_df["captured_time"].nunique() if not ticks_df.empty and "captured_time" in ticks_df.columns else 0
+    extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
+    theme_note = None
+    if display_mode == "基金观察池":
+        theme_note = (
+            "严格代表口径：只使用主题核心板块的精确匹配，最克制，适合默认观察。"
+            if theme_mode == "strict_representative"
+            else (
+                "代表口径：优先使用核心板块，必要时使用近似板块补充。"
+                if theme_mode == "representative"
+                else "广度观察：聚合更多相关板块，用于观察主题热度，可能包含上下级重叠，不代表严格净流入。"
+            )
         )
-        st.code("data/ticks/sector_flow_YYYY-MM-DD.csv")
+
+    render_header(header_date, latest_time)
+    tab_curve, tab_radar, tab_rank, tab_data = st.tabs(("实时曲线", "主题雷达", "排行榜", "数据说明"))
+
+    with tab_curve:
+        render_status_bar(
+            market_status=market_status,
+            refresh_interval=refresh_interval,
+            data_status=data_status,
+            status_note=status_note,
+            sector_type=sector_type,
+            latest_label=latest_label,
+            latest_time=latest_status_time,
+            extra_text=extra_status,
+        )
+        if theme_note:
+            st.markdown(
+                f"<div class='small-note'>基金观察池会将相近行业/概念归并为基金主题，仅用于辅助观察。{theme_note}</div>",
+                unsafe_allow_html=True,
+            )
+        if not can_fetch and not demo_mode and has_display_cache:
+            st.caption("非交易时间，展示最近缓存数据。")
+        render_error_box(error, has_cache=has_display_cache)
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+        st.markdown(
+            "<div class='small-note'>主图展示当前净流入 Top 与净流出 Top 的日内时间序列；缓存和模拟状态会在状态条中明确标记。</div>",
+            unsafe_allow_html=True,
+        )
+
+    with tab_radar:
+        render_market_temperature_card(build_market_temperature(radar_theme_df))
+        render_theme_radar_cards(watchlist_radar_df, max_cards=8)
+        render_divergence_cards(watchlist_divergence_df, max_cards=5)
+
+    with tab_rank:
+        render_rank_tables(latest_df)
+
+    with tab_data:
+        render_data_trust_panel(
+            data_status=data_status,
+            status_note=status_note,
+            latest_label=latest_label,
+            latest_time=latest_status_time,
+            market_status=market_status,
+            sector_type=sector_type,
+            display_mode=display_mode,
+            theme_mode_label=theme_mode_label,
+            snapshot_count=snapshot_count,
+            captured_time_count=captured_time_count,
+        )
+        st.markdown("#### 数据源说明")
+        st.markdown(
+            "- 第一版使用 AKShare 获取东方财富板块资金流排名数据。免费数据源可能受网络、上游接口和非交易时段影响。\n"
+            "- 页面 rerun 时会按市场状态尝试抓取；抓取成功写入 CSV，失败则读取最近真实缓存。\n"
+            "- CSV 路径：`data/ticks/sector_flow_YYYY-MM-DD.csv`。"
+        )
+        st.markdown("#### 主题口径")
+        st.markdown(
+            "- 严格代表口径：只使用主题核心板块的精确匹配，最克制，适合默认观察。\n"
+            "- 代表口径：优先使用核心板块，必要时使用近似板块补充。\n"
+            "- 广度观察：聚合更多相关板块，用于观察主题热度，可能包含上下级重叠，不代表严格净流入。"
+        )
+        st.markdown("#### watchlist.json")
+        st.markdown(
+            "关注主题来自 `config/watchlist.json`，可以手动增删主题名称。配置缺失时会使用默认关注主题。"
+        )
+        st.markdown("#### 免责声明")
+        st.markdown(
+            "本项目仅用于学习研究和可视化展示。资金温度、主题雷达和分歧提示只描述已观察到的资金流状态，"
+            "不提供交易功能，不预测未来走势，不构成投资建议。"
+        )
+
+    render_app_footer()
 
 
 if __name__ == "__main__":
