@@ -9,6 +9,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.concept_flow import get_concept_latest_snapshot, summarize_concept_hotspots  # noqa: E402
+from src.fund_profiles import (  # noqa: E402
+    build_fund_summary,
+    build_fund_theme_exposure,
+    build_holding_related_pool,
+    get_funds,
+    load_fund_profiles,
+    validate_fund_profile,
+)
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
 from src.theme_pool import build_theme_snapshot  # noqa: E402
@@ -205,6 +213,36 @@ def main() -> int:
     print(f"market_temperature_label: {temperature.get('market_temperature_label')}")
     print(f"positive_count: {temperature.get('positive_count')}")
     print(f"negative_count: {temperature.get('negative_count')}")
+
+    fund_profile = load_fund_profiles()
+    fund_profile_warnings = validate_fund_profile(fund_profile)
+    fund_exposure = build_fund_theme_exposure(get_funds(fund_profile))
+    holding_pool = build_holding_related_pool(fund_exposure, radar)
+    fund_summary = build_fund_summary(holding_pool)
+    missing_themes = []
+    if not fund_exposure.empty and not radar.empty:
+        radar_themes = set(radar["theme_name"].dropna().astype(str))
+        missing_themes = sorted(set(fund_exposure["theme_name"].dropna().astype(str)) - radar_themes)
+    print(f"是否可以加载 fund_profiles.json: {bool(get_funds(fund_profile))}")
+    print(f"fund profile_name: {fund_profile.get('profile_name')}")
+    print(f"fund count: {len(get_funds(fund_profile))}")
+    print(f"fund profile warning 数量: {len(fund_profile_warnings)}")
+    print(f"是否可以构建 fund theme exposure: {not fund_exposure.empty}")
+    print(f"是否可以构建 holding related pool: {not holding_pool.empty}")
+    print(f"是否可以构建 fund summary: {not fund_summary.empty}")
+    print(f"exposure rows: {len(fund_exposure)}")
+    print(f"holding related rows: {len(holding_pool)}")
+    if missing_themes:
+        print(f"fund profile theme warning: 以下主题未在当前 theme_radar_df 中匹配: {missing_themes}")
+    print("fund summary Top 3:")
+    if fund_summary.empty:
+        print("  <empty>")
+    else:
+        for _, row in fund_summary.head(3).iterrows():
+            print(
+                f"  {row['fund_name']} ({row['fund_code']}): "
+                f"score={row['weighted_impact_score']:.2f} | {row['fund_impact_label']}"
+            )
 
     concept_latest = get_concept_latest_snapshot(ticks)
     if concept_latest.empty:

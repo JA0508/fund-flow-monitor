@@ -68,6 +68,13 @@ def inject_global_css() -> None:
         .concept-status { color: #f0c65a; font-size: 13px; font-weight: 800; }
         .concept-body { color: #aab2c0; font-size: 12.5px; line-height: 1.55; }
         .concept-note { color: #9ca3af; border: 1px solid rgba(255,255,255,.08); background: #080808; padding: 10px 12px; border-radius: 8px; margin: 8px 0; font-size: 13px; }
+        .holding-overview { display: grid; grid-template-columns: 1.4fr repeat(3, minmax(0, .8fr)); gap: 10px; margin: 8px 0 12px; }
+        .holding-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 12px 14px; min-height: 118px; }
+        .holding-title { color: #f3f4f6; font-size: 16px; font-weight: 850; margin-bottom: 8px; }
+        .holding-value { color: #f0c65a; font-size: 20px; font-weight: 850; margin: 3px 0; }
+        .holding-label { color: #8b949e; font-size: 12px; }
+        .holding-body { color: #aab2c0; font-size: 12.5px; line-height: 1.55; margin-top: 6px; }
+        .holding-warning { color: #ffd166; border: 1px solid rgba(255, 209, 102, .28); background: rgba(255, 209, 102, .08); padding: 9px 11px; border-radius: 8px; margin: 8px 0; font-size: 13px; }
         .trust-panel { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 14px 16px; margin: 8px 0 12px; }
         .trust-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
         .trust-item { background: #0b0f14; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 10px 12px; }
@@ -79,7 +86,7 @@ def inject_global_css() -> None:
         .stTabs [data-baseweb="tab"] { background: #080808; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 8px 8px 0 0; color: #aab2c0; padding: 8px 14px; }
         .stTabs [aria-selected="true"] { color: #f0c65a !important; background: #0b0f14 !important; }
         pre, code { background: #0b0f14 !important; color: #d1d5db !important; border-color: rgba(255,255,255,.08) !important; }
-        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -343,6 +350,90 @@ def render_concept_hotspots(hotspots_df: pd.DataFrame, max_rows: int = 10) -> No
             "--" if pd.isna(row.get("main_net_ratio")) else f"{float(row.get('main_net_ratio')):.2f}%",
             row.get("leading_stock", "--"),
             row.get("hotspot_status", "--"),
+        ]
+        cells = []
+        for header, value in zip(headers, values, strict=False):
+            class_name = f" class='{amount_class}'" if header == "主力净流入" else ""
+            cells.append(f"<td{class_name}>{escape(str(value))}</td>")
+        rows.append("<tr>" + "".join(cells) + "</tr>")
+    head = "".join(f"<th>{escape(header)}</th>" for header in headers)
+    html = (
+        "<div class='rank-panel'>"
+        "<table class='rank-table'>"
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_fund_profile_overview(profile: dict, warnings: list[str], exposure_df: pd.DataFrame) -> None:
+    funds = profile.get("funds", []) if isinstance(profile, dict) else []
+    matched_themes = exposure_df["theme_name"].nunique() if exposure_df is not None and not exposure_df.empty else 0
+    html = (
+        "<div class='radar-section-title'>基金组合概览</div>"
+        "<div class='holding-overview'>"
+        "<div class='holding-card'>"
+        "<div class='holding-label'>配置名称</div>"
+        f"<div class='holding-value'>{escape(str(profile.get('profile_name', '--')))}</div>"
+        f"<div class='holding-body'>{escape(str(profile.get('description', '手动主题配置，不代表真实持仓。')))}</div>"
+        "</div>"
+        f"<div class='holding-card'><div class='holding-label'>基金/ETF 数量</div><div class='holding-value'>{len(funds)}</div></div>"
+        f"<div class='holding-card'><div class='holding-label'>配置主题数</div><div class='holding-value'>{matched_themes}</div></div>"
+        f"<div class='holding-card'><div class='holding-label'>配置提示</div><div class='holding-value'>{len(warnings)}</div><div class='holding-body'>warning 不会中断页面。</div></div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    if warnings:
+        warning_html = "<br>".join(escape(str(item)) for item in warnings[:6])
+        st.markdown(f"<div class='holding-warning'>{warning_html}</div>", unsafe_allow_html=True)
+
+
+def render_fund_summary_cards(fund_summary_df: pd.DataFrame, max_cards: int = 8) -> None:
+    st.markdown("<div class='radar-section-title'>基金摘要卡片</div>", unsafe_allow_html=True)
+    if fund_summary_df is None or fund_summary_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无可用基金主题摘要。</div></div>", unsafe_allow_html=True)
+        return
+    cols = st.columns(2)
+    for idx, row in enumerate(fund_summary_df.head(max_cards).to_dict("records")):
+        score = float(row.get("weighted_impact_score", 0) or 0)
+        score_class = "amount-in" if score > 0 else "amount-out" if score < 0 else "radar-neutral"
+        html = (
+            "<div class='holding-card'>"
+            f"<div class='holding-title'>{escape(str(row.get('fund_name', '--')))}</div>"
+            f"<div class='holding-body'>代码：{escape(str(row.get('fund_code', '--')))} ｜ 类型：{escape(str(row.get('fund_type', '--')))}</div>"
+            f"<div class='holding-value {score_class}'>{score:.2f}</div>"
+            f"<div class='holding-body'>状态：{escape(str(row.get('fund_impact_label', '--')))}</div>"
+            f"<div class='holding-body'>偏强主题：{escape(str(row.get('top_positive_themes') or '暂无'))}</div>"
+            f"<div class='holding-body'>承压主题：{escape(str(row.get('top_negative_themes') or '暂无'))}</div>"
+            f"<div class='holding-body'>{escape(str(row.get('summary_reason', '')))}</div>"
+            "</div>"
+        )
+        with cols[idx % 2]:
+            st.markdown(html, unsafe_allow_html=True)
+
+
+def render_holding_related_table(holding_pool_df: pd.DataFrame, max_rows: int = 30) -> None:
+    st.markdown("<div class='radar-section-title'>主题暴露明细</div>", unsafe_allow_html=True)
+    if holding_pool_df is None or holding_pool_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无持仓相关主题明细。</div></div>", unsafe_allow_html=True)
+        return
+    headers = ["基金", "主题", "权重", "主题状态", "主力净流入", "相关状态", "说明"]
+    rows = []
+    view = holding_pool_df.sort_values(["fund_name", "normalized_weight"], ascending=[True, False]).head(max_rows)
+    for _, row in view.iterrows():
+        amount = pd.to_numeric(pd.Series([row.get("main_net_inflow_billion")]), errors="coerce").iloc[0]
+        amount_text = "--" if pd.isna(amount) else format_billion(amount)
+        amount_class = "amount-in" if pd.notna(amount) and amount >= 0 else "amount-out"
+        values = [
+            row.get("fund_name", "--"),
+            row.get("theme_name", "--"),
+            f"{float(row.get('normalized_weight', 0) or 0):.1%}",
+            row.get("theme_status", "--"),
+            amount_text,
+            row.get("holding_impact_label", "--"),
+            row.get("holding_impact_reason", "--"),
         ]
         cells = []
         for header, value in zip(headers, values, strict=False):

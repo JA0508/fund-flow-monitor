@@ -25,6 +25,14 @@ from src.config import (
     TIMEZONE,
 )
 from src.data_source import fetch_sector_flow
+from src.fund_profiles import (
+    build_fund_summary,
+    build_fund_theme_exposure,
+    build_holding_related_pool,
+    get_funds,
+    load_fund_profiles,
+    validate_fund_profile,
+)
 from src.market_time import get_market_status
 from src.storage import append_snapshot, load_latest_ticks, load_today_ticks
 from src.theme_concepts import build_theme_concept_summary
@@ -39,6 +47,9 @@ from src.ui_components import (
     render_concept_hotspots,
     render_data_trust_panel,
     render_error_box,
+    render_fund_profile_overview,
+    render_fund_summary_cards,
+    render_holding_related_table,
     render_header,
     render_market_temperature_card,
     render_rank_tables,
@@ -354,6 +365,11 @@ def main() -> None:
     watchlist_radar_df = filter_watchlist_theme_df(radar_theme_df, watchlist_themes)
     watchlist_divergence_df = filter_watchlist_theme_df(divergence_df, watchlist_themes)
     watchlist_concept_df = filter_watchlist_theme_df(concept_summary_df, watchlist_themes)
+    fund_profile = load_fund_profiles()
+    fund_profile_warnings = validate_fund_profile(fund_profile)
+    fund_exposure_df = build_fund_theme_exposure(get_funds(fund_profile))
+    holding_pool_df = build_holding_related_pool(fund_exposure_df, radar_theme_df)
+    fund_summary_df = build_fund_summary(holding_pool_df)
     snapshot_count = 0 if ticks_df.empty else len(ticks_df)
     captured_time_count = ticks_df["captured_time"].nunique() if not ticks_df.empty and "captured_time" in ticks_df.columns else 0
     extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
@@ -370,7 +386,7 @@ def main() -> None:
         )
 
     render_header(header_date, latest_time)
-    tab_curve, tab_radar, tab_rank, tab_data = st.tabs(("实时曲线", "主题雷达", "排行榜", "数据说明"))
+    tab_curve, tab_radar, tab_holdings, tab_rank, tab_data = st.tabs(("实时曲线", "主题雷达", "持仓相关池", "排行榜", "数据说明"))
 
     with tab_curve:
         render_status_bar(
@@ -411,6 +427,16 @@ def main() -> None:
         else:
             render_theme_concept_cards(pd.DataFrame(), max_cards=8)
         render_divergence_cards(watchlist_divergence_df, max_cards=5)
+
+    with tab_holdings:
+        st.markdown(
+            "<div class='concept-note'>本页基于 <code>config/fund_profiles.json</code> 中的手动主题配置，将关注基金/ETF 映射到当前主题资金状态。"
+            "它不读取真实账户，也不代表真实基金持仓，不构成投资建议。</div>",
+            unsafe_allow_html=True,
+        )
+        render_fund_profile_overview(fund_profile, fund_profile_warnings, fund_exposure_df)
+        render_fund_summary_cards(fund_summary_df, max_cards=8)
+        render_holding_related_table(holding_pool_df, max_rows=30)
 
     with tab_rank:
         render_rank_tables(latest_df)
@@ -454,6 +480,11 @@ def main() -> None:
         st.markdown("#### watchlist.json")
         st.markdown(
             "关注主题来自 `config/watchlist.json`，可以手动增删主题名称。配置缺失时会使用默认关注主题。"
+        )
+        st.markdown("#### fund_profiles.json")
+        st.markdown(
+            "持仓相关池来自 `config/fund_profiles.json` 的手动主题配置。它只表示你想观察的基金/ETF 与主题暴露关系，"
+            "不读取真实账户，不代表真实基金持仓，也不预测基金净值。"
         )
         st.markdown("#### 免责声明")
         st.markdown(

@@ -9,6 +9,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
 
 
@@ -19,8 +20,10 @@ REQUIRED_FILES = (
     "src/theme_radar.py",
     "src/concept_flow.py",
     "src/theme_concepts.py",
+    "src/fund_profiles.py",
     "src/watchlist.py",
     "config/watchlist.json",
+    "config/fund_profiles.json",
     "README.md",
 )
 
@@ -57,6 +60,18 @@ def load_watchlist_status(path: str | Path = PROJECT_ROOT / "config/watchlist.js
         "themes": themes,
         "theme_count": len(themes),
         "ok": bool(themes),
+    }
+
+
+def load_fund_profile_status(path: str | Path = PROJECT_ROOT / "config/fund_profiles.json") -> dict:
+    profile = load_fund_profiles(str(path))
+    funds = get_funds(profile)
+    warnings = validate_fund_profile(profile)
+    return {
+        "profile_name": profile.get("profile_name", ""),
+        "fund_count": len(funds),
+        "warning_count": len(warnings),
+        "ok": bool(funds),
     }
 
 
@@ -97,13 +112,14 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         "imports": check_imports(),
         "files": check_project_files(project_root),
         "watchlist": load_watchlist_status(project_root / "config/watchlist.json"),
+        "fund_profiles": load_fund_profile_status(project_root / "config/fund_profiles.json"),
         "csv": summarize_csv(latest_csv),
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v0.7 本地冒烟检查")
+    print("Fund Flow Monitor v0.8 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -119,6 +135,11 @@ def main() -> int:
     watchlist = report["watchlist"]
     print(f"watchlist: {watchlist['watchlist_name']} -> {watchlist['theme_count']} 个主题")
     print(f"watchlist themes: {watchlist['themes']}")
+    fund_profiles = report["fund_profiles"]
+    print(
+        f"fund profiles: {fund_profiles['profile_name']} -> "
+        f"{fund_profiles['fund_count']} 只基金/ETF, warnings={fund_profiles['warning_count']}"
+    )
 
     csv = report["csv"]
     print(f"CSV 数据文件存在: {csv['exists']}")
@@ -132,6 +153,7 @@ def main() -> int:
         and all(report["imports"].values())
         and all(report["files"].values())
         and watchlist["ok"]
+        and fund_profiles["ok"]
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

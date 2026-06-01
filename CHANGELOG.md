@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v0.8
+
+- Manual fund profile configuration via `config/fund_profiles.json`.
+- 新增持仓相关主题池。
+- 新增基金影响摘要卡片。
+- 明确手动主题配置不代表真实持仓，不读取真实账户。
+
 ## v0.7
 
 - Low-frequency concept fund-flow assistance.

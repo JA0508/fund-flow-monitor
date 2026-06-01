@@ -29,6 +29,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 关注主题雷达：按 `config/watchlist.json` 展示自选主题状态。
 - 核心/广度分歧提示：对比核心板块和广度观察是否共振或分化。
 - 低频概念资金流辅助：手动或过期刷新概念缓存，用于观察主题相关概念热度。
+- 持仓相关池：基于 `config/fund_profiles.json` 的手动主题配置，把关注基金/ETF 映射到当前主题资金状态。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
 
@@ -63,6 +64,12 @@ The theme radar tab summarizes current market temperature, watchlist theme statu
 The ranking tab separates net inflow and net outflow lists. Inflow ranking only shows positive values, while outflow ranking only shows negative values, avoiding mixed-sign ranking confusion.
 
 ![Fund Flow Ranking](docs/screenshots/ranking.png)
+
+### Holding Related Pool
+
+The holding-related pool maps manually configured fund/ETF theme exposure to current theme fund-flow status. It does not read real accounts and does not represent real holdings.
+
+![Holding Related Pool](docs/screenshots/holding_pool.png)
 
 ### Data Trust Panel
 
@@ -118,7 +125,44 @@ v0.7 增加低频概念资金流辅助：
 - 主题雷达中的“相关概念热度”只用于辅助观察，不替代行业主题主值。
 - 行业资金流和概念资金流不会直接相加。
 
-## 8. Watchlist
+## 8. Fund Profiles
+
+v0.8 增加本地手动配置版持仓相关池：
+
+```text
+config/fund_profiles.json
+```
+
+配置示例：
+
+```json
+{
+  "profile_name": "默认基金关注组合",
+  "description": "本配置仅用于本地主题观察示例，不代表真实持仓。",
+  "funds": [
+    {
+      "fund_name": "半导体主题基金示例",
+      "fund_code": "DEMO-SEMI",
+      "fund_type": "主题基金",
+      "themes": [
+        {"theme_name": "半导体/芯片链", "weight": 0.75},
+        {"theme_name": "AI算力/TMT", "weight": 0.15},
+        {"theme_name": "新能源链", "weight": 0.10}
+      ]
+    }
+  ]
+}
+```
+
+说明：
+
+- `fund_code` 示例使用 `DEMO-` 前缀，避免误解为真实基金代码。
+- `themes` 是手动主题配置，不代表真实基金持仓。
+- 系统不读取真实账户，不接券商接口，不抓取个人持仓。
+- 权重仅用于把关注基金/ETF 映射到当前主题资金状态。
+- 持仓相关池不预测基金净值，不构成投资建议。
+
+## 9. Watchlist
 
 关注主题来自：
 
@@ -144,7 +188,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 9. Quick Start
+## 10. Quick Start
 
 ```bash
 cd fund-flow-monitor
@@ -162,7 +206,7 @@ python tools/probe_akshare.py
 python tools/probe_concept_flow.py
 ```
 
-## 10. Validation
+## 11. Validation
 
 ```bash
 python -m pytest -q
@@ -173,7 +217,7 @@ python tools/verify_runtime.py
 
 `tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist 和本地 CSV 摘要。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、主题池、主题雷达和分歧提示。
 
-## 11. Known Limitations
+## 12. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -182,13 +226,14 @@ python tools/verify_runtime.py
 - 后续需要结合基金持仓、ETF 成分、行业分类体系继续校准主题池。
 - 广度观察可能包含上下级板块重叠，只能作为主题热度观察。
 - 概念资金流接口可能比行业接口更不稳定，因此当前只做低频辅助刷新。
+- 持仓相关池只读取本地手动配置，不代表真实基金持仓或账户资产。
 
-## 12. Roadmap
+## 13. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
-- v0.8：基金持仓 / ETF 成分映射。
-- v0.9：持仓相关池、日内热点池。
+- v0.8：手动配置版持仓相关池 / 基金主题配置。
+- v0.9：日内热点池、更正式的 ETF / 基金成分映射。
 - v1.0：FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

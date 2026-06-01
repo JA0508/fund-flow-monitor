@@ -120,6 +120,30 @@ If no concept cache exists, this is acceptable. The script should print:
 暂无概念资金流缓存，可通过页面手动刷新生成。
 ```
 
+## v0.8 Holding-Related Pool Checks
+
+The holding-related pool is based on local manual theme configuration only:
+
+- Page has a `持仓相关池` tab.
+- `config/fund_profiles.json` exists and uses `DEMO-` fund codes in the sample profile.
+- `src/fund_profiles.py` can load missing or damaged config files without crashing.
+- The tab shows a clear note: manual configuration, not real holdings, no account connection, no investment advice.
+- The tab shows profile overview, fund summary cards, and a dark theme exposure table.
+- `verify_runtime.py` reports:
+  - fund profile name
+  - fund count
+  - warning count
+  - exposure rows
+  - holding related rows
+  - fund summary Top 3
+- Missing theme names in `fund_profiles.json` should show warnings, not crash the page.
+- The holding impact score is derived from configured theme weight and current theme status only.
+- The holding-related pool must not be described as real holdings or fund NAV prediction.
+
+Forbidden wording check:
+
+- User-facing holding text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
+
 ## Data-source roadmap
 
 This Streamlit MVP intentionally keeps the request strategy small:

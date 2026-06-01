@@ -1,0 +1,45 @@
+{
+  "profile_name": "默认基金关注组合",
+  "description": "本配置仅用于本地主题观察示例，不代表真实持仓。",
+  "funds": [
+    {
+      "fund_name": "半导体主题基金示例",
+      "fund_code": "DEMO-SEMI",
+      "fund_type": "主题基金",
+      "themes": [
+        {"theme_name": "半导体/芯片链", "weight": 0.75},
+        {"theme_name": "AI算力/TMT", "weight": 0.15},
+        {"theme_name": "新能源链", "weight": 0.10}
+      ]
+    },
+    {
+      "fund_name": "AI 科技主题基金示例",
+      "fund_code": "DEMO-AI",
+      "fund_type": "主题基金",
+      "themes": [
+        {"theme_name": "AI算力/TMT", "weight": 0.80},
+        {"theme_name": "半导体/芯片链", "weight": 0.20}
+      ]
+    },
+    {
+      "fund_name": "新能源主题基金示例",
+      "fund_code": "DEMO-NEWENERGY",
+      "fund_type": "主题基金",
+      "themes": [
+        {"theme_name": "新能源链", "weight": 0.80},
+        {"theme_name": "半导体/芯片链", "weight": 0.10},
+        {"theme_name": "红利防御", "weight": 0.10}
+      ]
+    },
+    {
+      "fund_name": "红利防御主题基金示例",
+      "fund_code": "DEMO-DIVIDEND",
+      "fund_type": "主题基金",
+      "themes": [
+        {"theme_name": "红利防御", "weight": 0.85},
+        {"theme_name": "证券金融", "weight": 0.10},
+        {"theme_name": "消费", "weight": 0.05}
+      ]
+    }
+  ]
+}
