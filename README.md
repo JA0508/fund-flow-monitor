@@ -28,6 +28,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 今日资金温度：基于主题资金状态计算整体主题资金冷热。
 - 关注主题雷达：按 `config/watchlist.json` 展示自选主题状态。
 - 核心/广度分歧提示：对比核心板块和广度观察是否共振或分化。
+- 低频概念资金流辅助：手动或过期刷新概念缓存，用于观察主题相关概念热度。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
 
@@ -78,6 +79,9 @@ flowchart LR
     C --> D["src/storage.py<br/>CSV snapshots"]
     D --> E["src/theme_pool.py"]
     E --> F["src/theme_radar.py"]
+    D --> H["src/concept_flow.py"]
+    H --> I["src/theme_concepts.py"]
+    I --> F
     F --> G["Streamlit UI<br/>app.py + ui_components.py"]
     D --> G
 ```
@@ -85,10 +89,12 @@ flowchart LR
 ## 5. Data Flow
 
 1. 页面每次 rerun 时判断 A 股市场状态。
-2. 交易中、集合竞价或午间休市时尝试抓取 AKShare 数据。
+2. 交易中、集合竞价或午间休市时尝试抓取行业资金流数据。
 3. 抓取成功：标准化字段，追加写入 `data/ticks/sector_flow_YYYY-MM-DD.csv`，页面显示 `LIVE`。
 4. 抓取失败或非交易时段：优先读取最近真实 CSV 缓存，页面显示 `CACHE`。
 5. DEMO 模式：只在内存生成模拟数据用于 UI 调试，页面显示 `DEMO`，不会写入真实 CSV。
+6. 概念资金流采用低频策略：用户手动刷新、概念缓存为空或缓存超过 5 分钟时才尝试抓取。
+7. 概念资金流只作为主题热度和分化的辅助观察数据，不与行业资金流直接相加。
 
 ## 6. Theme Modes
 
@@ -100,7 +106,19 @@ flowchart LR
 
 当前主题映射仍是轻量规则，未来需要结合基金持仓、ETF 成分、申万/中信等行业分类体系继续校准。
 
-## 7. Watchlist
+## 7. Concept Assistance
+
+v0.7 增加低频概念资金流辅助：
+
+- 默认不会每 30 秒抓取概念资金流。
+- 侧边栏开启“概念资金流辅助”后，可以点击“刷新概念资金流”。
+- 当概念缓存为空或距离当前时间超过 5 分钟时，系统才会尝试低频刷新。
+- 概念接口失败不会影响行业资金流主图、排行榜和主题雷达主链路。
+- 概念数据写入同一个 CSV，但通过 `sector_type="概念资金流"` 与行业数据区分。
+- 主题雷达中的“相关概念热度”只用于辅助观察，不替代行业主题主值。
+- 行业资金流和概念资金流不会直接相加。
+
+## 8. Watchlist
 
 关注主题来自：
 
@@ -126,7 +144,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 8. Quick Start
+## 9. Quick Start
 
 ```bash
 cd fund-flow-monitor
@@ -141,9 +159,10 @@ streamlit run app.py
 
 ```bash
 python tools/probe_akshare.py
+python tools/probe_concept_flow.py
 ```
 
-## 9. Validation
+## 10. Validation
 
 ```bash
 python -m pytest -q
@@ -154,7 +173,7 @@ python tools/verify_runtime.py
 
 `tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist 和本地 CSV 摘要。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、主题池、主题雷达和分歧提示。
 
-## 10. Known Limitations
+## 11. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -162,11 +181,12 @@ python tools/verify_runtime.py
 - 主题映射仍是轻量规则，不等同于正式行业分类。
 - 后续需要结合基金持仓、ETF 成分、行业分类体系继续校准主题池。
 - 广度观察可能包含上下级板块重叠，只能作为主题热度观察。
+- 概念资金流接口可能比行业接口更不稳定，因此当前只做低频辅助刷新。
 
-## 11. Roadmap
+## 12. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
-- v0.7：低频概念资金流接入。
+- v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
 - v0.8：基金持仓 / ETF 成分映射。
 - v0.9：持仓相关池、日内热点池。
 - v1.0：FastAPI + React + ECharts 产品化重构。

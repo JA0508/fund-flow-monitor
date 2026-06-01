@@ -63,6 +63,11 @@ def inject_global_css() -> None:
         .divergence-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 11px 13px; margin-bottom: 8px; }
         .divergence-title { color: #f0c65a; font-size: 14px; font-weight: 800; margin-bottom: 5px; }
         .divergence-body { color: #aab2c0; font-size: 12.5px; line-height: 1.5; }
+        .concept-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 11px 13px; min-height: 104px; margin-bottom: 8px; }
+        .concept-title { color: #f3f4f6; font-size: 15px; font-weight: 850; margin-bottom: 6px; }
+        .concept-status { color: #f0c65a; font-size: 13px; font-weight: 800; }
+        .concept-body { color: #aab2c0; font-size: 12.5px; line-height: 1.55; }
+        .concept-note { color: #9ca3af; border: 1px solid rgba(255,255,255,.08); background: #080808; padding: 10px 12px; border-radius: 8px; margin: 8px 0; font-size: 13px; }
         .trust-panel { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 14px 16px; margin: 8px 0 12px; }
         .trust-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
         .trust-item { background: #0b0f14; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 10px 12px; }
@@ -248,6 +253,12 @@ def render_theme_radar_cards(radar_df: pd.DataFrame, max_cards: int = 8) -> None
         level_class = _status_class(row.get("theme_status_level"))
         amount = format_billion(row.get("main_net_inflow_billion"))
         used = _shorten_sectors(row.get("used_sectors"), max_items=4)
+        concept_html = ""
+        if "concept_status" in row and pd.notna(row.get("concept_status")):
+            concept_html = (
+                f"<div class='radar-meta'>相关概念：{escape(str(row.get('concept_status', '--')))} ｜ "
+                f"{escape(format_billion(row.get('concept_net_inflow_billion')))}</div>"
+            )
         html = (
             "<div class='radar-card'>"
             f"<div class='radar-card-title'>{escape(str(row.get('theme_name', '--')))}</div>"
@@ -255,6 +266,7 @@ def render_theme_radar_cards(radar_df: pd.DataFrame, max_cards: int = 8) -> None
             f"<div class='radar-meta'>状态：<span class='{level_class}'>{escape(str(row.get('theme_status', '--')))}</span> ｜ {escape(str(row.get('radar_label', '--')))}</div>"
             f"<div class='radar-meta'>口径：{escape(str(row.get('theme_value_label', '--')))}</div>"
             f"<div class='radar-meta'>使用板块：{escape(used)}</div>"
+            f"{concept_html}"
             f"<div class='radar-reason'>{escape(str(row.get('radar_reason', '')))}</div>"
             "</div>"
         )
@@ -290,6 +302,65 @@ def render_divergence_cards(divergence_df: pd.DataFrame, max_cards: int = 5) -> 
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_theme_concept_cards(concept_summary_df: pd.DataFrame, max_cards: int = 8) -> None:
+    st.markdown("<div class='radar-section-title'>相关概念热度</div>", unsafe_allow_html=True)
+    if concept_summary_df is None or concept_summary_df.empty:
+        st.markdown(
+            "<div class='concept-note'>概念资金流辅助未启用，当前主题雷达仅基于行业资金流。</div>",
+            unsafe_allow_html=True,
+        )
+        return
+    cards = concept_summary_df.head(max_cards).to_dict("records")
+    cols = st.columns(3)
+    for idx, row in enumerate(cards):
+        html = (
+            "<div class='concept-card'>"
+            f"<div class='concept-title'>{escape(str(row.get('theme_name', '--')))}</div>"
+            f"<div class='concept-status'>{escape(str(row.get('concept_status', '--')))} ｜ {escape(format_billion(row.get('concept_net_inflow_billion')))}</div>"
+            f"<div class='concept-body'>相关概念数：{int(row.get('related_concept_count', 0) or 0)}</div>"
+            f"<div class='concept-body'>代表概念：{escape(_shorten_sectors(row.get('top_concepts'), max_items=4))}</div>"
+            f"<div class='concept-body'>{escape(str(row.get('concept_reason', '')))}</div>"
+            "</div>"
+        )
+        with cols[idx % 3]:
+            st.markdown(html, unsafe_allow_html=True)
+
+
+def render_concept_hotspots(hotspots_df: pd.DataFrame, max_rows: int = 10) -> None:
+    st.markdown("<div class='radar-section-title'>概念热点观察</div>", unsafe_allow_html=True)
+    if hotspots_df is None or hotspots_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无概念热点缓存。</div></div>", unsafe_allow_html=True)
+        return
+    headers = ["概念", "主力净流入", "涨跌幅", "净占比", "代表个股", "状态"]
+    rows = []
+    for _, row in hotspots_df.head(max_rows).iterrows():
+        amount = row.get("main_net_inflow_billion")
+        amount_class = "amount-in" if pd.to_numeric(pd.Series([amount]), errors="coerce").iloc[0] >= 0 else "amount-out"
+        values = [
+            row.get("concept_name", "--"),
+            format_billion(amount),
+            "--" if pd.isna(row.get("change_pct")) else f"{float(row.get('change_pct')):.2f}%",
+            "--" if pd.isna(row.get("main_net_ratio")) else f"{float(row.get('main_net_ratio')):.2f}%",
+            row.get("leading_stock", "--"),
+            row.get("hotspot_status", "--"),
+        ]
+        cells = []
+        for header, value in zip(headers, values, strict=False):
+            class_name = f" class='{amount_class}'" if header == "主力净流入" else ""
+            cells.append(f"<td{class_name}>{escape(str(value))}</td>")
+        rows.append("<tr>" + "".join(cells) + "</tr>")
+    head = "".join(f"<th>{escape(header)}</th>" for header in headers)
+    html = (
+        "<div class='rank-panel'>"
+        "<table class='rank-table'>"
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def render_error_box(error: str | None, has_cache: bool) -> None:
     if error:
         if has_cache:
@@ -303,6 +374,22 @@ def render_error_box(error: str | None, has_cache: bool) -> None:
                 unsafe_allow_html=True,
             )
         with st.expander("查看错误详情", expanded=False, icon=":material/error:"):
+            st.code(error)
+
+
+def render_concept_error_box(error: str | None, has_cache: bool) -> None:
+    if error:
+        if has_cache:
+            st.markdown(
+                "<div class='cache-alert'>本轮概念资金流请求失败，当前保留最近概念缓存；行业资金流主链路不受影响。</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                "<div class='cache-alert'>本轮概念资金流请求失败，暂无概念缓存。可运行 <code>python tools/probe_concept_flow.py</code> 检查接口。</div>",
+                unsafe_allow_html=True,
+            )
+        with st.expander("查看概念接口错误详情", expanded=False, icon=":material/error:"):
             st.code(error)
 
 

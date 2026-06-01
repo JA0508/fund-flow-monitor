@@ -8,7 +8,9 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.concept_flow import get_concept_latest_snapshot, summarize_concept_hotspots  # noqa: E402
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
+from src.theme_concepts import build_theme_concept_summary  # noqa: E402
 from src.theme_pool import build_theme_snapshot  # noqa: E402
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth  # noqa: E402
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist  # noqa: E402
@@ -33,6 +35,14 @@ def _latest_snapshot(df: pd.DataFrame) -> pd.DataFrame:
     if work.empty:
         return pd.DataFrame()
     return work[work["captured_at"].eq(work["captured_at"].max())]
+
+
+def _sector_stats(df: pd.DataFrame, sector_type: str) -> tuple[int, int]:
+    if df.empty or "sector_type" not in df.columns:
+        return 0, 0
+    sector_df = df[df["sector_type"].eq(sector_type)]
+    times = sector_df["captured_time"].nunique() if "captured_time" in sector_df.columns else 0
+    return int(len(sector_df)), int(times)
 
 
 def detect_demo_contamination(df: pd.DataFrame) -> bool:
@@ -139,6 +149,10 @@ def main() -> int:
     print(f"当前 CSV 文件路径: {latest_file or '<none>'}")
     print(f"CSV 行数: {len(ticks)}")
     print(f"unique captured_time 数量: {ticks['captured_time'].nunique() if 'captured_time' in ticks else 0}")
+    industry_rows, industry_times = _sector_stats(ticks, "行业资金流")
+    concept_rows, concept_times = _sector_stats(ticks, "概念资金流")
+    print(f"行业资金流 rows / unique captured_time: {industry_rows} / {industry_times}")
+    print(f"概念资金流 rows / unique captured_time: {concept_rows} / {concept_times}")
     latest_time = latest["captured_time"].iloc[0] if not latest.empty and "captured_time" in latest else "<none>"
     print(f"最新 captured_time: {latest_time}")
     sector_type = latest["sector_type"].iloc[0] if not latest.empty and "sector_type" in latest else "<none>"
@@ -191,6 +205,27 @@ def main() -> int:
     print(f"market_temperature_label: {temperature.get('market_temperature_label')}")
     print(f"positive_count: {temperature.get('positive_count')}")
     print(f"negative_count: {temperature.get('negative_count')}")
+
+    concept_latest = get_concept_latest_snapshot(ticks)
+    if concept_latest.empty:
+        print("暂无概念资金流缓存，可通过页面手动刷新生成。")
+        print("是否可以构建 concept_hotspots: False")
+        print("是否可以构建 theme_concept_summary: False")
+    else:
+        concept_hotspots = summarize_concept_hotspots(concept_latest)
+        theme_concepts = build_theme_concept_summary(concept_latest, watchlist_themes)
+        print(f"是否可以构建 concept_hotspots: {not concept_hotspots.empty}")
+        print(f"是否可以构建 theme_concept_summary: {not theme_concepts.empty}")
+        print("概念热点 Top 5:")
+        for _, row in concept_hotspots.head(5).iterrows():
+            print(f"  {row['concept_name']}: {row['main_net_inflow_billion']:.1f} 亿 | {row['hotspot_status']}")
+        print("主题相关概念摘要:")
+        for _, row in theme_concepts.iterrows():
+            print(
+                f"  {row['theme_name']}: {row['concept_net_inflow_billion']:.1f} 亿 | "
+                f"{row['concept_status']} | top={row['top_concepts']}"
+            )
+
     print("top divergence 3 条:")
     if watchlist_divergence.empty:
         print("  <empty>")

@@ -58,14 +58,57 @@ def _radar_reason(row: pd.Series) -> str:
     return reason
 
 
-def build_theme_radar_snapshot(theme_df: pd.DataFrame) -> pd.DataFrame:
+def _concept_addon_reason(row: pd.Series) -> str:
+    raw_status = row.get("concept_status")
+    if raw_status is None or pd.isna(raw_status):
+        return ""
+    concept_status = str(raw_status)
+    concept_value = _safe_float(row.get("concept_net_inflow_billion"))
+    core_value = _safe_float(row.get("main_net_inflow_billion"))
+    if not concept_status:
+        return ""
+    if core_value > 0 and concept_value > 0:
+        reason = "相关概念同步流入，主题热度有所增强。"
+    elif core_value < 0 and concept_value > 0:
+        reason = "行业核心流出但相关概念仍有流入，主题内部存在分化。"
+    elif core_value < 0 and concept_value < 0:
+        reason = "相关概念与行业核心均承压，主题短线资金偏谨慎。"
+    elif core_value > 0 and concept_value < 0:
+        reason = "行业核心流入但相关概念偏流出，主题内部存在分化。"
+    else:
+        reason = "相关概念资金方向不突出，概念侧呈分歧状态。"
+    for word in FORBIDDEN_ADVICE_WORDS:
+        reason = reason.replace(word, "")
+    return reason
+
+
+def build_theme_radar_snapshot(
+    theme_df: pd.DataFrame,
+    concept_summary_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     if theme_df is None or theme_df.empty:
         return pd.DataFrame()
     df = theme_df.copy()
     if "theme_name" not in df.columns:
         df["theme_name"] = df.get("sector_name")
+    if concept_summary_df is not None and not concept_summary_df.empty:
+        concept_cols = [
+            "theme_name",
+            "concept_status",
+            "concept_net_inflow_billion",
+            "top_concepts",
+            "concept_reason",
+        ]
+        available = [col for col in concept_cols if col in concept_summary_df.columns]
+        df = df.merge(concept_summary_df[available], on="theme_name", how="left")
     df["radar_label"] = df["theme_status"].map(RADAR_LABELS).fillna("资金分歧")
     df["radar_reason"] = df.apply(_radar_reason, axis=1)
+    if "concept_status" in df.columns:
+        addon = df.apply(_concept_addon_reason, axis=1)
+        df["radar_reason"] = [
+            f"{base}{extra}" if extra else base
+            for base, extra in zip(df["radar_reason"].astype(str), addon.astype(str), strict=False)
+        ]
     df["radar_priority"] = df["theme_status"].map(RADAR_PRIORITY).fillna(50).astype(int)
     return df.sort_values(["radar_priority", "main_net_inflow_billion"], ascending=[False, False]).reset_index(drop=True)
 
@@ -197,4 +240,3 @@ def compare_strict_and_breadth(strict_df: pd.DataFrame, breadth_df: pd.DataFrame
             }
         )
     return pd.DataFrame(rows).sort_values("priority", ascending=False).drop(columns=["priority"]).reset_index(drop=True)
-

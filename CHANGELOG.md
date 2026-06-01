@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v0.7
+
+- Low-frequency concept fund-flow assistance.
+- 新增概念热点观察。
+- 新增主题相关概念摘要。
+- 新增手动刷新概念资金流入口。
+- 明确行业资金流和概念资金流不直接相加。
+
 ## v0.6
 
 - 页面改为 tabs：实时曲线、主题雷达、排行榜、数据说明。

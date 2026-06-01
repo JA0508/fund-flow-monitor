@@ -62,14 +62,14 @@ Manual Streamlit checks:
 - `主题雷达` contains 今日资金温度, 关注主题雷达, and 核心/广度分歧提示.
 - `排行榜` contains 今日净流入榜 and 今日净流出榜; inflow rows must be positive only and outflow rows must be negative only.
 - `数据说明` contains the data trust panel, `LIVE / CACHE / DEMO` explanation, theme mode explanation, watchlist instructions, and disclaimer.
-- Page footer shows `养基宝主题资金流雷达 · v0.6 · Streamlit MVP`.
+- Page footer shows `养基宝主题资金流雷达 · v0.7 · Streamlit MVP`.
 - No Streamlit default white dataframe should appear in the main dashboard.
 - No trading or prediction wording should appear in user-facing text.
 
 Project documentation checks:
 
 - `README.md` is GitHub-ready and includes overview, features, screenshots placeholder, architecture, data flow, theme modes, watchlist, quick start, validation, limitations, and roadmap.
-- `CHANGELOG.md` records v0.1 through v0.6.
+- `CHANGELOG.md` records v0.1 through v0.7.
 - `ROADMAP.md` follows the long-term direction: Streamlit MVP, low-frequency concept flow, fund/ETF holdings mapping, holding-related pool, intraday hotspot pool, then FastAPI + React + ECharts.
 - `PROJECT_BRIEF.md` can be used as a portfolio project description.
 
@@ -85,6 +85,40 @@ Forbidden wording check:
 
 - The app may state that it does not provide trading functions or investment advice.
 - User-facing analysis should not contain action-oriented trading suggestions.
+
+## v0.7 Concept Assistance Checks
+
+Concept fund-flow is a low-frequency auxiliary source:
+
+- Sidebar has `概念资金流辅助` toggle.
+- When enabled, the page shows `刷新概念资金流`.
+- Concept data should refresh only when the button is clicked, the concept cache is empty, or the cache is older than 5 minutes.
+- The app must not fetch concept fund-flow every 30 seconds.
+- Concept fetch failures must not block the industry fund-flow chart or ranking.
+- Concept status should be one of `CONCEPT_LIVE`, `CONCEPT_CACHE`, `CONCEPT_EMPTY`, or `CONCEPT_ERROR`.
+- `主题雷达` tab should show `相关概念热度` when concept assistance is enabled.
+- `排行榜` must not mix concept hotspots into the main inflow/outflow ranking.
+- `数据说明` must state that industry and concept fund-flow are not directly added together.
+
+Validation scripts:
+
+```bash
+python tools/probe_concept_flow.py
+python tools/verify_runtime.py
+```
+
+`verify_runtime.py` should report:
+
+- industry rows / unique captured_time
+- concept rows / unique captured_time
+- whether concept hotspots can be built
+- whether theme concept summary can be built
+
+If no concept cache exists, this is acceptable. The script should print:
+
+```text
+暂无概念资金流缓存，可通过页面手动刷新生成。
+```
 
 ## Data-source roadmap
 
