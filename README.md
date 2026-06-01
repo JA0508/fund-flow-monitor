@@ -54,11 +54,15 @@ fund-flow-monitor/
 │   ├── ui_components.py
 │   ├── market_time.py
 │   ├── theme_pool.py
+│   ├── theme_radar.py
+│   ├── watchlist.py
 │   └── utils.py
 ├── tests/
 │   ├── test_transform.py
 │   ├── test_market_time.py
-│   └── test_theme_pool.py
+│   ├── test_theme_pool.py
+│   ├── test_theme_radar.py
+│   └── test_watchlist.py
 └── tools/
     ├── probe_akshare.py
     └── verify_runtime.py
@@ -95,6 +99,25 @@ fund-flow-monitor/
 当前主题映射仍是轻量规则，后续需要结合基金持仓、ETF 成分、申万/中信等行业分类体系继续校准。
 
 页面中的主题状态（强流入、弱流入、分歧/中性、弱流出、强流出）只是资金流状态标签，不是买卖建议。
+
+## v0.5 基金主题雷达
+
+v0.5 在主图和排行榜之间增加基金主题雷达产品区：
+
+- 今日资金温度：根据当前主题状态计算主题资金偏热、略偏暖、分化、偏冷或明显偏冷。
+- 关注主题雷达：按 `config/watchlist.json` 中的主题展示资金流状态、口径、使用板块和中性解释。
+- 核心/广度分歧提示：对比严格代表口径和广度观察，提示核心板块与相关板块是否共振或分化。
+
+`config/watchlist.json` 可以手动修改，例如：
+
+```json
+{
+  "watchlist_name": "默认关注主题",
+  "themes": ["半导体/芯片链", "AI算力/TMT", "新能源链"]
+}
+```
+
+所有温度、雷达和分歧提示只用于资金流观察，不包含交易功能，不预测未来涨跌，也不构成投资建议。
 
 ## 数据存储
 
@@ -136,6 +159,10 @@ python tools/probe_akshare.py
 
 - 后端全量抓取，前端精选展示。
 - 先做行业资金流稳定版，再逐步接入概念资金流、地域资金流、5日、10日。
+- 低频接入概念资金流。
+- ETF / 基金持仓映射。
+- 持仓相关池。
+- 日内热点池。
 - SQLite / PostgreSQL 存储
 - FastAPI 后端服务
 - React + ECharts 前端大屏

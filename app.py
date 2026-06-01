@@ -19,16 +19,21 @@ from src.config import (
 from src.data_source import fetch_sector_flow
 from src.market_time import get_market_status
 from src.storage import append_snapshot, load_latest_ticks, load_today_ticks
-from src.theme_pool import apply_theme_pool_to_ticks
+from src.theme_pool import apply_theme_pool_to_ticks, build_theme_snapshot
+from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
 from src.transform import normalize_sector_flow
 from src.ui_components import (
     inject_global_css,
+    render_divergence_cards,
     render_error_box,
     render_header,
+    render_market_temperature_card,
     render_rank_tables,
     render_status_bar,
+    render_theme_radar_cards,
 )
 from src.utils import get_china_now
+from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
 
 
 st.set_page_config(
@@ -226,6 +231,7 @@ def main() -> None:
     display_ticks_df = ticks_df
     if display_mode == "基金观察池":
         display_ticks_df = apply_theme_pool_to_ticks(ticks_df, theme_mode=theme_mode)
+        display_ticks_df = build_theme_radar_snapshot(display_ticks_df)
 
     render_header(header_date, latest_time)
     extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
@@ -261,12 +267,29 @@ def main() -> None:
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
     latest_df = _latest_snapshot(display_ticks_df)
+    raw_latest_df = _latest_snapshot(ticks_df)
+    radar_theme_df = latest_df
+    if display_mode != "基金观察池":
+        radar_theme_df = build_theme_snapshot(raw_latest_df, theme_mode="strict_representative")
+    radar_theme_df = build_theme_radar_snapshot(radar_theme_df)
+    strict_theme_df = build_theme_snapshot(raw_latest_df, theme_mode="strict_representative")
+    breadth_theme_df = build_theme_snapshot(raw_latest_df, theme_mode="breadth")
+    divergence_df = compare_strict_and_breadth(strict_theme_df, breadth_theme_df)
+    watchlist = load_watchlist()
+    watchlist_themes = get_watchlist_themes(watchlist)
+    watchlist_radar_df = filter_watchlist_theme_df(radar_theme_df, watchlist_themes)
+    watchlist_divergence_df = filter_watchlist_theme_df(divergence_df, watchlist_themes)
+
+    render_market_temperature_card(build_market_temperature(radar_theme_df))
+    render_theme_radar_cards(watchlist_radar_df, max_cards=8)
+    render_divergence_cards(watchlist_divergence_df, max_cards=5)
+
     render_rank_tables(latest_df)
 
     with st.expander("数据说明", expanded=False):
         st.write(
             "第一版使用 AKShare 获取东方财富板块资金流排名数据，页面每次 rerun 抓取并保存 CSV 快照。"
-            "本项目仅用于学习和可视化，不构成投资建议。"
+            "本项目仅用于学习和可视化，不构成投资建议；资金温度、雷达标签和分歧提示只用于资金流观察。"
         )
         st.code("data/ticks/sector_flow_YYYY-MM-DD.csv")
 

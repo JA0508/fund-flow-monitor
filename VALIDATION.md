@@ -10,6 +10,14 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+For v0.5 it also checks whether the app can build:
+
+- `theme_radar_snapshot`
+- `market_temperature`
+- configured `watchlist.json`
+- watchlist theme matches
+- strict-vs-breadth divergence rows
+
 DEMO contamination detection only checks mode-like fields: `source`, `sector_type`, `mode`, and `data_mode`. It intentionally does not inspect `sector_name`, because real Eastmoney sector names can contain words such as `模拟芯片设计`.
 
 ## Fund observation pool
@@ -23,6 +31,16 @@ The fund observation pool is not a simple sum of every related board.
 Current theme mapping is a lightweight rule layer. Later versions should calibrate it with fund holdings, ETF constituents, and a formal industry taxonomy.
 
 Theme status labels such as `强流入` and `强流出` are fund-flow state tags only. They are not trading signals or investment advice.
+
+## v0.5 Radar Layer
+
+The radar layer turns the latest theme snapshot into product-facing summaries:
+
+- 今日资金温度: scores theme statuses with `强流入=+2`, `弱流入=+1`, `分歧/中性=0`, `弱流出=-1`, `强流出=-2`.
+- 关注主题雷达: filters the current theme snapshot by `config/watchlist.json`.
+- 核心/广度分歧提示: compares `strict_representative` with `breadth` to identify whether core and related sectors move together or diverge.
+
+These summaries describe observed fund-flow state only. They do not predict future prices, do not include trading functions, and do not provide investment advice.
 
 The project is for learning, research, and visualization only. It is not investment advice.
 

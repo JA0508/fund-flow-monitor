@@ -141,6 +141,7 @@ def build_flow_chart(
         theme_value_label = ""
         match_strategy = ""
         theme_status = ""
+        radar_label = ""
         if "source_sectors" in series.columns:
             source_value = series["source_sectors"].dropna()
             if not source_value.empty:
@@ -165,6 +166,10 @@ def build_flow_chart(
             status_value = series["theme_status"].dropna()
             if not status_value.empty:
                 theme_status = str(status_value.iloc[-1])
+        if "radar_label" in series.columns:
+            radar_value = series["radar_label"].dropna()
+            if not radar_value.empty:
+                radar_label = str(radar_value.iloc[-1])
         if latest_value > 0:
             color = POSITIVE_COLORS[positive_index % len(POSITIVE_COLORS)]
             positive_index += 1
@@ -187,6 +192,7 @@ def build_flow_chart(
                     f"板块：{name}<br>"
                     "主力净流入：%{y:.1f} 亿"
                     + (f"<br>资金流状态：{theme_status}" if theme_status else "")
+                    + (f"<br>雷达标签：{radar_label}" if radar_label else "")
                     + (f"<br>主题口径：{aggregation_mode}" if aggregation_mode else "")
                     + (f"<br>数值标签：{theme_value_label}" if theme_value_label else "")
                     + (f"<br>匹配策略：{match_strategy}" if match_strategy else "")

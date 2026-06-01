@@ -10,6 +10,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_pool import build_theme_snapshot  # noqa: E402
+from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth  # noqa: E402
+from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist  # noqa: E402
 
 DEMO_CHECK_FIELDS = ("source", "sector_type", "mode", "data_mode")
 
@@ -173,6 +175,31 @@ def main() -> int:
     _print_theme_mode("representative", representative)
     _print_theme_mode("breadth", breadth)
     _semiconductor_comparison(strict, representative, breadth)
+
+    radar = build_theme_radar_snapshot(strict)
+    temperature = build_market_temperature(radar)
+    watchlist = load_watchlist()
+    watchlist_themes = get_watchlist_themes(watchlist)
+    watchlist_df = filter_watchlist_theme_df(radar, watchlist_themes)
+    divergence = compare_strict_and_breadth(strict, breadth)
+    watchlist_divergence = filter_watchlist_theme_df(divergence, watchlist_themes)
+    print(f"是否可以构建 theme_radar_snapshot: {not radar.empty}")
+    print(f"是否可以构建 market_temperature: {bool(temperature)}")
+    print(f"是否可以加载 watchlist.json: {bool(watchlist_themes)}")
+    print(f"watchlist themes: {watchlist_themes}")
+    print(f"watchlist 当前匹配主题数: {len(watchlist_df)}")
+    print(f"market_temperature_label: {temperature.get('market_temperature_label')}")
+    print(f"positive_count: {temperature.get('positive_count')}")
+    print(f"negative_count: {temperature.get('negative_count')}")
+    print("top divergence 3 条:")
+    if watchlist_divergence.empty:
+        print("  <empty>")
+    else:
+        for _, row in watchlist_divergence.head(3).iterrows():
+            print(
+                f"  {row['theme_name']}: {row['divergence_type']} | "
+                f"strict={row['strict_value']:.1f} 亿 | breadth={row['breadth_value']:.1f} 亿"
+            )
 
     warnings = _duplicate_layer_warnings(breadth)
     if warnings:

@@ -49,8 +49,22 @@ def inject_global_css() -> None:
         .amount-in { color: #ffb703 !important; font-weight: 800; }
         .amount-out { color: #2ec4b6 !important; font-weight: 800; }
         .rank-empty { color: #8b949e; padding: 18px; }
+        .radar-section-title { font-size: 19px; font-weight: 850; margin: 14px 0 8px; color: #e5e7eb; }
+        .temperature-grid { display: grid; grid-template-columns: 1.35fr repeat(4, minmax(0, .8fr)); gap: 10px; margin: 8px 0 12px; }
+        .radar-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 12px 14px; min-height: 116px; }
+        .radar-card-title { color: #f3f4f6; font-size: 16px; font-weight: 850; margin-bottom: 8px; }
+        .radar-card-label { color: #8b949e; font-size: 12px; }
+        .radar-card-value { color: #e5e7eb; font-size: 20px; font-weight: 850; margin: 2px 0 4px; }
+        .radar-reason { color: #aab2c0; font-size: 12.5px; line-height: 1.55; margin-top: 8px; }
+        .radar-meta { color: #8b949e; font-size: 12px; line-height: 1.5; }
+        .radar-positive-strong, .radar-positive-weak { color: #ffb703 !important; }
+        .radar-negative-strong, .radar-negative-weak { color: #2ec4b6 !important; }
+        .radar-neutral { color: #c9d1d9 !important; }
+        .divergence-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 11px 13px; margin-bottom: 8px; }
+        .divergence-title { color: #f0c65a; font-size: 14px; font-weight: 800; margin-bottom: 5px; }
+        .divergence-body { color: #aab2c0; font-size: 12.5px; line-height: 1.5; }
         pre, code { background: #0b0f14 !important; color: #d1d5db !important; border-color: rgba(255,255,255,.08) !important; }
-        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } }
+        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -184,6 +198,86 @@ def render_rank_tables(latest_df: pd.DataFrame) -> None:
     with col_out:
         st.markdown("<div class='rank-title' style='color:#2ec4b6'>今日净流出榜</div>", unsafe_allow_html=True)
         st.markdown(_render_html_table(outflow, "amount-out", "暂无净流出主题/板块"), unsafe_allow_html=True)
+
+
+def _status_class(level: object) -> str:
+    value = str(level or "")
+    if value in {"positive_strong", "positive_weak"}:
+        return "radar-positive-strong"
+    if value in {"negative_strong", "negative_weak"}:
+        return "radar-negative-strong"
+    return "radar-neutral"
+
+
+def render_market_temperature_card(temperature: dict) -> None:
+    st.markdown("<div class='radar-section-title'>今日资金温度</div>", unsafe_allow_html=True)
+    html = (
+        "<div class='temperature-grid'>"
+        "<div class='radar-card'>"
+        "<div class='radar-card-label'>市场温度</div>"
+        f"<div class='radar-card-value'>{escape(str(temperature.get('market_temperature_label', '--')))}</div>"
+        f"<div class='radar-reason'>{escape(str(temperature.get('market_temperature_reason', '')))}</div>"
+        "</div>"
+        f"<div class='radar-card'><div class='radar-card-label'>流入主题数</div><div class='radar-card-value radar-positive-weak'>{int(temperature.get('positive_count', 0))}</div></div>"
+        f"<div class='radar-card'><div class='radar-card-label'>流出主题数</div><div class='radar-card-value radar-negative-weak'>{int(temperature.get('negative_count', 0))}</div></div>"
+        f"<div class='radar-card'><div class='radar-card-label'>强流入主题</div><div class='radar-card-value radar-positive-strong'>{int(temperature.get('strong_inflow_count', 0))}</div></div>"
+        f"<div class='radar-card'><div class='radar-card-label'>强流出主题</div><div class='radar-card-value radar-negative-strong'>{int(temperature.get('strong_outflow_count', 0))}</div></div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_theme_radar_cards(radar_df: pd.DataFrame, max_cards: int = 8) -> None:
+    st.markdown("<div class='radar-section-title'>关注主题雷达</div>", unsafe_allow_html=True)
+    if radar_df is None or radar_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>当前关注主题暂无可用资金流快照。</div></div>", unsafe_allow_html=True)
+        return
+    cards = radar_df.head(max_cards).to_dict("records")
+    cols = st.columns(3)
+    for idx, row in enumerate(cards):
+        level_class = _status_class(row.get("theme_status_level"))
+        amount = format_billion(row.get("main_net_inflow_billion"))
+        used = _shorten_sectors(row.get("used_sectors"), max_items=4)
+        html = (
+            "<div class='radar-card'>"
+            f"<div class='radar-card-title'>{escape(str(row.get('theme_name', '--')))}</div>"
+            f"<div class='radar-card-value {level_class}'>{escape(amount)}</div>"
+            f"<div class='radar-meta'>状态：<span class='{level_class}'>{escape(str(row.get('theme_status', '--')))}</span> ｜ {escape(str(row.get('radar_label', '--')))}</div>"
+            f"<div class='radar-meta'>口径：{escape(str(row.get('theme_value_label', '--')))}</div>"
+            f"<div class='radar-meta'>使用板块：{escape(used)}</div>"
+            f"<div class='radar-reason'>{escape(str(row.get('radar_reason', '')))}</div>"
+            "</div>"
+        )
+        with cols[idx % 3]:
+            st.markdown(html, unsafe_allow_html=True)
+
+
+def render_divergence_cards(divergence_df: pd.DataFrame, max_cards: int = 5) -> None:
+    st.markdown("<div class='radar-section-title'>核心/广度分歧提示</div>", unsafe_allow_html=True)
+    if divergence_df is None or divergence_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>当前关注主题暂无明显核心/广度分歧。</div></div>", unsafe_allow_html=True)
+        return
+    priority_types = {
+        "core_outflow_breadth_inflow",
+        "core_inflow_breadth_outflow",
+        "both_inflow",
+        "both_outflow",
+    }
+    display_df = divergence_df[divergence_df["divergence_type"].isin(priority_types)].head(max_cards)
+    if display_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>当前关注主题暂无明显核心/广度分歧。</div></div>", unsafe_allow_html=True)
+        return
+    html = ""
+    for _, row in display_df.iterrows():
+        html += (
+            "<div class='divergence-card'>"
+            f"<div class='divergence-title'>{escape(str(row.get('theme_name', '--')))} ｜ {escape(str(row.get('divergence_type', '')))}</div>"
+            f"<div class='divergence-body'>核心：{format_billion(row.get('strict_value'))}（{escape(str(row.get('strict_status', '--'))) }） ｜ "
+            f"广度：{format_billion(row.get('breadth_value'))}（{escape(str(row.get('breadth_status', '--'))) }）</div>"
+            f"<div class='divergence-body'>{escape(str(row.get('divergence_reason', '')))}</div>"
+            "</div>"
+        )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_error_box(error: str | None, has_cache: bool) -> None:
