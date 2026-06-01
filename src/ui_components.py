@@ -129,7 +129,7 @@ def filter_rank_rows(df: pd.DataFrame, direction: str, limit: int = 15) -> pd.Da
 
 
 def _rank_table(df: pd.DataFrame, direction: str) -> pd.DataFrame:
-    columns = ["排名", "主题/板块", "主力净流入", "涨跌幅", "净占比", "口径", "使用板块", "_source_sectors"]
+    columns = ["排名", "主题/板块", "主力净流入", "状态", "涨跌幅", "净占比", "口径", "使用板块", "_source_sectors"]
     sorted_df = filter_rank_rows(df, direction=direction, limit=15)
     if sorted_df.empty:
         return pd.DataFrame(columns=columns)
@@ -138,6 +138,7 @@ def _rank_table(df: pd.DataFrame, direction: str) -> pd.DataFrame:
             "排名": range(1, len(sorted_df) + 1),
             "主题/板块": sorted_df["sector_name"].values,
             "主力净流入": sorted_df["main_net_inflow_billion"].map(format_billion).values,
+            "状态": sorted_df.get("theme_status", pd.Series(["--"] * len(sorted_df), index=sorted_df.index)).fillna("--").values,
             "涨跌幅": sorted_df["change_pct"].map(lambda x: "--" if pd.isna(x) else f"{x:.2f}%").values,
             "净占比": sorted_df["main_net_ratio"].map(lambda x: "--" if pd.isna(x) else f"{x:.2f}%").values,
             "口径": sorted_df.get("theme_value_label", pd.Series(["原始板块"] * len(sorted_df), index=sorted_df.index)).fillna("原始板块").values,
@@ -151,7 +152,7 @@ def _rank_table(df: pd.DataFrame, direction: str) -> pd.DataFrame:
 def _render_html_table(df: pd.DataFrame, amount_class: str, empty_message: str) -> str:
     if df.empty:
         return f"<div class='rank-panel'><div class='rank-empty'>{escape(empty_message)}</div></div>"
-    headers = ["排名", "主题/板块", "主力净流入", "涨跌幅", "净占比", "口径", "使用板块"]
+    headers = ["排名", "主题/板块", "主力净流入", "状态", "涨跌幅", "净占比", "口径", "使用板块"]
     rows = []
     for _, row in df.iterrows():
         cells = []

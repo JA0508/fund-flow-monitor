@@ -151,10 +151,14 @@ def main() -> None:
         st.header("监测设置")
         display_mode = st.selectbox("展示模式", ("基金观察池", "原始板块"), index=0)
         theme_mode_label = None
-        theme_mode = "representative"
+        theme_mode = "strict_representative"
         if display_mode == "基金观察池":
-            theme_mode_label = st.selectbox("主题口径", ("代表口径", "广度观察"), index=0)
-            theme_mode = "breadth" if theme_mode_label == "广度观察" else "representative"
+            theme_mode_label = st.selectbox("主题口径", ("严格代表口径", "代表口径", "广度观察"), index=0)
+            theme_mode = {
+                "严格代表口径": "strict_representative",
+                "代表口径": "representative",
+                "广度观察": "breadth",
+            }[theme_mode_label]
         sector_type = st.selectbox("板块类型", SECTOR_TYPES, index=SECTOR_TYPES.index(DEFAULT_SECTOR_TYPE))
         refresh_interval = st.selectbox(
             "刷新间隔",
@@ -237,9 +241,13 @@ def main() -> None:
     )
     if display_mode == "基金观察池":
         note = (
-            "代表口径：优先使用主题核心板块，降低上下级板块重复计数风险。"
-            if theme_mode == "representative"
-            else "广度观察：聚合更多相关板块，用于观察主题热度，数值可能包含相关板块重叠，不代表严格净流入。"
+            "严格代表口径：只使用主题核心板块的精确匹配，最克制，适合默认观察。"
+            if theme_mode == "strict_representative"
+            else (
+                "代表口径：优先使用核心板块，必要时使用近似板块补充。"
+                if theme_mode == "representative"
+                else "广度观察：聚合更多相关板块，用于观察主题热度，可能包含上下级重叠，不代表严格净流入。"
+            )
         )
         st.markdown(
             f"<div class='small-note'>基金观察池会将相近行业/概念归并为基金主题，仅用于辅助观察。{note}</div>",

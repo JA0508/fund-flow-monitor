@@ -139,6 +139,8 @@ def build_flow_chart(
         used_sectors = ""
         aggregation_mode = ""
         theme_value_label = ""
+        match_strategy = ""
+        theme_status = ""
         if "source_sectors" in series.columns:
             source_value = series["source_sectors"].dropna()
             if not source_value.empty:
@@ -155,6 +157,14 @@ def build_flow_chart(
             label_value = series["theme_value_label"].dropna()
             if not label_value.empty:
                 theme_value_label = str(label_value.iloc[-1])
+        if "match_strategy" in series.columns:
+            strategy_value = series["match_strategy"].dropna()
+            if not strategy_value.empty:
+                match_strategy = str(strategy_value.iloc[-1])
+        if "theme_status" in series.columns:
+            status_value = series["theme_status"].dropna()
+            if not status_value.empty:
+                theme_status = str(status_value.iloc[-1])
         if latest_value > 0:
             color = POSITIVE_COLORS[positive_index % len(POSITIVE_COLORS)]
             positive_index += 1
@@ -176,8 +186,10 @@ def build_flow_chart(
                     "时间：%{x|%H:%M:%S}<br>"
                     f"板块：{name}<br>"
                     "主力净流入：%{y:.1f} 亿"
+                    + (f"<br>资金流状态：{theme_status}" if theme_status else "")
                     + (f"<br>主题口径：{aggregation_mode}" if aggregation_mode else "")
                     + (f"<br>数值标签：{theme_value_label}" if theme_value_label else "")
+                    + (f"<br>匹配策略：{match_strategy}" if match_strategy else "")
                     + (f"<br>使用板块：{used_sectors}" if used_sectors else "")
                     + (f"<br>来源板块：{source_sectors}" if source_sectors else "")
                     + "<extra></extra>"

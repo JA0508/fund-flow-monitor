@@ -59,27 +59,17 @@ def _print_rank(title: str, df: pd.DataFrame) -> None:
         print(f"  {row['sector_name']}: {row['main_net_inflow_billion']:.1f} 亿")
 
 
-def _print_representative(themes: pd.DataFrame) -> None:
-    print("representative 主题快照:")
+def _print_theme_mode(title: str, themes: pd.DataFrame) -> None:
+    print(f"{title} 主题快照:")
     if themes.empty:
         print("  <empty>")
         return
     for _, row in themes.iterrows():
         print(
             f"  {row['theme_name']}: {row['main_net_inflow_billion']:.1f} 亿 | "
-            f"used={row.get('used_sectors', '')} | source={row.get('source_sectors', '')}"
-        )
-
-
-def _print_breadth(themes: pd.DataFrame) -> None:
-    print("breadth 主题快照:")
-    if themes.empty:
-        print("  <empty>")
-        return
-    for _, row in themes.iterrows():
-        print(
-            f"  {row['theme_name']}: {row['main_net_inflow_billion']:.1f} 亿 | "
-            f"used_count={row.get('used_sector_count', 0)} | "
+            f"status={row.get('theme_status', '')} | "
+            f"strategy={row.get('match_strategy', '')} | "
+            f"used={row.get('used_sectors', '')} | "
             f"source_count={row.get('source_sector_count', 0)}"
         )
 
@@ -106,6 +96,32 @@ def _duplicate_layer_warnings(themes: pd.DataFrame) -> list[str]:
         if {"电力设备", "电池"}.issubset(sectors) and _has_any(sectors, ("锂电池", "电池化学品")):
             warnings.append(f"{theme_name}: source_sectors 同时包含 电力设备 + 电池 + 锂电池/电池化学品")
     return warnings
+
+
+def _semiconductor_comparison(
+    strict: pd.DataFrame,
+    representative: pd.DataFrame,
+    breadth: pd.DataFrame,
+) -> None:
+    print("半导体/芯片链三种模式对比:")
+    strict_row = strict[strict["theme_name"].eq("半导体/芯片链")]
+    representative_row = representative[representative["theme_name"].eq("半导体/芯片链")]
+    breadth_row = breadth[breadth["theme_name"].eq("半导体/芯片链")]
+    if strict_row.empty:
+        print("  strict value: <empty>")
+    else:
+        row = strict_row.iloc[0]
+        print(f"  strict value: {row['main_net_inflow_billion']:.1f} 亿 | used={row.get('used_sectors', '')}")
+    if representative_row.empty:
+        print("  representative value: <empty>")
+    else:
+        row = representative_row.iloc[0]
+        print(f"  representative value: {row['main_net_inflow_billion']:.1f} 亿 | used={row.get('used_sectors', '')}")
+    if breadth_row.empty:
+        print("  breadth value: <empty>")
+    else:
+        row = breadth_row.iloc[0]
+        print(f"  breadth value: {row['main_net_inflow_billion']:.1f} 亿 | used_count={row.get('used_sector_count', 0)}")
 
 
 def main() -> int:
@@ -147,12 +163,16 @@ def main() -> int:
         suspicious_units = bool((billion.abs() > 10_000).any() or mismatch.fillna(False).any())
     print(f"当前是否存在单位疑似异常: {suspicious_units}")
 
+    strict = build_theme_snapshot(latest, theme_mode="strict_representative")
     representative = build_theme_snapshot(latest, theme_mode="representative")
     breadth = build_theme_snapshot(latest, theme_mode="breadth")
+    print(f"是否可以构建 strict_representative 主题快照: {not strict.empty}")
     print(f"是否可以构建 representative 主题快照: {not representative.empty}")
     print(f"是否可以构建 breadth 主题快照: {not breadth.empty}")
-    _print_representative(representative)
-    _print_breadth(breadth)
+    _print_theme_mode("strict_representative", strict)
+    _print_theme_mode("representative", representative)
+    _print_theme_mode("breadth", breadth)
+    _semiconductor_comparison(strict, representative, breadth)
 
     warnings = _duplicate_layer_warnings(breadth)
     if warnings:
@@ -166,4 +186,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
