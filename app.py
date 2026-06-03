@@ -40,6 +40,17 @@ from src.intraday_hotspots import (
     calculate_intraday_theme_metrics,
     split_hotspot_sections,
 )
+from src.insight_brief import (
+    build_data_context_summary,
+    build_observation_brief,
+    render_brief_markdown,
+    summarize_holding_pool_for_brief,
+    summarize_intraday_for_brief,
+    summarize_multi_day_for_brief,
+    summarize_taxonomy_coverage_for_brief,
+    summarize_theme_radar_for_brief,
+    validate_brief_text,
+)
 from src.market_time import get_market_status
 from src.multi_day_trends import (
     build_daily_theme_snapshots,
@@ -81,6 +92,8 @@ from src.ui_components import (
     render_concept_hotspots,
     render_data_trust_panel,
     render_error_box,
+    render_brief_download,
+    render_brief_overview_cards,
     render_fund_profile_overview,
     render_fund_summary_cards,
     render_holding_related_table,
@@ -95,6 +108,7 @@ from src.ui_components import (
     render_rank_tables,
     render_snapshot_catalog_table,
     render_status_bar,
+    render_observation_brief_cards,
     render_theme_concept_cards,
     render_theme_coverage_panel,
     render_theme_taxonomy_panel,
@@ -553,6 +567,28 @@ def main() -> None:
     multi_day_trend_pool_df = build_multi_day_trend_pool(multi_day_metrics_df, top_n=12)
     multi_day_sections = split_multi_day_trend_sections(multi_day_trend_pool_df)
     multi_day_summary = build_multi_day_trend_summary(multi_day_trend_pool_df)
+    brief_data_context = build_data_context_summary(
+        selected_date=selected_snapshot_date or header_date,
+        view_status=data_status,
+        snapshot_summary=active_summary,
+        theme_mode_label=theme_mode_label or "原始板块",
+        market_status=market_status,
+    )
+    brief_radar_summary = summarize_theme_radar_for_brief(radar_theme_df)
+    brief_intraday_summary = summarize_intraday_for_brief(intraday_summary, intraday_hotspot_pool_df)
+    brief_multi_day_summary = summarize_multi_day_for_brief(multi_day_summary, multi_day_trend_pool_df)
+    brief_holding_summary = summarize_holding_pool_for_brief(fund_summary_df)
+    brief_coverage_summary = summarize_taxonomy_coverage_for_brief(coverage_report, taxonomy_consistency)
+    observation_brief = build_observation_brief(
+        brief_data_context,
+        brief_radar_summary,
+        brief_intraday_summary,
+        brief_multi_day_summary,
+        brief_holding_summary,
+        brief_coverage_summary,
+    )
+    brief_markdown = render_brief_markdown(observation_brief)
+    brief_forbidden_hits = validate_brief_text(brief_markdown)
     snapshot_count = int(active_summary.get("row_count", 0) or 0)
     captured_time_count = int(active_summary.get("captured_time_count", 0) or 0)
     extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
@@ -569,8 +605,8 @@ def main() -> None:
         )
 
     render_header(header_date, latest_time)
-    tab_curve, tab_radar, tab_intraday, tab_multi_day, tab_holdings, tab_rank, tab_data = st.tabs(
-        ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "排行榜", "数据说明")
+    tab_curve, tab_radar, tab_intraday, tab_multi_day, tab_holdings, tab_brief, tab_rank, tab_data = st.tabs(
+        ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "观察简报", "排行榜", "数据说明")
     )
 
     with tab_curve:
@@ -677,6 +713,21 @@ def main() -> None:
         render_fund_summary_cards(fund_summary_df, max_cards=8)
         render_holding_related_table(holding_pool_df, max_rows=30)
 
+    with tab_brief:
+        st.markdown(
+            "<div class='concept-note'>本页将当前主题雷达、日内热点、多日趋势、持仓相关池和主题覆盖审计整合为观察简报。"
+            "内容仅解释已保存或已展示的资金流状态，不预测未来走势，不构成投资建议。观察简报不触发 AKShare 抓取，也不会写入 CSV。</div>",
+            unsafe_allow_html=True,
+        )
+        if data_status == "EMPTY":
+            st.markdown(
+                "<div class='rank-panel'><div class='rank-empty'>暂无可用真实缓存，简报当前仅能生成 EMPTY 数据说明。</div></div>",
+                unsafe_allow_html=True,
+            )
+        render_brief_overview_cards(brief_data_context, observation_brief, brief_forbidden_hits)
+        render_observation_brief_cards(observation_brief)
+        render_brief_download(brief_markdown, selected_snapshot_date or header_date, brief_forbidden_hits)
+
     with tab_rank:
         render_rank_tables(latest_df)
         if concept_assist_enabled and not concept_hotspots_df.empty:
@@ -759,6 +810,13 @@ def main() -> None:
             f"- 当前多日趋势口径：`{multi_day_mode_label}`。\n"
             "- 多日趋势独立于当前选择的单日历史回放日期，不会触发 AKShare 抓取，也不会写入 CSV。\n"
             "- 它只解释已保存历史缓存中的主题资金状态变化，不预测未来走势，不构成投资建议。"
+        )
+        st.markdown("#### 观察简报")
+        st.markdown(
+            "- 观察简报整合当前主题雷达、日内热点、多日趋势、持仓相关池和主题覆盖审计。\n"
+            "- 简报只复用页面已生成的结果，不触发 AKShare 抓取，也不会写入 CSV。\n"
+            "- Markdown 下载会先做动作性表达检查；检查未通过时不提供下载。\n"
+            "- 简报只解释已保存或已展示的资金流状态，不预测未来走势，不构成投资建议。"
         )
         st.markdown("#### 免责声明")
         st.markdown(

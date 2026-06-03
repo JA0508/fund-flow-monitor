@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v1.3
+
+- Observation brief.
+- Unified insight layer.
+- Markdown export.
+- Brief text validation.
+- 简报整合主题雷达、日内热点、多日趋势、持仓相关池和主题覆盖审计。
+- 简报只解释已展示或已保存的资金流状态，不触发 AKShare 抓取，不写入 CSV。
+
 ## v1.2
 
 - Config-driven theme taxonomy via `config/theme_taxonomy.json`.

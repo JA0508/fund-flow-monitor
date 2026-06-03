@@ -282,6 +282,43 @@ Forbidden wording check:
 - Taxonomy and coverage text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
 - Coverage audit must not describe future price or fund NAV prediction.
 
+## v1.3 Observation Brief Checks
+
+The observation brief is a local unified explanation layer:
+
+- Page has an `观察简报` tab.
+- The tab explains that it combines theme radar, intraday hotspots, multi-day trends, holding-related pool, and theme coverage audit.
+- The brief must reuse existing app results and must not trigger AKShare.
+- The brief must not write CSV.
+- If active data is empty, the tab shows an EMPTY explanation and does not crash.
+- If intraday snapshots are insufficient, the brief says the intraday sample is insufficient.
+- If local CSV dates are insufficient, the brief says the multi-day sample is insufficient.
+- The brief renders:
+  - 摘要
+  - 关键观察
+  - 口径风险
+  - 数据说明
+  - 免责声明
+- Markdown download should use `st.download_button`.
+- Download filename should include the selected date, e.g. `yangjibao_brief_YYYY-MM-DD.md`.
+- Forbidden wording validation must run before download.
+- If forbidden wording is detected, the app should show a warning and not provide the download button.
+
+`verify_runtime.py` should report:
+
+- whether `insight_brief` can be imported
+- whether data context, radar, intraday, multi-day, holding, and coverage summaries can be built
+- whether observation brief and markdown can be generated
+- brief title
+- executive summary preview
+- key point count
+- forbidden hits
+
+Forbidden wording check:
+
+- Observation brief text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
+- Observation brief must not describe future price or fund NAV prediction.
+
 ## Data-source roadmap
 
 This Streamlit MVP intentionally keeps the request strategy small:

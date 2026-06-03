@@ -23,6 +23,17 @@ from src.intraday_hotspots import (  # noqa: E402
     build_theme_intraday_history,
     calculate_intraday_theme_metrics,
 )
+from src.insight_brief import (  # noqa: E402
+    build_data_context_summary,
+    build_observation_brief,
+    render_brief_markdown,
+    summarize_holding_pool_for_brief,
+    summarize_intraday_for_brief,
+    summarize_multi_day_for_brief,
+    summarize_taxonomy_coverage_for_brief,
+    summarize_theme_radar_for_brief,
+    validate_brief_text,
+)
 from src.multi_day_trends import (  # noqa: E402
     build_daily_theme_snapshots,
     build_multi_day_trend_pool,
@@ -32,6 +43,7 @@ from src.multi_day_trends import (  # noqa: E402
 from src.snapshot_catalog import (  # noqa: E402
     build_snapshot_catalog,
     get_latest_snapshot_date,
+    get_snapshot_summary,
     load_snapshot_by_date,
 )
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
@@ -415,6 +427,9 @@ def main() -> int:
         if not intraday_history.empty and "captured_time" in intraday_history.columns
         else 0
     )
+    intraday_metrics = pd.DataFrame()
+    hotspot_pool = pd.DataFrame()
+    hotspot_summary = {}
     print(f"是否可以构建 theme_intraday_history: {not intraday_history.empty}")
     print(f"intraday snapshot_count: {intraday_snapshot_count}")
     if intraday_warnings:
@@ -445,6 +460,56 @@ def main() -> int:
                     f"latest={row['latest_value']:.1f} 亿 | change={row['value_change']:.1f} 亿 | "
                     f"rank_change={row['rank_change']}"
                 )
+
+    daily_for_brief = build_daily_theme_snapshots(snapshot_catalog, data_dir=str(PROJECT_ROOT / "data/ticks"), mode="strict_representative")
+    multi_day_metrics_for_brief = calculate_multi_day_theme_metrics(daily_for_brief)
+    multi_day_pool_for_brief = build_multi_day_trend_pool(multi_day_metrics_for_brief, top_n=12)
+    multi_day_summary_for_brief = build_multi_day_trend_summary(multi_day_pool_for_brief)
+    taxonomy_for_brief = load_theme_taxonomy()
+    coverage_for_brief = build_theme_coverage_report(latest, taxonomy_for_brief)
+    consistency_for_brief = audit_theme_name_consistency(taxonomy_for_brief, watchlist_themes, fund_exposure["theme_name"].dropna().astype(str).unique().tolist())
+    snapshot_summary = get_snapshot_summary(ticks)
+    selected_date = (
+        str(latest["trade_date"].dropna().iloc[0])
+        if not latest.empty and "trade_date" in latest.columns and not latest["trade_date"].dropna().empty
+        else "<none>"
+    )
+    data_context = build_data_context_summary(
+        selected_date,
+        "CACHE",
+        snapshot_summary,
+        "严格代表口径",
+    )
+    radar_summary = summarize_theme_radar_for_brief(radar)
+    intraday_brief = summarize_intraday_for_brief(hotspot_summary, hotspot_pool)
+    multi_day_brief = summarize_multi_day_for_brief(multi_day_summary_for_brief, multi_day_pool_for_brief)
+    holding_brief = summarize_holding_pool_for_brief(fund_summary)
+    coverage_brief = summarize_taxonomy_coverage_for_brief(coverage_for_brief, consistency_for_brief)
+    observation_brief = build_observation_brief(
+        data_context,
+        radar_summary,
+        intraday_brief,
+        multi_day_brief,
+        holding_brief,
+        coverage_brief,
+    )
+    brief_markdown = render_brief_markdown(observation_brief)
+    forbidden_hits = validate_brief_text(brief_markdown)
+    print("观察简报检查:")
+    print("  是否可以导入 insight_brief: True")
+    print(f"  是否可以构建 data_context_summary: {bool(data_context)}")
+    print(f"  是否可以构建 radar_summary: {bool(radar_summary)}")
+    print(f"  是否可以构建 intraday summary: {bool(intraday_brief)}")
+    print(f"  是否可以构建 multi-day summary: {bool(multi_day_brief)}")
+    print(f"  是否可以构建 holding summary: {bool(holding_brief)}")
+    print(f"  是否可以构建 coverage summary: {bool(coverage_brief)}")
+    print(f"  是否可以构建 observation brief: {bool(observation_brief)}")
+    print(f"  是否可以生成 markdown: {bool(brief_markdown)}")
+    print(f"  validate_brief_text 是否通过: {not forbidden_hits}")
+    print(f"  brief_title: {observation_brief.get('brief_title')}")
+    print(f"  executive_summary 前 80 字: {observation_brief.get('executive_summary', '')[:80]}")
+    print(f"  key_points 数量: {len(observation_brief.get('key_points', []))}")
+    print(f"  forbidden_hits: {forbidden_hits}")
 
     concept_latest = get_concept_latest_snapshot(ticks)
     if concept_latest.empty:

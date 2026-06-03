@@ -89,6 +89,13 @@ def inject_global_css() -> None:
         .trust-label { color: #8b949e; font-size: 12px; margin-bottom: 4px; }
         .trust-value { color: #e5e7eb; font-size: 15px; font-weight: 800; }
         .trust-copy { color: #aab2c0; font-size: 13px; line-height: 1.65; margin-top: 8px; }
+        .brief-section { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+        .brief-title { color: #f0c65a; font-size: 18px; font-weight: 850; margin-bottom: 8px; }
+        .brief-body { color: #c9d1d9; font-size: 13.5px; line-height: 1.75; }
+        .brief-list { margin: 0; padding-left: 18px; }
+        .brief-list li { margin: 5px 0; }
+        .brief-pass { color: #26e07f; font-weight: 850; }
+        .brief-warning { color: #ffd166; font-weight: 850; }
         .footer-note { color: #6b7280; text-align: center; font-size: 12px; margin: 18px 0 4px; }
         .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
         .stTabs [data-baseweb="tab"] { background: #080808; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 8px 8px 0 0; color: #aab2c0; padding: 8px 14px; }
@@ -935,6 +942,93 @@ def render_theme_coverage_panel(
             )
     st.markdown("<div class='radar-section-title'>主题使用情况</div>", unsafe_allow_html=True)
     _render_simple_table(["主题", "分组", "主力净流入", "状态", "匹配策略", "来源数", "说明"], usage_rows, "暂无主题使用情况。")
+
+
+def _render_brief_list(items: list[str], empty_message: str = "暂无内容。") -> str:
+    values = [escape(str(item)) for item in (items or []) if str(item).strip()]
+    if not values:
+        values = [escape(empty_message)]
+    return "<ul class='brief-list'>" + "".join(f"<li>{item}</li>" for item in values) + "</ul>"
+
+
+def render_brief_overview_cards(
+    data_context: dict,
+    brief: dict,
+    forbidden_hits: list[str],
+) -> None:
+    status_text = "通过" if not forbidden_hits else "需检查"
+    status_class = "brief-pass" if not forbidden_hits else "brief-warning"
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>数据日期</div><div class='trust-value'>{escape(str(data_context.get('selected_date', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>视图状态</div><div class='trust-value'>{escape(str(data_context.get('view_status', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>主题口径</div><div class='trust-value'>{escape(str(data_context.get('theme_mode_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>时间点数量</div><div class='trust-value'>{int(data_context.get('captured_time_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>简报状态</div><div class='trust-value'>{escape(str(brief.get('brief_title', '观察简报')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>禁词检查</div><div class='trust-value {status_class}'>{status_text}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(data_context.get('data_context_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    if forbidden_hits:
+        st.markdown(
+            "<div class='holding-warning'>简报命中动作性表达，已暂不提供下载："
+            f"{escape('，'.join(forbidden_hits))}</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_observation_brief_cards(brief: dict) -> None:
+    st.markdown(
+        "<div class='brief-section'>"
+        "<div class='brief-title'>摘要</div>"
+        f"<div class='brief-body'>{escape(str(brief.get('executive_summary') or '暂无可用摘要。'))}</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    sections = [
+        ("关键观察", brief.get("key_points") or []),
+        ("口径风险", brief.get("risk_notes") or []),
+        ("数据说明", brief.get("data_notes") or []),
+    ]
+    for title, items in sections:
+        st.markdown(
+            "<div class='brief-section'>"
+            f"<div class='brief-title'>{escape(title)}</div>"
+            f"<div class='brief-body'>{_render_brief_list(items)}</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    st.markdown(
+        "<div class='brief-section'>"
+        "<div class='brief-title'>免责声明</div>"
+        f"<div class='brief-body'>{escape(str(brief.get('disclaimer') or ''))}</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_brief_download(
+    markdown_text: str,
+    selected_date: str,
+    forbidden_hits: list[str] | None = None,
+) -> None:
+    if forbidden_hits:
+        st.markdown(
+            "<div class='holding-warning'>禁词检查未通过，已关闭 Markdown 下载。</div>",
+            unsafe_allow_html=True,
+        )
+        return
+    safe_date = "".join(ch for ch in str(selected_date or "unknown") if ch.isdigit() or ch == "-") or "unknown"
+    st.download_button(
+        "下载 Markdown 简报",
+        data=markdown_text,
+        file_name=f"yangjibao_brief_{safe_date}.md",
+        mime="text/markdown",
+        type="secondary",
+    )
 
 
 def render_app_footer() -> None:

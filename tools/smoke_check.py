@@ -10,6 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
+from src import insight_brief  # noqa: E402
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
 from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_theme_taxonomy  # noqa: E402
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
@@ -25,6 +26,7 @@ REQUIRED_FILES = (
     "src/theme_coverage.py",
     "src/theme_taxonomy.py",
     "src/fund_profiles.py",
+    "src/insight_brief.py",
     "src/intraday_hotspots.py",
     "src/multi_day_trends.py",
     "src/snapshot_catalog.py",
@@ -135,6 +137,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         "watchlist": load_watchlist_status(project_root / "config/watchlist.json"),
         "fund_profiles": load_fund_profile_status(project_root / "config/fund_profiles.json"),
         "taxonomy": load_taxonomy_status(project_root / "config/theme_taxonomy.json"),
+        "insight_brief_import": bool(insight_brief),
         "csv": summarize_csv(latest_csv),
         "snapshot_catalog": {
             "date_count": int(len(catalog)),
@@ -145,7 +148,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.2 本地冒烟检查")
+    print("Fund Flow Monitor v1.3 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -171,6 +174,7 @@ def main() -> int:
         f"theme taxonomy: {taxonomy['taxonomy_name']} -> "
         f"{taxonomy['theme_count']} 个主题, warnings={taxonomy['warning_count']}"
     )
+    print(f"insight_brief import: {'OK' if report['insight_brief_import'] else 'FAIL'}")
 
     csv = report["csv"]
     print(f"CSV 数据文件存在: {csv['exists']}")
@@ -189,6 +193,7 @@ def main() -> int:
         and watchlist["ok"]
         and fund_profiles["ok"]
         and taxonomy["ok"]
+        and report["insight_brief_import"]
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

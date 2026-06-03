@@ -35,6 +35,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 多日主题趋势：基于多个本地 CSV 日期的最后快照，观察主题资金状态的跨日期变化。
 - 主题库配置化：通过 `config/theme_taxonomy.json` 管理主题定义、核心行业、相关行业和概念关键词。
 - 主题覆盖审计：检查当前快照覆盖率、高资金流未覆盖板块、重复映射和 watchlist / fund_profiles 一致性。
+- 观察简报：整合主题雷达、日内热点、多日趋势、持仓相关池和覆盖审计，并支持 Markdown 下载。
 - CSV 数据质量面板：展示快照日期、行数、时间点数量、行业/概念行数和质量标签。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
@@ -49,6 +50,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - **可解释主题口径**：通过严格代表口径、代表口径、广度观察区分核心板块资金流与主题热度。
 - **基金观察池**：将原始行业板块映射为基金主题，支持半导体/芯片链、AI算力/TMT、新能源链、红利防御、医药、证券金融等观察方向。
 - **产品化雷达层**：提供今日资金温度、关注主题雷达、核心/广度分歧提示和资金流排行榜。
+- **统一解释层**：通过观察简报把主题雷达、热点、趋势、持仓相关池和主题覆盖审计整合为一份可下载 Markdown。
 - **轻量 MVP 架构**：使用 Streamlit + Plotly + AKShare + CSV 快照实现快速验证，后续可平滑升级到 FastAPI + React + ECharts。
 
 ## 3. Screenshots
@@ -70,6 +72,12 @@ The theme radar tab summarizes current market temperature, watchlist theme statu
 The ranking tab separates net inflow and net outflow lists. Inflow ranking only shows positive values, while outflow ranking only shows negative values, avoiding mixed-sign ranking confusion.
 
 ![Fund Flow Ranking](docs/screenshots/ranking.png)
+
+### Observation Brief
+
+The observation brief tab combines theme radar, intraday hotspots, multi-day trends, holding-related pool, and theme coverage audit into one Markdown-ready report. It only explains displayed or cached fund-flow states and does not predict future market moves.
+
+![Observation Brief](docs/screenshots/observation_brief.png)
 
 ### Holding Related Pool
 
@@ -293,7 +301,20 @@ config/theme_taxonomy.json
 - 覆盖审计只用于解释主题归并质量，不预测未来走势，不构成投资建议。
 - 主题覆盖审计不会触发 AKShare 抓取，也不会写入 CSV。
 
-## 13. Watchlist
+## 13. Observation Brief
+
+v1.3 增加观察简报和统一解释层：
+
+- 简报整合当前数据日期、主题雷达、日内热点、多日趋势、持仓相关池和主题覆盖审计。
+- 简报只复用页面已生成的 DataFrame / dict 结果，不触发 AKShare 抓取，也不会写入 CSV。
+- 简报会说明 `LIVE / CACHE / HISTORY / DEMO / EMPTY` 视图状态、主题口径和快照时间点数量。
+- 如果日内或多日样本不足，简报会明确写出样本不足说明，不会强行判断。
+- Markdown 下载通过 `st.download_button` 实现，文件名格式为 `yangjibao_brief_YYYY-MM-DD.md`。
+- 下载前会做动作性表达检查；如果命中禁词，页面会显示 warning 并关闭下载。
+
+观察简报仍然只是资金流状态说明，不预测未来走势，不构成投资建议。
+
+## 14. Watchlist
 
 关注主题来自：
 
@@ -319,7 +340,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 14. Quick Start
+## 15. Quick Start
 
 ```bash
 cd fund-flow-monitor
@@ -362,6 +383,7 @@ python tools/verify_runtime.py
 - 历史回放只读取单日 CSV，暂未提供多日趋势对比或跨日回放动画。
 - 多日趋势目前只基于每个 CSV 日期的最后快照，暂未提供多日趋势折线图或更复杂的统计。
 - 主题库仍是轻量人工规则，需要后续结合基金持仓、ETF 成分和行业分类体系持续校准。
+- 观察简报是基于当前页面结果的规则化摘要，不调用大模型，不生成预测结论。
 
 ## 17. Roadmap
 
@@ -372,6 +394,7 @@ python tools/verify_runtime.py
 - v1.0：历史快照回放、数据日期选择、CSV 数据质量面板。
 - v1.1：多日主题趋势 / 历史日期对比层。
 - v1.2：主题库配置化、主题覆盖审计、归并质量面板。
-- v1.3+：ETF / 基金成分映射增强、主题库人工编辑面板、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
+- v1.3：主题观察简报、统一解释层、Markdown 导出。
+- v1.4+：ETF / 基金成分映射增强、观察简报模板优化、主题库人工编辑面板、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。
