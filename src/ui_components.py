@@ -75,6 +75,12 @@ def inject_global_css() -> None:
         .holding-label { color: #8b949e; font-size: 12px; }
         .holding-body { color: #aab2c0; font-size: 12.5px; line-height: 1.55; margin-top: 6px; }
         .holding-warning { color: #ffd166; border: 1px solid rgba(255, 209, 102, .28); background: rgba(255, 209, 102, .08); padding: 9px 11px; border-radius: 8px; margin: 8px 0; font-size: 13px; }
+        .hotspot-overview { display: grid; grid-template-columns: 1.35fr repeat(4, minmax(0, .8fr)); gap: 10px; margin: 8px 0 12px; }
+        .hotspot-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 12px 14px; min-height: 118px; margin-bottom: 8px; }
+        .hotspot-title { color: #f3f4f6; font-size: 16px; font-weight: 850; margin-bottom: 7px; }
+        .hotspot-label { color: #f0c65a; font-size: 13px; font-weight: 850; }
+        .hotspot-body { color: #aab2c0; font-size: 12.5px; line-height: 1.55; margin-top: 5px; }
+        .hotspot-value { color: #e5e7eb; font-size: 19px; font-weight: 850; margin: 2px 0; }
         .trust-panel { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 14px 16px; margin: 8px 0 12px; }
         .trust-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
         .trust-item { background: #0b0f14; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 10px 12px; }
@@ -86,7 +92,7 @@ def inject_global_css() -> None:
         .stTabs [data-baseweb="tab"] { background: #080808; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 8px 8px 0 0; color: #aab2c0; padding: 8px 14px; }
         .stTabs [aria-selected="true"] { color: #f0c65a !important; background: #0b0f14 !important; }
         pre, code { background: #0b0f14 !important; color: #d1d5db !important; border-color: rgba(255,255,255,.08) !important; }
-        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } .hotspot-overview { grid-template-columns: 1fr 1fr; } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -150,6 +156,18 @@ def _shorten_sectors(value: object, max_items: int = 4) -> str:
     if len(sectors) <= max_items:
         return "，".join(sectors)
     return "，".join(sectors[:max_items]) + f" 等 {len(sectors)} 个"
+
+
+def _format_rank_change(value: object) -> str:
+    try:
+        change = int(value)
+    except (TypeError, ValueError):
+        return "--"
+    if change > 0:
+        return f"上升 {change} 位"
+    if change < 0:
+        return f"回落 {abs(change)} 位"
+    return "持平"
 
 
 def filter_rank_rows(df: pd.DataFrame, direction: str, limit: int = 15) -> pd.DataFrame:
@@ -438,6 +456,88 @@ def render_holding_related_table(holding_pool_df: pd.DataFrame, max_rows: int = 
         cells = []
         for header, value in zip(headers, values, strict=False):
             class_name = f" class='{amount_class}'" if header == "主力净流入" else ""
+            cells.append(f"<td{class_name}>{escape(str(value))}</td>")
+        rows.append("<tr>" + "".join(cells) + "</tr>")
+    head = "".join(f"<th>{escape(header)}</th>" for header in headers)
+    html = (
+        "<div class='rank-panel'>"
+        "<table class='rank-table'>"
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_intraday_hotspot_overview(summary: dict, snapshot_count: int) -> None:
+    html = (
+        "<div class='radar-section-title'>日内热点概览</div>"
+        "<div class='hotspot-overview'>"
+        "<div class='hotspot-card'>"
+        "<div class='holding-label'>日内热点状态</div>"
+        f"<div class='hotspot-value'>{escape(str(summary.get('summary_label', '--')))}</div>"
+        f"<div class='hotspot-body'>{escape(str(summary.get('summary_reason', '')))}</div>"
+        "</div>"
+        f"<div class='hotspot-card'><div class='holding-label'>当前快照数量</div><div class='hotspot-value'>{int(snapshot_count or 0)}</div></div>"
+        f"<div class='hotspot-card'><div class='holding-label'>覆盖主题数</div><div class='hotspot-value'>{int(summary.get('total_themes', 0) or 0)}</div></div>"
+        f"<div class='hotspot-card'><div class='holding-label'>流入/修复</div><div class='hotspot-value amount-in'>{int(summary.get('positive_hotspot_count', 0) or 0)}</div></div>"
+        f"<div class='hotspot-card'><div class='holding-label'>改善 / 承压 / 分化</div><div class='hotspot-value'>{int(summary.get('improving_count', 0) or 0)} / {int(summary.get('pressure_count', 0) or 0)} / {int(summary.get('neutral_count', 0) or 0)}</div></div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_hotspot_cards(title: str, hotspot_df: pd.DataFrame, max_cards: int = 6) -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(title)}</div>", unsafe_allow_html=True)
+    if hotspot_df is None or hotspot_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>当前暂无该类日内热点。</div></div>", unsafe_allow_html=True)
+        return
+    cols = st.columns(3)
+    for idx, row in enumerate(hotspot_df.head(max_cards).to_dict("records")):
+        latest = format_billion(row.get("latest_value"))
+        change = format_billion(row.get("value_change"))
+        amount_class = "amount-in" if float(row.get("latest_value", 0) or 0) >= 0 else "amount-out"
+        html = (
+            "<div class='hotspot-card'>"
+            f"<div class='hotspot-title'>{escape(str(row.get('theme_name', '--')))}</div>"
+            f"<div class='hotspot-label'>{escape(str(row.get('hotspot_label', '--')))}</div>"
+            f"<div class='hotspot-value {amount_class}'>{escape(latest)}</div>"
+            f"<div class='hotspot-body'>变化：{escape(change)} ｜ 排名：{escape(_format_rank_change(row.get('rank_change')))}</div>"
+            f"<div class='hotspot-body'>流入占比：{float(row.get('positive_ratio', 0) or 0):.0%} ｜ 流出占比：{float(row.get('negative_ratio', 0) or 0):.0%}</div>"
+            f"<div class='hotspot-body'>状态：{escape(str(row.get('latest_status', '--')))} ｜ 来源数：{int(row.get('latest_source_count', 0) or 0)}</div>"
+            f"<div class='hotspot-body'>来源：{escape(_shorten_sectors(row.get('latest_source_sectors'), max_items=4))}</div>"
+            f"<div class='hotspot-body'>{escape(str(row.get('hotspot_reason', '')))}</div>"
+            "</div>"
+        )
+        with cols[idx % 3]:
+            st.markdown(html, unsafe_allow_html=True)
+
+
+def render_intraday_hotspot_table(hotspot_pool_df: pd.DataFrame, max_rows: int = 30) -> None:
+    st.markdown("<div class='radar-section-title'>日内变化明细</div>", unsafe_allow_html=True)
+    if hotspot_pool_df is None or hotspot_pool_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无日内热点明细。</div></div>", unsafe_allow_html=True)
+        return
+    headers = ["主题", "热点标签", "最新金额", "日内变化", "排名变化", "流入占比", "流出占比", "最新状态", "说明"]
+    rows = []
+    for _, row in hotspot_pool_df.head(max_rows).iterrows():
+        latest = float(row.get("latest_value", 0) or 0)
+        amount_class = "amount-in" if latest >= 0 else "amount-out"
+        values = [
+            row.get("theme_name", "--"),
+            row.get("hotspot_label", "--"),
+            format_billion(row.get("latest_value")),
+            format_billion(row.get("value_change")),
+            _format_rank_change(row.get("rank_change")),
+            f"{float(row.get('positive_ratio', 0) or 0):.0%}",
+            f"{float(row.get('negative_ratio', 0) or 0):.0%}",
+            row.get("latest_status", "--"),
+            row.get("hotspot_reason", "--"),
+        ]
+        cells = []
+        for header, value in zip(headers, values, strict=False):
+            class_name = f" class='{amount_class}'" if header == "最新金额" else ""
             cells.append(f"<td{class_name}>{escape(str(value))}</td>")
         rows.append("<tr>" + "".join(cells) + "</tr>")
     head = "".join(f"<th>{escape(header)}</th>" for header in headers)

@@ -30,6 +30,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 核心/广度分歧提示：对比核心板块和广度观察是否共振或分化。
 - 低频概念资金流辅助：手动或过期刷新概念缓存，用于观察主题相关概念热度。
 - 持仓相关池：基于 `config/fund_profiles.json` 的手动主题配置，把关注基金/ETF 映射到当前主题资金状态。
+- 日内热点池：基于本地 CSV 多个 captured_time，解释主题资金流的日内变化、持续性和分化。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
 
@@ -70,6 +71,12 @@ The ranking tab separates net inflow and net outflow lists. Inflow ranking only 
 The holding-related pool maps manually configured fund/ETF theme exposure to current theme fund-flow status. It does not read real accounts and does not represent real holdings.
 
 ![Holding Related Pool](docs/screenshots/holding_pool.png)
+
+### Intraday Hotspots
+
+The intraday hotspot tab explains how theme fund-flow changes across local CSV snapshots during the same trading day. It observes completed intraday changes only and does not predict future moves.
+
+![Intraday Hotspots](docs/screenshots/intraday_hotspots.png)
 
 ### Data Trust Panel
 
@@ -162,7 +169,18 @@ config/fund_profiles.json
 - 权重仅用于把关注基金/ETF 映射到当前主题资金状态。
 - 持仓相关池不预测基金净值，不构成投资建议。
 
-## 9. Watchlist
+## 9. Intraday Hotspots
+
+v0.9 增加日内热点池：
+
+- 数据来源只使用本地 CSV 中同一交易日的行业资金流快照。
+- 通过多个 `captured_time` 构建主题日内历史。
+- 计算 first/latest/max/min、日内变化、排名变化、流入/流出时间占比。
+- 将主题分为持续流入、日内改善、由弱转强、持续流出、日内走弱和分化观察。
+- 如果 `captured_time` 少于 2，页面只显示“快照数量不足”的提示，不做异动判断。
+- 日内热点只解释已经发生的资金流变化，不预测未来走势，不构成投资建议。
+
+## 10. Watchlist
 
 关注主题来自：
 
@@ -188,7 +206,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 10. Quick Start
+## 11. Quick Start
 
 ```bash
 cd fund-flow-monitor
@@ -206,7 +224,7 @@ python tools/probe_akshare.py
 python tools/probe_concept_flow.py
 ```
 
-## 11. Validation
+## 12. Validation
 
 ```bash
 python -m pytest -q
@@ -217,7 +235,7 @@ python tools/verify_runtime.py
 
 `tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist 和本地 CSV 摘要。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、主题池、主题雷达和分歧提示。
 
-## 12. Known Limitations
+## 13. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -227,13 +245,14 @@ python tools/verify_runtime.py
 - 广度观察可能包含上下级板块重叠，只能作为主题热度观察。
 - 概念资金流接口可能比行业接口更不稳定，因此当前只做低频辅助刷新。
 - 持仓相关池只读取本地手动配置，不代表真实基金持仓或账户资产。
+- 日内热点池依赖本地 CSV 快照数量，快照过少时无法判断日内变化。
 
-## 13. Roadmap
+## 14. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
 - v0.8：手动配置版持仓相关池 / 基金主题配置。
-- v0.9：日内热点池、更正式的 ETF / 基金成分映射。
-- v1.0：FastAPI + React + ECharts 产品化重构。
+- v0.9：日内热点池 / 主题异动解释层。
+- v1.0+：ETF / 基金成分映射增强、历史回放、数据库存储、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

@@ -33,6 +33,13 @@ from src.fund_profiles import (
     load_fund_profiles,
     validate_fund_profile,
 )
+from src.intraday_hotspots import (
+    build_intraday_hotspot_pool,
+    build_intraday_hotspot_summary,
+    build_theme_intraday_history,
+    calculate_intraday_theme_metrics,
+    split_hotspot_sections,
+)
 from src.market_time import get_market_status
 from src.storage import append_snapshot, load_latest_ticks, load_today_ticks
 from src.theme_concepts import build_theme_concept_summary
@@ -51,6 +58,9 @@ from src.ui_components import (
     render_fund_summary_cards,
     render_holding_related_table,
     render_header,
+    render_hotspot_cards,
+    render_intraday_hotspot_overview,
+    render_intraday_hotspot_table,
     render_market_temperature_card,
     render_rank_tables,
     render_status_bar,
@@ -370,6 +380,17 @@ def main() -> None:
     fund_exposure_df = build_fund_theme_exposure(get_funds(fund_profile))
     holding_pool_df = build_holding_related_pool(fund_exposure_df, radar_theme_df)
     fund_summary_df = build_fund_summary(holding_pool_df)
+    intraday_mode = theme_mode if display_mode == "基金观察池" else "breadth"
+    intraday_history_df = build_theme_intraday_history(all_ticks_df, mode=intraday_mode)
+    intraday_snapshot_count = (
+        intraday_history_df["captured_time"].nunique()
+        if not intraday_history_df.empty and "captured_time" in intraday_history_df.columns
+        else 0
+    )
+    intraday_metrics_df = calculate_intraday_theme_metrics(intraday_history_df)
+    intraday_hotspot_pool_df = build_intraday_hotspot_pool(intraday_metrics_df, top_n=12)
+    intraday_sections = split_hotspot_sections(intraday_hotspot_pool_df)
+    intraday_summary = build_intraday_hotspot_summary(intraday_hotspot_pool_df)
     snapshot_count = 0 if ticks_df.empty else len(ticks_df)
     captured_time_count = ticks_df["captured_time"].nunique() if not ticks_df.empty and "captured_time" in ticks_df.columns else 0
     extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
@@ -386,7 +407,9 @@ def main() -> None:
         )
 
     render_header(header_date, latest_time)
-    tab_curve, tab_radar, tab_holdings, tab_rank, tab_data = st.tabs(("实时曲线", "主题雷达", "持仓相关池", "排行榜", "数据说明"))
+    tab_curve, tab_radar, tab_intraday, tab_holdings, tab_rank, tab_data = st.tabs(
+        ("实时曲线", "主题雷达", "日内热点", "持仓相关池", "排行榜", "数据说明")
+    )
 
     with tab_curve:
         render_status_bar(
@@ -427,6 +450,26 @@ def main() -> None:
         else:
             render_theme_concept_cards(pd.DataFrame(), max_cards=8)
         render_divergence_cards(watchlist_divergence_df, max_cards=5)
+
+    with tab_intraday:
+        st.markdown(
+            "<div class='concept-note'>本页基于本地 CSV 中同一交易日的多个资金流快照，观察主题资金在日内的变化。"
+            "结果仅用于解释已发生的资金流状态，不预测未来走势，不构成投资建议。</div>",
+            unsafe_allow_html=True,
+        )
+        if intraday_snapshot_count < 2:
+            st.markdown(
+                "<div class='rank-panel'><div class='rank-empty'>当前快照数量不足，暂无法判断日内变化。请等待更多快照或继续使用实时曲线。</div></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            render_intraday_hotspot_overview(intraday_summary, snapshot_count=intraday_snapshot_count)
+            render_hotspot_cards("流入/修复主题", intraday_sections["positive_hotspots"], max_cards=6)
+            render_hotspot_cards("日内改善主题", intraday_sections["improving_hotspots"], max_cards=6)
+            render_hotspot_cards("承压/走弱主题", intraday_sections["pressure_hotspots"], max_cards=6)
+            with st.expander("分化观察主题", expanded=False):
+                render_hotspot_cards("分化观察主题", intraday_sections["neutral_hotspots"], max_cards=6)
+            render_intraday_hotspot_table(intraday_hotspot_pool_df, max_rows=30)
 
     with tab_holdings:
         st.markdown(
@@ -485,6 +528,13 @@ def main() -> None:
         st.markdown(
             "持仓相关池来自 `config/fund_profiles.json` 的手动主题配置。它只表示你想观察的基金/ETF 与主题暴露关系，"
             "不读取真实账户，不代表真实基金持仓，也不预测基金净值。"
+        )
+        st.markdown("#### 日内热点池")
+        st.markdown(
+            f"- 日内热点池基于本地 CSV 中同一交易日的行业资金流快照，当前可用主题快照时间点：{intraday_snapshot_count}。\n"
+            "- 它只解释已经发生的日内资金流变化、排名变化和流入/流出持续性。\n"
+            "- captured_time 少于 2 时不会判断异动，只显示等待更多快照的提示。\n"
+            "- 日内热点不是未来走势预测，也不构成投资建议。"
         )
         st.markdown("#### 免责声明")
         st.markdown(

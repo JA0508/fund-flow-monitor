@@ -144,6 +144,34 @@ Forbidden wording check:
 
 - User-facing holding text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
 
+## v0.9 Intraday Hotspot Checks
+
+The intraday hotspot pool uses local CSV snapshots only:
+
+- Page has a `日内热点` tab.
+- The tab explains that it uses same-day CSV snapshots and only describes already observed intraday fund-flow changes.
+- It must not call new AKShare endpoints.
+- If `captured_time` count is below 2, the tab shows a clear insufficient snapshot message and does not crash.
+- If enough snapshots exist, the tab shows:
+  - overview cards
+  - 流入/修复主题
+  - 日内改善主题
+  - 承压/走弱主题
+  - 日内变化明细 dark table
+- `verify_runtime.py` reports:
+  - whether `theme_intraday_history` can be built
+  - `snapshot_count`
+  - whether intraday metrics can be built
+  - whether hotspot pool can be built
+  - hotspot summary label and Top 3 hotspot themes
+- Concept fund-flow failure must not affect intraday hotspots.
+- DEMO still must not write to real CSV.
+
+Forbidden wording check:
+
+- Intraday hotspot text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
+- Hotspot explanations must not describe future price or fund NAV prediction.
+
 ## Data-source roadmap
 
 This Streamlit MVP intentionally keeps the request strategy small:

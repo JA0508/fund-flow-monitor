@@ -17,6 +17,12 @@ from src.fund_profiles import (  # noqa: E402
     load_fund_profiles,
     validate_fund_profile,
 )
+from src.intraday_hotspots import (  # noqa: E402
+    build_intraday_hotspot_pool,
+    build_intraday_hotspot_summary,
+    build_theme_intraday_history,
+    calculate_intraday_theme_metrics,
+)
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
 from src.theme_pool import build_theme_snapshot  # noqa: E402
@@ -243,6 +249,44 @@ def main() -> int:
                 f"  {row['fund_name']} ({row['fund_code']}): "
                 f"score={row['weighted_impact_score']:.2f} | {row['fund_impact_label']}"
             )
+
+    intraday_history = build_theme_intraday_history(ticks, mode="breadth")
+    intraday_warnings = intraday_history.attrs.get("warnings", []) if hasattr(intraday_history, "attrs") else []
+    intraday_snapshot_count = (
+        intraday_history["captured_time"].nunique()
+        if not intraday_history.empty and "captured_time" in intraday_history.columns
+        else 0
+    )
+    print(f"是否可以构建 theme_intraday_history: {not intraday_history.empty}")
+    print(f"intraday snapshot_count: {intraday_snapshot_count}")
+    if intraday_warnings:
+        print(f"intraday warning 数量: {len(intraday_warnings)}")
+        for warning in intraday_warnings[:3]:
+            print(f"  warning: {warning}")
+    if intraday_snapshot_count < 2:
+        print("日内热点池: captured_time 少于 2，暂不判断日内变化。")
+    else:
+        intraday_metrics = calculate_intraday_theme_metrics(intraday_history)
+        hotspot_pool = build_intraday_hotspot_pool(intraday_metrics, top_n=12)
+        hotspot_summary = build_intraday_hotspot_summary(hotspot_pool)
+        print(f"是否可以构建 intraday metrics: {not intraday_metrics.empty}")
+        print(f"是否可以构建 hotspot_pool: {not hotspot_pool.empty}")
+        print(f"是否可以构建 hotspot_summary: {bool(hotspot_summary)}")
+        print(f"hotspot total themes: {hotspot_summary.get('total_themes')}")
+        print(f"hotspot summary_label: {hotspot_summary.get('summary_label')}")
+        print(f"positive_hotspot_count: {hotspot_summary.get('positive_hotspot_count')}")
+        print(f"improving_count: {hotspot_summary.get('improving_count')}")
+        print(f"pressure_count: {hotspot_summary.get('pressure_count')}")
+        print("Top 3 hotspot themes:")
+        if hotspot_pool.empty:
+            print("  <empty>")
+        else:
+            for _, row in hotspot_pool.head(3).iterrows():
+                print(
+                    f"  {row['theme_name']}: {row['hotspot_label']} | "
+                    f"latest={row['latest_value']:.1f} 亿 | change={row['value_change']:.1f} 亿 | "
+                    f"rank_change={row['rank_change']}"
+                )
 
     concept_latest = get_concept_latest_snapshot(ticks)
     if concept_latest.empty:

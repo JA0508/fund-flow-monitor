@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v0.9
+
+- Intraday theme hotspot pool.
+- 新增主题日内历史指标：日内变化、排名变化、流入/流出占比。
+- 新增热点分类：持续流入、日内改善、由弱转强、持续流出、日内走弱、分化观察。
+- 新增日内热点概览卡片、分区卡片和深色明细表。
+
 ## v0.8
 
 - Manual fund profile configuration via `config/fund_profiles.json`.

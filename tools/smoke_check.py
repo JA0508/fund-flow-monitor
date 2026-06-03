@@ -21,6 +21,7 @@ REQUIRED_FILES = (
     "src/concept_flow.py",
     "src/theme_concepts.py",
     "src/fund_profiles.py",
+    "src/intraday_hotspots.py",
     "src/watchlist.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -119,7 +120,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v0.8 本地冒烟检查")
+    print("Fund Flow Monitor v0.9 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
