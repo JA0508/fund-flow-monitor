@@ -29,7 +29,7 @@ DEFAULT_FUND_PROFILE = {
             "themes": [
                 {"theme_name": "AI算力/TMT", "weight": 0.65},
                 {"theme_name": "半导体/芯片链", "weight": 0.20},
-                {"theme_name": "传媒", "weight": 0.15},
+                {"theme_name": "证券金融", "weight": 0.15},
             ],
         },
         {

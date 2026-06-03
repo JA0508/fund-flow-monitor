@@ -243,6 +243,45 @@ Forbidden wording check:
 - Multi-day trend text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
 - Trend explanations must not describe future price or fund NAV prediction.
 
+## v1.2 Theme Taxonomy And Coverage Checks
+
+Theme taxonomy governance is local-config only:
+
+- `config/theme_taxonomy.json` exists and is valid JSON.
+- `src/theme_taxonomy.py` can load missing or damaged taxonomy files without crashing.
+- `src/theme_coverage.py` can audit a latest industry fund-flow snapshot without network access.
+- `theme_pool.py` should prefer taxonomy primary/related sectors and keep fallback rules.
+- `theme_concepts.py` should prefer taxonomy concept keywords and keep fallback rules.
+- `数据说明` tab should include:
+  - 主题库说明
+  - 主题定义表
+  - 主题覆盖审计
+  - 高资金流未覆盖板块表
+  - 重复映射 warning 表
+  - 主题使用情况表
+- `主题雷达` tab should show a compact taxonomy status note.
+- If active snapshot is empty, coverage audit should show a clear empty message and not crash.
+- If taxonomy JSON is damaged, the app should use fallback taxonomy and remain usable.
+- watchlist and fund_profiles theme names should be checked against taxonomy.
+- Theme coverage audit must not call AKShare.
+- Theme coverage audit must not write CSV.
+
+`verify_runtime.py` should report:
+
+- taxonomy name
+- taxonomy theme count
+- taxonomy warning count
+- watchlist / fund_profiles consistency
+- whether theme definition table, sector map, concept keyword table, coverage report, and overlap warning report can be built
+- coverage ratio and coverage label
+- high-flow uncovered count
+- overlap warning count
+
+Forbidden wording check:
+
+- Taxonomy and coverage text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
+- Coverage audit must not describe future price or fund NAV prediction.
+
 ## Data-source roadmap
 
 This Streamlit MVP intentionally keeps the request strategy small:

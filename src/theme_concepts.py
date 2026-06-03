@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.theme_taxonomy import load_theme_taxonomy, taxonomy_to_concept_keywords
 from src.theme_radar import FORBIDDEN_ADVICE_WORDS
 
 
@@ -15,6 +16,14 @@ THEME_CONCEPT_KEYWORDS = {
     "军工": ["军工", "航天", "航空", "低空经济", "商业航天"],
     "证券金融": ["证券", "金融", "互联网金融", "保险", "银行"],
 }
+
+
+def get_theme_concept_keywords() -> dict[str, list[str]]:
+    try:
+        keywords = taxonomy_to_concept_keywords(load_theme_taxonomy())
+    except Exception:
+        return THEME_CONCEPT_KEYWORDS
+    return keywords or THEME_CONCEPT_KEYWORDS
 
 
 def _concept_name_column(concept_df: pd.DataFrame) -> str:
@@ -53,7 +62,7 @@ def _concept_reason(theme_name: str, status: str, top_concepts: str) -> str:
 def map_concepts_to_theme(concept_df: pd.DataFrame, theme_name: str) -> pd.DataFrame:
     if concept_df is None or concept_df.empty:
         return pd.DataFrame()
-    keywords = THEME_CONCEPT_KEYWORDS.get(theme_name, [])
+    keywords = get_theme_concept_keywords().get(theme_name, THEME_CONCEPT_KEYWORDS.get(theme_name, []))
     if not keywords:
         return pd.DataFrame()
     df = concept_df.copy()

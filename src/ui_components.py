@@ -788,6 +788,155 @@ def render_snapshot_catalog_table(catalog_df: pd.DataFrame, max_rows: int = 30) 
     st.markdown(html, unsafe_allow_html=True)
 
 
+def _render_simple_table(headers: list[str], rows: list[list[object]], empty_message: str) -> None:
+    if not rows:
+        st.markdown(f"<div class='rank-panel'><div class='rank-empty'>{escape(empty_message)}</div></div>", unsafe_allow_html=True)
+        return
+    head = "".join(f"<th>{escape(str(header))}</th>" for header in headers)
+    body_rows = []
+    for row in rows:
+        body_rows.append("<tr>" + "".join(f"<td>{escape(str(value))}</td>" for value in row) + "</tr>")
+    html = (
+        "<div class='rank-panel'>"
+        "<table class='rank-table'>"
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_theme_taxonomy_status(taxonomy: dict, warnings: list[str], coverage_report: dict, consistency: dict) -> None:
+    name = taxonomy.get("taxonomy_name", "主题库") if isinstance(taxonomy, dict) else "主题库"
+    version = taxonomy.get("version", "--") if isinstance(taxonomy, dict) else "--"
+    coverage_label = coverage_report.get("coverage_label", "--") if isinstance(coverage_report, dict) else "--"
+    consistency_label = consistency.get("consistency_label", "--") if isinstance(consistency, dict) else "--"
+    warning_text = f" ｜ warning {len(warnings)}" if warnings else ""
+    st.markdown(
+        "<div class='concept-note'>"
+        f"当前主题库：<b>{escape(str(name))} {escape(str(version))}</b> ｜ "
+        f"覆盖状态：<b>{escape(str(coverage_label))}</b> ｜ "
+        f"主题一致性：<b>{escape(str(consistency_label))}</b>{escape(warning_text)}。"
+        "主题库是轻量规则，用于基金主题观察，不等同于正式行业分类。严格代表口径更克制，广度观察可能包含上下级重复。"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_theme_taxonomy_panel(
+    taxonomy: dict,
+    warnings: list[str],
+    consistency: dict,
+    definition_df: pd.DataFrame,
+) -> None:
+    st.markdown("#### 主题库说明")
+    name = taxonomy.get("taxonomy_name", "--") if isinstance(taxonomy, dict) else "--"
+    version = taxonomy.get("version", "--") if isinstance(taxonomy, dict) else "--"
+    description = taxonomy.get("description", "") if isinstance(taxonomy, dict) else ""
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>主题库</div><div class='trust-value'>{escape(str(name))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>版本</div><div class='trust-value'>{escape(str(version))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>主题数量</div><div class='trust-value'>{int(consistency.get('taxonomy_theme_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>配置提示</div><div class='trust-value'>{len(warnings)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>一致性</div><div class='trust-value'>{escape(str(consistency.get('consistency_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>说明</div><div class='trust-value'>{escape(str(description)[:80])}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(consistency.get('consistency_reason', '')))}<br>"
+        "主题库是轻量规则，用于基金主题观察，不等同于正式行业分类，不构成投资建议。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    if warnings:
+        st.markdown(
+            "<div class='holding-warning'>" + "<br>".join(escape(str(item)) for item in warnings[:8]) + "</div>",
+            unsafe_allow_html=True,
+        )
+    if consistency.get("watchlist_missing_in_taxonomy") or consistency.get("fund_profile_missing_in_taxonomy"):
+        st.markdown(
+            "<div class='holding-warning'>"
+            f"watchlist 未注册：{escape('，'.join(consistency.get('watchlist_missing_in_taxonomy') or []) or '无')}<br>"
+            f"fund_profiles 未注册：{escape('，'.join(consistency.get('fund_profile_missing_in_taxonomy') or []) or '无')}"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    st.markdown("<div class='radar-section-title'>主题定义表</div>", unsafe_allow_html=True)
+    rows = []
+    if definition_df is not None and not definition_df.empty:
+        for _, row in definition_df.head(12).iterrows():
+            rows.append(
+                [
+                    row.get("theme_name", "--"),
+                    row.get("theme_group", "--"),
+                    _shorten_sectors(row.get("primary_sectors"), max_items=4),
+                    _shorten_sectors(row.get("related_sectors"), max_items=5),
+                    _shorten_sectors(row.get("concept_keywords"), max_items=5),
+                    row.get("overlap_notes", "--"),
+                ]
+            )
+    _render_simple_table(["主题", "分组", "核心行业", "相关行业", "概念关键词", "重叠说明"], rows, "暂无主题定义。")
+
+
+def render_theme_coverage_panel(
+    coverage_report: dict,
+    usage_df: pd.DataFrame,
+    overlap_df: pd.DataFrame,
+) -> None:
+    st.markdown("#### 主题覆盖审计")
+    if not coverage_report:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无可审计快照。</div></div>", unsafe_allow_html=True)
+        return
+    ratio = float(coverage_report.get("coverage_ratio", 0) or 0)
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>覆盖状态</div><div class='trust-value'>{escape(str(coverage_report.get('coverage_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>覆盖率</div><div class='trust-value'>{ratio:.1%}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>总板块</div><div class='trust-value'>{int(coverage_report.get('total_sectors', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>已覆盖</div><div class='trust-value'>{int(coverage_report.get('covered_sector_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>未覆盖</div><div class='trust-value'>{int(coverage_report.get('uncovered_sector_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>高资金未覆盖</div><div class='trust-value'>{len(coverage_report.get('high_flow_uncovered_df', pd.DataFrame()))}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(coverage_report.get('coverage_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+    high_flow = coverage_report.get("high_flow_uncovered_df", pd.DataFrame())
+    rows = []
+    if isinstance(high_flow, pd.DataFrame) and not high_flow.empty:
+        for _, row in high_flow.head(12).iterrows():
+            rows.append([row.get("sector_name", "--"), format_billion(row.get("main_net_inflow_billion")), format_billion(row.get("abs_main_net_inflow_billion"))])
+    st.markdown("<div class='radar-section-title'>高资金流未覆盖板块</div>", unsafe_allow_html=True)
+    _render_simple_table(["板块", "主力净流入", "绝对金额"], rows, "暂无高资金流未覆盖板块。")
+
+    overlap_rows = []
+    if overlap_df is not None and not overlap_df.empty:
+        for _, row in overlap_df.head(12).iterrows():
+            overlap_rows.append([row.get("sector_name", "--"), row.get("theme_names", "--"), row.get("overlap_type", "--"), row.get("warning_reason", "--")])
+    st.markdown("<div class='radar-section-title'>重复映射 Warning</div>", unsafe_allow_html=True)
+    _render_simple_table(["板块", "主题", "类型", "说明"], overlap_rows, "暂无重复映射 warning。")
+
+    usage_rows = []
+    if usage_df is not None and not usage_df.empty:
+        for _, row in usage_df.head(12).iterrows():
+            usage_rows.append(
+                [
+                    row.get("theme_name", "--"),
+                    row.get("theme_group", "--"),
+                    format_billion(row.get("main_net_inflow_billion")),
+                    row.get("theme_status", "--"),
+                    row.get("match_strategy", "--"),
+                    int(row.get("source_count", 0) or 0),
+                    row.get("coverage_note", "--"),
+                ]
+            )
+    st.markdown("<div class='radar-section-title'>主题使用情况</div>", unsafe_allow_html=True)
+    _render_simple_table(["主题", "分组", "主力净流入", "状态", "匹配策略", "来源数", "说明"], usage_rows, "暂无主题使用情况。")
+
+
 def render_app_footer() -> None:
     st.markdown(
         f"<div class='footer-note'>{escape(APP_CN_NAME)} · {escape(APP_VERSION)} · Streamlit MVP<br>"

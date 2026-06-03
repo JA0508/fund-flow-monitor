@@ -36,8 +36,21 @@ from src.snapshot_catalog import (  # noqa: E402
 )
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
+from src.theme_coverage import (  # noqa: E402
+    build_overlap_warning_report,
+    build_theme_coverage_report,
+)
 from src.theme_pool import build_theme_snapshot  # noqa: E402
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth  # noqa: E402
+from src.theme_taxonomy import (  # noqa: E402
+    audit_theme_name_consistency,
+    build_concept_keyword_table,
+    build_sector_to_theme_map,
+    build_theme_definition_table,
+    get_theme_names,
+    load_theme_taxonomy,
+    validate_theme_taxonomy,
+)
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist  # noqa: E402
 
 DEMO_CHECK_FIELDS = ("source", "sector_type", "mode", "data_mode")
@@ -263,6 +276,34 @@ def _verify_multi_day_trends(catalog: pd.DataFrame) -> None:
             )
 
 
+def _verify_theme_taxonomy(latest_df: pd.DataFrame, watchlist_themes: list[str], fund_exposure: pd.DataFrame) -> None:
+    print("主题库治理检查:")
+    taxonomy = load_theme_taxonomy()
+    warnings = validate_theme_taxonomy(taxonomy)
+    fund_themes = fund_exposure["theme_name"].dropna().astype(str).unique().tolist() if fund_exposure is not None and not fund_exposure.empty else []
+    consistency = audit_theme_name_consistency(taxonomy, watchlist_themes, fund_themes)
+    definition = build_theme_definition_table(taxonomy)
+    sector_map = build_sector_to_theme_map(taxonomy)
+    keywords = build_concept_keyword_table(taxonomy)
+    coverage = build_theme_coverage_report(latest_df, taxonomy)
+    overlap = build_overlap_warning_report(taxonomy)
+    print(f"  taxonomy_name: {taxonomy.get('taxonomy_name')}")
+    print(f"  theme_count: {len(get_theme_names(taxonomy))}")
+    print(f"  taxonomy warning 数量: {len(warnings)}")
+    print(f"  watchlist 全部存在于 taxonomy: {not consistency.get('watchlist_missing_in_taxonomy')}")
+    print(f"  fund_profiles 主题全部存在于 taxonomy: {not consistency.get('fund_profile_missing_in_taxonomy')}")
+    print(f"  是否可以构建 theme_definition_table: {not definition.empty}")
+    print(f"  是否可以构建 sector_to_theme_map: {not sector_map.empty}")
+    print(f"  是否可以构建 concept_keyword_table: {not keywords.empty}")
+    print(f"  是否可以构建 theme_coverage_report: {bool(coverage)}")
+    print(f"  是否可以构建 overlap_warning_report: {overlap is not None}")
+    print(f"  coverage_ratio: {coverage.get('coverage_ratio', 0):.2%}")
+    print(f"  coverage_label: {coverage.get('coverage_label')}")
+    high_flow = coverage.get("high_flow_uncovered_df", pd.DataFrame())
+    print(f"  high_flow_uncovered_count: {len(high_flow) if isinstance(high_flow, pd.DataFrame) else 0}")
+    print(f"  overlap warning count: {len(overlap) if isinstance(overlap, pd.DataFrame) else 0}")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -356,6 +397,7 @@ def main() -> int:
     print(f"holding related rows: {len(holding_pool)}")
     if missing_themes:
         print(f"fund profile theme warning: 以下主题未在当前 theme_radar_df 中匹配: {missing_themes}")
+    _verify_theme_taxonomy(latest, watchlist_themes, fund_exposure)
     print("fund summary Top 3:")
     if fund_summary.empty:
         print("  <empty>")

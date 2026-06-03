@@ -33,6 +33,8 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 日内热点池：基于本地 CSV 多个 captured_time，解释主题资金流的日内变化、持续性和分化。
 - 历史快照回放：选择已有 CSV 日期，回看当日曲线、主题雷达、日内热点、持仓相关池和排行榜。
 - 多日主题趋势：基于多个本地 CSV 日期的最后快照，观察主题资金状态的跨日期变化。
+- 主题库配置化：通过 `config/theme_taxonomy.json` 管理主题定义、核心行业、相关行业和概念关键词。
+- 主题覆盖审计：检查当前快照覆盖率、高资金流未覆盖板块、重复映射和 watchlist / fund_profiles 一致性。
 - CSV 数据质量面板：展示快照日期、行数、时间点数量、行业/概念行数和质量标签。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
@@ -98,6 +100,18 @@ The multi-day trend tab compares the latest theme snapshot from each cached CSV 
 The data explanation tab includes a CSV snapshot catalog and quality labels for each cached date.
 
 ![CSV Snapshot Catalog](docs/screenshots/snapshot_catalog.png)
+
+### Theme Taxonomy
+
+The data explanation tab documents the configurable fund-theme taxonomy, including primary sectors, related sectors, concept keywords, aliases, and overlap notes.
+
+![Theme Taxonomy](docs/screenshots/theme_taxonomy.png)
+
+### Theme Coverage Audit
+
+The coverage audit explains how much of the latest sector snapshot is covered by the theme taxonomy and highlights high-flow sectors that are not yet mapped.
+
+![Theme Coverage Audit](docs/screenshots/theme_coverage.png)
 
 ### Data Trust Panel
 
@@ -246,7 +260,40 @@ v1.1 增加多日主题趋势：
 - 多日走弱主题
 - 多日分化主题
 
-## 12. Watchlist
+## 12. Theme Taxonomy And Coverage
+
+v1.2 增加主题库配置化和覆盖审计：
+
+```text
+config/theme_taxonomy.json
+```
+
+主题库字段包括：
+
+- `theme_name`: 主题名称，需要尽量和 watchlist / fund_profiles 保持一致。
+- `theme_group`: 主题分组，例如科技成长、新能源、稳健防御。
+- `primary_sectors`: 严格代表口径优先使用的核心行业。
+- `related_sectors`: 代表口径 fallback 或广度观察使用的相关行业。
+- `concept_keywords`: 低频概念资金流辅助使用的关键词。
+- `aliases`: 主题别名。
+- `fund_use_case`: 适合观察的基金主题场景。
+- `overlap_notes`: 上下级或交叉口径提示。
+
+覆盖审计会检查：
+
+- 当前最新行业资金流快照中有多少板块被主题库覆盖。
+- 哪些高资金流板块尚未纳入主题库。
+- 哪些 sector 同时出现在多个主题中。
+- watchlist / fund_profiles 中的主题是否都注册在主题库中。
+
+说明：
+
+- 主题库是轻量规则，不等同于正式行业分类。
+- 覆盖率用于审计当前主题库对全市场板块的覆盖情况；由于本项目主题库定位为基金观察池，而非全市场行业分类体系，因此覆盖率偏低不代表数据异常，只说明当前主题库只覆盖重点基金主题，后续可继续人工扩展。
+- 覆盖审计只用于解释主题归并质量，不预测未来走势，不构成投资建议。
+- 主题覆盖审计不会触发 AKShare 抓取，也不会写入 CSV。
+
+## 13. Watchlist
 
 关注主题来自：
 
@@ -272,7 +319,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 13. Quick Start
+## 14. Quick Start
 
 ```bash
 cd fund-flow-monitor
@@ -290,7 +337,7 @@ python tools/probe_akshare.py
 python tools/probe_concept_flow.py
 ```
 
-## 14. Validation
+## 15. Validation
 
 ```bash
 python -m pytest -q
@@ -301,7 +348,7 @@ python tools/verify_runtime.py
 
 `tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录和本地 CSV 摘要。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达和分歧提示。
 
-## 15. Known Limitations
+## 16. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -314,8 +361,9 @@ python tools/verify_runtime.py
 - 日内热点池依赖本地 CSV 快照数量，快照过少时无法判断日内变化。
 - 历史回放只读取单日 CSV，暂未提供多日趋势对比或跨日回放动画。
 - 多日趋势目前只基于每个 CSV 日期的最后快照，暂未提供多日趋势折线图或更复杂的统计。
+- 主题库仍是轻量人工规则，需要后续结合基金持仓、ETF 成分和行业分类体系持续校准。
 
-## 16. Roadmap
+## 17. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
@@ -323,6 +371,7 @@ python tools/verify_runtime.py
 - v0.9：日内热点池 / 主题异动解释层。
 - v1.0：历史快照回放、数据日期选择、CSV 数据质量面板。
 - v1.1：多日主题趋势 / 历史日期对比层。
-- v1.2+：ETF / 基金成分映射增强、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
+- v1.2：主题库配置化、主题覆盖审计、归并质量面板。
+- v1.3+：ETF / 基金成分映射增强、主题库人工编辑面板、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

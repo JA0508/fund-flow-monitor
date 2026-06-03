@@ -57,8 +57,21 @@ from src.snapshot_catalog import (
 )
 from src.storage import append_snapshot, load_latest_ticks, load_today_ticks
 from src.theme_concepts import build_theme_concept_summary
+from src.theme_coverage import (
+    build_overlap_warning_report,
+    build_theme_coverage_report,
+    build_theme_usage_report,
+)
 from src.theme_pool import apply_theme_pool_to_ticks, build_theme_snapshot
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
+from src.theme_taxonomy import (
+    audit_theme_name_consistency,
+    build_concept_keyword_table,
+    build_sector_to_theme_map,
+    build_theme_definition_table,
+    load_theme_taxonomy,
+    validate_theme_taxonomy,
+)
 from src.transform import normalize_sector_flow
 from src.ui_components import (
     inject_global_css,
@@ -83,6 +96,9 @@ from src.ui_components import (
     render_snapshot_catalog_table,
     render_status_bar,
     render_theme_concept_cards,
+    render_theme_coverage_panel,
+    render_theme_taxonomy_panel,
+    render_theme_taxonomy_status,
     render_theme_radar_cards,
 )
 from src.utils import get_china_now
@@ -492,6 +508,20 @@ def main() -> None:
     fund_profile = load_fund_profiles()
     fund_profile_warnings = validate_fund_profile(fund_profile)
     fund_exposure_df = build_fund_theme_exposure(get_funds(fund_profile))
+    taxonomy = load_theme_taxonomy()
+    taxonomy_warnings = validate_theme_taxonomy(taxonomy)
+    taxonomy_definition_df = build_theme_definition_table(taxonomy)
+    taxonomy_sector_map_df = build_sector_to_theme_map(taxonomy)
+    taxonomy_keyword_df = build_concept_keyword_table(taxonomy)
+    taxonomy_consistency = audit_theme_name_consistency(
+        taxonomy,
+        watchlist_themes,
+        fund_exposure_df["theme_name"].dropna().astype(str).unique().tolist() if not fund_exposure_df.empty else [],
+    )
+    coverage_latest_df = _latest_snapshot(_filter_sector_type(all_ticks_df, DEFAULT_SECTOR_TYPE))
+    coverage_report = build_theme_coverage_report(coverage_latest_df, taxonomy)
+    usage_report_df = build_theme_usage_report(strict_theme_df, taxonomy)
+    overlap_warning_df = build_overlap_warning_report(taxonomy)
     holding_pool_df = build_holding_related_pool(fund_exposure_df, radar_theme_df)
     fund_summary_df = build_fund_summary(holding_pool_df)
     intraday_mode = theme_mode if display_mode == "基金观察池" else "breadth"
@@ -576,6 +606,7 @@ def main() -> None:
         )
 
     with tab_radar:
+        render_theme_taxonomy_status(taxonomy, taxonomy_warnings, coverage_report, taxonomy_consistency)
         render_market_temperature_card(build_market_temperature(radar_theme_df))
         render_theme_radar_cards(watchlist_radar_df, max_cards=8)
         if concept_assist_enabled:
@@ -681,6 +712,8 @@ def main() -> None:
             "- 历史回放只用于观察已保存的资金流状态。"
         )
         render_snapshot_catalog_table(snapshot_catalog_df)
+        render_theme_taxonomy_panel(taxonomy, taxonomy_warnings, taxonomy_consistency, taxonomy_definition_df)
+        render_theme_coverage_panel(coverage_report, usage_report_df, overlap_warning_df)
         st.markdown("#### 概念资金流辅助")
         st.markdown(
             f"- 概念辅助状态：`{concept_data_status}`，{concept_status_note}。\n"
@@ -689,6 +722,14 @@ def main() -> None:
             f"最新 {concept_cache_summary.get('latest_concept_time') or '--:--:--'}。\n"
             "- 概念资金流采用低频策略：手动刷新、无缓存或缓存超过 5 分钟时才尝试抓取。\n"
             "- 概念资金流只用于观察主题热度和内部分化，不与行业资金流直接相加。"
+        )
+        st.markdown("#### 主题库治理")
+        st.markdown(
+            f"- sector 映射表：{len(taxonomy_sector_map_df)} 行；概念关键词表：{len(taxonomy_keyword_df)} 行。\n"
+            f"- watchlist / fund_profiles 一致性：`{taxonomy_consistency.get('consistency_label')}`。\n"
+            "- 主题覆盖审计只读取当前 active CSV 快照，不触发 AKShare 抓取，也不会写入 CSV。\n"
+            "- 覆盖率用于审计当前主题库对全市场板块的覆盖情况；由于主题库定位为基金观察池，覆盖率偏低不代表数据异常。\n"
+            "- 主题库是轻量规则，用于基金主题观察，不等同于正式行业分类。"
         )
         st.markdown("#### 主题口径")
         st.markdown(

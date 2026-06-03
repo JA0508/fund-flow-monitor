@@ -4,11 +4,13 @@ from typing import Literal
 
 import pandas as pd
 
+from src.theme_taxonomy import load_theme_taxonomy, taxonomy_to_theme_definitions
+
 
 ThemeMode = Literal["strict_representative", "representative", "breadth"]
 
 
-THEME_DEFINITIONS = {
+FALLBACK_THEME_DEFINITIONS = {
     "半导体/芯片链": {
         "primary_sectors": ["半导体"],
         "related_sectors": [
@@ -112,6 +114,8 @@ THEME_DEFINITIONS = {
     },
 }
 
+THEME_DEFINITIONS = FALLBACK_THEME_DEFINITIONS
+
 THEME_MODE_LABELS = {
     "strict_representative": "严格代表口径",
     "representative": "代表口径",
@@ -169,11 +173,19 @@ def split_theme_matches(df: pd.DataFrame, theme_def: dict) -> dict[str, pd.DataF
     }
 
 
+def get_theme_definitions() -> dict[str, dict[str, list[str]]]:
+    try:
+        definitions = taxonomy_to_theme_definitions(load_theme_taxonomy())
+    except Exception:
+        return FALLBACK_THEME_DEFINITIONS
+    return definitions or FALLBACK_THEME_DEFINITIONS
+
+
 def map_to_theme(sector_name: str) -> str | None:
     if not sector_name:
         return None
     row = pd.DataFrame([{"sector_name": sector_name}])
-    for theme_name, theme_def in THEME_DEFINITIONS.items():
+    for theme_name, theme_def in get_theme_definitions().items():
         if not split_theme_matches(row, theme_def)["all_matched_df"].empty:
             return theme_name
     return None
@@ -299,7 +311,7 @@ def _prepare_df(df: pd.DataFrame) -> pd.DataFrame:
 def _build_rows_for_frame(df: pd.DataFrame, theme_mode: ThemeMode) -> list[dict]:
     rows = []
     remaining = df.copy()
-    for theme_name, theme_def in THEME_DEFINITIONS.items():
+    for theme_name, theme_def in get_theme_definitions().items():
         matches = split_theme_matches(remaining, theme_def)
         source_group = matches["all_matched_df"]
         if source_group.empty:
@@ -344,4 +356,3 @@ def apply_theme_pool_to_ticks(
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows).sort_values(["captured_at", "main_net_inflow_billion"]).reset_index(drop=True)
-

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v1.2
+
+- Config-driven theme taxonomy via `config/theme_taxonomy.json`.
+- 新增主题覆盖审计：覆盖率、高资金流未覆盖板块、重复映射 warning。
+- 新增 watchlist / fund_profiles 主题一致性检查。
+- 新增主题库说明和归并质量面板。
+- `theme_pool` 和 `theme_concepts` 优先读取 taxonomy，并保留 fallback。
+
 ## v1.1
 
 - Multi-day theme trend analysis.
