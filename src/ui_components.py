@@ -577,6 +577,87 @@ def render_intraday_hotspot_table(hotspot_pool_df: pd.DataFrame, max_rows: int =
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_multi_day_trend_overview(summary: dict, date_count: int) -> None:
+    html = (
+        "<div class='radar-section-title'>多日趋势概览</div>"
+        "<div class='hotspot-overview'>"
+        "<div class='hotspot-card'>"
+        "<div class='holding-label'>多日主题状态</div>"
+        f"<div class='hotspot-value'>{escape(str(summary.get('summary_label', '--')))}</div>"
+        f"<div class='hotspot-body'>{escape(str(summary.get('summary_reason', '')))}</div>"
+        "</div>"
+        f"<div class='hotspot-card'><div class='holding-label'>可用缓存日期</div><div class='hotspot-value'>{int(date_count or 0)}</div></div>"
+        f"<div class='hotspot-card'><div class='holding-label'>参与分析日期</div><div class='hotspot-value'>{int(summary.get('date_count', 0) or 0)}</div></div>"
+        f"<div class='hotspot-card'><div class='holding-label'>覆盖主题数</div><div class='hotspot-value'>{int(summary.get('total_themes', 0) or 0)}</div></div>"
+        f"<div class='hotspot-card'><div class='holding-label'>偏强 / 改善 / 承压 / 分化</div><div class='hotspot-value'>{int(summary.get('strength_count', 0) or 0)} / {int(summary.get('improving_count', 0) or 0)} / {int(summary.get('pressure_count', 0) or 0)} / {int(summary.get('mixed_count', 0) or 0)}</div></div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_multi_day_trend_cards(title: str, trend_df: pd.DataFrame, max_cards: int = 6) -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(title)}</div>", unsafe_allow_html=True)
+    if trend_df is None or trend_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>当前暂无该类多日趋势。</div></div>", unsafe_allow_html=True)
+        return
+    cols = st.columns(3)
+    for idx, row in enumerate(trend_df.head(max_cards).to_dict("records")):
+        latest_value = float(row.get("latest_value", 0) or 0)
+        amount_class = "amount-in" if latest_value >= 0 else "amount-out"
+        html = (
+            "<div class='hotspot-card'>"
+            f"<div class='hotspot-title'>{escape(str(row.get('theme_name', '--')))}</div>"
+            f"<div class='hotspot-label'>{escape(str(row.get('trend_label', '--')))}</div>"
+            f"<div class='hotspot-value {amount_class}'>{escape(format_billion(row.get('latest_value')))}</div>"
+            f"<div class='hotspot-body'>变化：{escape(format_billion(row.get('value_change')))} ｜ 日期：{escape(str(row.get('first_date', '--')))} → {escape(str(row.get('latest_date', '--')))}</div>"
+            f"<div class='hotspot-body'>流入占比：{float(row.get('positive_ratio', 0) or 0):.0%} ｜ 流出占比：{float(row.get('negative_ratio', 0) or 0):.0%}</div>"
+            f"<div class='hotspot-body'>状态：{escape(str(row.get('latest_status', '--')))} ｜ 来源数：{int(row.get('latest_source_count', 0) or 0)}</div>"
+            f"<div class='hotspot-body'>来源：{escape(_shorten_sectors(row.get('latest_source_sectors'), max_items=4))}</div>"
+            f"<div class='hotspot-body'>{escape(str(row.get('trend_reason', '')))}</div>"
+            "</div>"
+        )
+        with cols[idx % 3]:
+            st.markdown(html, unsafe_allow_html=True)
+
+
+def render_multi_day_trend_table(trend_pool_df: pd.DataFrame, max_rows: int = 30) -> None:
+    st.markdown("<div class='radar-section-title'>多日趋势明细</div>", unsafe_allow_html=True)
+    if trend_pool_df is None or trend_pool_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无多日趋势明细。</div></div>", unsafe_allow_html=True)
+        return
+    headers = ["主题", "趋势标签", "最早金额", "最新金额", "多日变化", "流入占比", "流出占比", "最新状态", "说明"]
+    rows = []
+    for _, row in trend_pool_df.head(max_rows).iterrows():
+        latest = float(row.get("latest_value", 0) or 0)
+        amount_class = "amount-in" if latest >= 0 else "amount-out"
+        values = [
+            row.get("theme_name", "--"),
+            row.get("trend_label", "--"),
+            format_billion(row.get("first_value")),
+            format_billion(row.get("latest_value")),
+            format_billion(row.get("value_change")),
+            f"{float(row.get('positive_ratio', 0) or 0):.0%}",
+            f"{float(row.get('negative_ratio', 0) or 0):.0%}",
+            row.get("latest_status", "--"),
+            row.get("trend_reason", "--"),
+        ]
+        cells = []
+        for header, value in zip(headers, values, strict=False):
+            class_name = f" class='{amount_class}'" if header == "最新金额" else ""
+            cells.append(f"<td{class_name}>{escape(str(value))}</td>")
+        rows.append("<tr>" + "".join(cells) + "</tr>")
+    head = "".join(f"<th>{escape(header)}</th>" for header in headers)
+    html = (
+        "<div class='rank-panel'>"
+        "<table class='rank-table'>"
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def render_error_box(error: str | None, has_cache: bool) -> None:
     if error:
         if has_cache:

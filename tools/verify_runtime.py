@@ -23,6 +23,12 @@ from src.intraday_hotspots import (  # noqa: E402
     build_theme_intraday_history,
     calculate_intraday_theme_metrics,
 )
+from src.multi_day_trends import (  # noqa: E402
+    build_daily_theme_snapshots,
+    build_multi_day_trend_pool,
+    build_multi_day_trend_summary,
+    calculate_multi_day_theme_metrics,
+)
 from src.snapshot_catalog import (  # noqa: E402
     build_snapshot_catalog,
     get_latest_snapshot_date,
@@ -217,6 +223,46 @@ def _verify_historical_replay(catalog: pd.DataFrame, watchlist_themes: list[str]
         print("  best replay captured_time 少于 2，跳过日内热点回放构建。")
 
 
+def _verify_multi_day_trends(catalog: pd.DataFrame) -> None:
+    print("多日主题趋势检查:")
+    if catalog is None or catalog.empty:
+        print("  本地 CSV 日期不足，暂无法判断多日趋势。")
+        return
+    available = catalog[catalog["is_readable"].fillna(False) & catalog["industry_rows"].gt(0)]
+    print(f"  可用行业缓存日期数量: {len(available)}")
+    daily = build_daily_theme_snapshots(catalog, data_dir=str(PROJECT_ROOT / "data/ticks"), mode="strict_representative")
+    daily_warnings = daily.attrs.get("warnings", []) if hasattr(daily, "attrs") else []
+    date_count = daily["snapshot_date"].nunique() if not daily.empty and "snapshot_date" in daily.columns else 0
+    print(f"  是否可以构建 daily_theme_snapshots: {not daily.empty}")
+    print(f"  multi_day date_count: {date_count}")
+    if daily_warnings:
+        print(f"  multi_day warning 数量: {len(daily_warnings)}")
+        for warning in daily_warnings[:3]:
+            print(f"    warning: {warning}")
+    if date_count < 2:
+        print("  多日趋势: 可用日期少于 2，暂不判断跨日期变化。")
+        return
+    metrics = calculate_multi_day_theme_metrics(daily)
+    trend_pool = build_multi_day_trend_pool(metrics, top_n=12)
+    summary = build_multi_day_trend_summary(trend_pool)
+    print(f"  是否可以构建 multi_day_theme_metrics: {not metrics.empty}")
+    print(f"  是否可以构建 multi_day_trend_pool: {not trend_pool.empty}")
+    print(f"  是否可以构建 multi_day_trend_summary: {bool(summary)}")
+    print(f"  summary_label: {summary.get('summary_label')}")
+    print(f"  strength_count: {summary.get('strength_count')}")
+    print(f"  improving_count: {summary.get('improving_count')}")
+    print(f"  pressure_count: {summary.get('pressure_count')}")
+    print("  Top 3 trend themes:")
+    if trend_pool.empty:
+        print("    <empty>")
+    else:
+        for _, row in trend_pool.head(3).iterrows():
+            print(
+                f"    {row['theme_name']}: {row['trend_label']} | "
+                f"latest={row['latest_value']:.1f} 亿 | change={row['value_change']:.1f} 亿"
+            )
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -240,6 +286,7 @@ def main() -> int:
     sector_type = latest["sector_type"].iloc[0] if not latest.empty and "sector_type" in latest else "<none>"
     print(f"当前 sector_type: {sector_type}")
     _verify_historical_replay(snapshot_catalog, [])
+    _verify_multi_day_trends(snapshot_catalog)
 
     if not latest.empty:
         _print_rank("最新 Top 5 净流入:", latest.sort_values("main_net_inflow_billion", ascending=False).head(5))

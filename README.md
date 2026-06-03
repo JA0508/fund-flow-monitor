@@ -32,6 +32,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 持仓相关池：基于 `config/fund_profiles.json` 的手动主题配置，把关注基金/ETF 映射到当前主题资金状态。
 - 日内热点池：基于本地 CSV 多个 captured_time，解释主题资金流的日内变化、持续性和分化。
 - 历史快照回放：选择已有 CSV 日期，回看当日曲线、主题雷达、日内热点、持仓相关池和排行榜。
+- 多日主题趋势：基于多个本地 CSV 日期的最后快照，观察主题资金状态的跨日期变化。
 - CSV 数据质量面板：展示快照日期、行数、时间点数量、行业/概念行数和质量标签。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
@@ -85,6 +86,12 @@ The intraday hotspot tab explains how theme fund-flow changes across local CSV s
 The history replay view lets users choose an existing local CSV date and review that day without triggering AKShare requests or writing new snapshots.
 
 ![Historical Snapshot Replay](docs/screenshots/history_replay.png)
+
+### Multi-day Theme Trends
+
+The multi-day trend tab compares the latest theme snapshot from each cached CSV date. It only explains saved historical fund-flow states and does not predict future moves.
+
+![Multi-day Theme Trends](docs/screenshots/multi_day_trends.png)
 
 ### CSV Snapshot Catalog
 
@@ -218,7 +225,28 @@ v1.0 增加历史快照回放和数据日期选择：
 - `缺少行业资金流`：不能构建主题主链路。
 - `文件异常`：CSV 不可读或缺少关键字段。
 
-## 11. Watchlist
+## 11. Multi-day Theme Trends
+
+v1.1 增加多日主题趋势：
+
+- 数据来源只使用 `data/ticks/` 中已有的多个 `sector_flow_YYYY-MM-DD.csv`。
+- 每个日期取最后一个行业资金流 `captured_time`，再构建主题快照。
+- 支持严格代表口径、代表口径和广度观察三种多日趋势口径。
+- 多日趋势独立于当前 `selected_snapshot_date`，不会因为你正在回放某一天就只分析那一天。
+- 如果本地可用日期少于 2 个，页面会显示日期不足提示，不崩溃。
+- 多日趋势不会触发 AKShare 抓取，也不会写入 CSV。
+- 趋势标签只解释已保存历史缓存中的资金状态变化，不预测未来走势，不构成投资建议。
+
+趋势标签包括：
+
+- 多日偏强主题
+- 多日改善主题
+- 由弱转强主题
+- 多日承压主题
+- 多日走弱主题
+- 多日分化主题
+
+## 12. Watchlist
 
 关注主题来自：
 
@@ -244,7 +272,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 12. Quick Start
+## 13. Quick Start
 
 ```bash
 cd fund-flow-monitor
@@ -262,7 +290,7 @@ python tools/probe_akshare.py
 python tools/probe_concept_flow.py
 ```
 
-## 13. Validation
+## 14. Validation
 
 ```bash
 python -m pytest -q
@@ -273,7 +301,7 @@ python tools/verify_runtime.py
 
 `tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录和本地 CSV 摘要。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达和分歧提示。
 
-## 14. Known Limitations
+## 15. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -285,14 +313,16 @@ python tools/verify_runtime.py
 - 持仓相关池只读取本地手动配置，不代表真实基金持仓或账户资产。
 - 日内热点池依赖本地 CSV 快照数量，快照过少时无法判断日内变化。
 - 历史回放只读取单日 CSV，暂未提供多日趋势对比或跨日回放动画。
+- 多日趋势目前只基于每个 CSV 日期的最后快照，暂未提供多日趋势折线图或更复杂的统计。
 
-## 15. Roadmap
+## 16. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
 - v0.8：手动配置版持仓相关池 / 基金主题配置。
 - v0.9：日内热点池 / 主题异动解释层。
 - v1.0：历史快照回放、数据日期选择、CSV 数据质量面板。
-- v1.1+：ETF / 基金成分映射增强、多日趋势回放、数据库存储、FastAPI + React + ECharts 产品化重构。
+- v1.1：多日主题趋势 / 历史日期对比层。
+- v1.2+：ETF / 基金成分映射增强、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

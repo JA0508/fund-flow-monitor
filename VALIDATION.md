@@ -211,6 +211,38 @@ Historical replay uses local CSV snapshots only:
 
 `tools/smoke_check.py` should report the snapshot catalog date count without network access.
 
+## v1.1 Multi-day Trend Checks
+
+The multi-day trend layer uses local CSV snapshot dates only:
+
+- Page has a `多日趋势` tab.
+- Sidebar has a clearly named `多日趋势口径` selector.
+- The tab explains that it uses multiple cached CSV dates and only describes saved historical fund-flow states.
+- It must not call new AKShare endpoints.
+- It must not use 5-day, 10-day, regional, or concept fund-flow APIs.
+- It must not write CSV.
+- It should be independent from `selected_snapshot_date`; selecting a single history date should not restrict multi-day trend analysis to that date.
+- If local CSV date count is below 2, the tab shows a clear insufficient-date message and does not crash.
+- If enough dates exist, the tab shows:
+  - overview cards
+  - 多日偏强 / 由弱转强主题
+  - 多日改善主题
+  - 多日承压 / 走弱主题
+  - 多日趋势明细 dark table
+- `verify_runtime.py` reports:
+  - whether `daily_theme_snapshots` can be built
+  - participating multi-day date count
+  - whether multi-day metrics can be built
+  - whether trend pool can be built
+  - trend summary label and Top 3 trend themes
+- Concept fund-flow failure must not affect multi-day trends.
+- DEMO still must not write to real CSV.
+
+Forbidden wording check:
+
+- Multi-day trend text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
+- Trend explanations must not describe future price or fund NAV prediction.
+
 ## Data-source roadmap
 
 This Streamlit MVP intentionally keeps the request strategy small:

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v1.1
+
+- Multi-day theme trend analysis.
+- 新增每日主题快照构建：读取本地 CSV 日期的最后一个行业资金流快照。
+- 新增多日趋势分类：多日偏强、改善、由弱转强、承压、走弱、分化。
+- 新增多日趋势概览卡片、分区卡片和深色明细表。
+- 多日趋势只分析本地已有 CSV，不触发 AKShare 抓取，不写入 CSV。
+
 ## v1.0
 
 - Historical snapshot replay.

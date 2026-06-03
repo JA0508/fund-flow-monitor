@@ -41,6 +41,13 @@ from src.intraday_hotspots import (
     split_hotspot_sections,
 )
 from src.market_time import get_market_status
+from src.multi_day_trends import (
+    build_daily_theme_snapshots,
+    build_multi_day_trend_pool,
+    build_multi_day_trend_summary,
+    calculate_multi_day_theme_metrics,
+    split_multi_day_trend_sections,
+)
 from src.snapshot_catalog import (
     build_snapshot_catalog,
     get_latest_snapshot_date,
@@ -69,6 +76,9 @@ from src.ui_components import (
     render_intraday_hotspot_overview,
     render_intraday_hotspot_table,
     render_market_temperature_card,
+    render_multi_day_trend_cards,
+    render_multi_day_trend_overview,
+    render_multi_day_trend_table,
     render_rank_tables,
     render_snapshot_catalog_table,
     render_status_bar,
@@ -247,6 +257,18 @@ def main() -> None:
                 "代表口径": "representative",
                 "广度观察": "breadth",
             }[theme_mode_label]
+        st.markdown("### 多日趋势")
+        multi_day_mode_label = st.selectbox(
+            "多日趋势口径",
+            ("严格代表口径", "代表口径", "广度观察"),
+            index=0,
+            key="multi_day_trend_mode_label",
+        )
+        multi_day_mode = {
+            "严格代表口径": "strict_representative",
+            "代表口径": "representative",
+            "广度观察": "breadth",
+        }[multi_day_mode_label]
         sector_type = st.selectbox("板块类型", SECTOR_TYPES, index=SECTOR_TYPES.index(DEFAULT_SECTOR_TYPE))
         refresh_interval = st.selectbox(
             "刷新间隔",
@@ -483,6 +505,24 @@ def main() -> None:
     intraday_hotspot_pool_df = build_intraday_hotspot_pool(intraday_metrics_df, top_n=12)
     intraday_sections = split_hotspot_sections(intraday_hotspot_pool_df)
     intraday_summary = build_intraday_hotspot_summary(intraday_hotspot_pool_df)
+    available_multi_day_count = (
+        int(snapshot_catalog_df[snapshot_catalog_df["is_readable"].fillna(False) & snapshot_catalog_df["industry_rows"].gt(0)]["snapshot_date"].nunique())
+        if not snapshot_catalog_df.empty
+        else 0
+    )
+    daily_theme_df = build_daily_theme_snapshots(
+        snapshot_catalog_df,
+        mode=multi_day_mode,
+    )
+    multi_day_date_count = (
+        int(daily_theme_df["snapshot_date"].nunique())
+        if not daily_theme_df.empty and "snapshot_date" in daily_theme_df.columns
+        else 0
+    )
+    multi_day_metrics_df = calculate_multi_day_theme_metrics(daily_theme_df)
+    multi_day_trend_pool_df = build_multi_day_trend_pool(multi_day_metrics_df, top_n=12)
+    multi_day_sections = split_multi_day_trend_sections(multi_day_trend_pool_df)
+    multi_day_summary = build_multi_day_trend_summary(multi_day_trend_pool_df)
     snapshot_count = int(active_summary.get("row_count", 0) or 0)
     captured_time_count = int(active_summary.get("captured_time_count", 0) or 0)
     extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
@@ -499,8 +539,8 @@ def main() -> None:
         )
 
     render_header(header_date, latest_time)
-    tab_curve, tab_radar, tab_intraday, tab_holdings, tab_rank, tab_data = st.tabs(
-        ("实时曲线", "主题雷达", "日内热点", "持仓相关池", "排行榜", "数据说明")
+    tab_curve, tab_radar, tab_intraday, tab_multi_day, tab_holdings, tab_rank, tab_data = st.tabs(
+        ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "排行榜", "数据说明")
     )
 
     with tab_curve:
@@ -569,6 +609,32 @@ def main() -> None:
             with st.expander("分化观察主题", expanded=False):
                 render_hotspot_cards("分化观察主题", intraday_sections["neutral_hotspots"], max_cards=6)
             render_intraday_hotspot_table(intraday_hotspot_pool_df, max_rows=30)
+
+    with tab_multi_day:
+        st.markdown(
+            "<div class='concept-note'>本页基于本地 CSV 快照目录中的多个交易日缓存，观察主题资金在不同日期之间的变化。"
+            "结果仅用于解释已保存的历史资金流状态，不预测未来走势，不构成投资建议。"
+            f"当前多日趋势口径：<b>{multi_day_mode_label}</b>。</div>",
+            unsafe_allow_html=True,
+        )
+        if multi_day_date_count < 2:
+            st.markdown(
+                "<div class='rank-panel'><div class='rank-empty'>当前本地 CSV 日期不足，暂无法判断多日趋势。请等待更多缓存日期或使用历史回放查看单日情况。</div></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            if multi_day_date_count <= 2:
+                st.markdown(
+                    "<div class='concept-note'>当前参与多日趋势的缓存日期较少，结果只适合作为轻量历史观察。</div>",
+                    unsafe_allow_html=True,
+                )
+            render_multi_day_trend_overview(multi_day_summary, date_count=available_multi_day_count)
+            render_multi_day_trend_cards("多日偏强 / 由弱转强主题", multi_day_sections["strength_trends"], max_cards=6)
+            render_multi_day_trend_cards("多日改善主题", multi_day_sections["improving_trends"], max_cards=6)
+            render_multi_day_trend_cards("多日承压 / 走弱主题", multi_day_sections["pressure_trends"], max_cards=6)
+            with st.expander("多日分化主题", expanded=False):
+                render_multi_day_trend_cards("多日分化主题", multi_day_sections["mixed_trends"], max_cards=6)
+            render_multi_day_trend_table(multi_day_trend_pool_df, max_rows=30)
 
     with tab_holdings:
         st.markdown(
@@ -645,6 +711,13 @@ def main() -> None:
             "- 它只解释已经发生的日内资金流变化、排名变化和流入/流出持续性。\n"
             "- captured_time 少于 2 时不会判断异动，只显示等待更多快照的提示。\n"
             "- 日内热点不是未来走势预测，也不构成投资建议。"
+        )
+        st.markdown("#### 多日主题趋势")
+        st.markdown(
+            f"- 多日趋势基于本地 CSV 快照目录中的多个日期最后一个行业资金流快照，当前参与分析日期：{multi_day_date_count}。\n"
+            f"- 当前多日趋势口径：`{multi_day_mode_label}`。\n"
+            "- 多日趋势独立于当前选择的单日历史回放日期，不会触发 AKShare 抓取，也不会写入 CSV。\n"
+            "- 它只解释已保存历史缓存中的主题资金状态变化，不预测未来走势，不构成投资建议。"
         )
         st.markdown("#### 免责声明")
         st.markdown(
