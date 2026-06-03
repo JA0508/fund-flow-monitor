@@ -8,7 +8,7 @@ Run:
 python tools/verify_runtime.py
 ```
 
-The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
+The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
 For v0.5 it also checks whether the app can build:
 
@@ -171,6 +171,45 @@ Forbidden wording check:
 
 - Intraday hotspot text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
 - Hotspot explanations must not describe future price or fund NAV prediction.
+
+## v1.0 Historical Replay Checks
+
+Historical replay uses local CSV snapshots only:
+
+- Sidebar has `数据日期 / 历史回放` controls.
+- User can choose `自动使用最新缓存` or `选择历史日期`.
+- Historical date options should include snapshot date, captured_time count, and quality label.
+- Selecting a historical date sets the top status to `HISTORY`.
+- `HISTORY` mode must not call AKShare.
+- `HISTORY` mode must not write to CSV.
+- `HISTORY` mode should drive all tabs from the selected date:
+  - 实时曲线
+  - 主题雷达
+  - 日内热点
+  - 持仓相关池
+  - 排行榜
+- If selected date has multiple `captured_time`, 日内热点 should show cards and a dark detail table.
+- If selected date has only one `captured_time`, 日内热点 should show the insufficient snapshot message and not crash.
+- 排行榜 should use the selected date's latest `captured_time`.
+- 持仓相关池 should use the selected date's theme radar result and must not describe real holdings or returns.
+- 数据说明 tab should include:
+  - `LIVE / CACHE / HISTORY / DEMO / EMPTY` explanation
+  - selected snapshot date
+  - CSV snapshot catalog
+  - quality label and quality reason
+- If no CSV exists, app should show `EMPTY` and remain usable.
+- DEMO still must not write to real CSV.
+
+`verify_runtime.py` should report:
+
+- whether snapshot catalog can be built
+- available snapshot dates
+- best replay date
+- best replay captured_time_count
+- best replay quality_label
+- whether selected historical date can build theme radar, holding related pool, ranking, and intraday hotspot pool when enough snapshots exist
+
+`tools/smoke_check.py` should report the snapshot catalog date count without network access.
 
 ## Data-source roadmap
 

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v1.0
+
+- Historical snapshot replay.
+- 新增数据日期选择，可选择已有 CSV 日期只读回放。
+- 新增 CSV 快照目录和数据质量标签。
+- 新增 `HISTORY / EMPTY` 视图状态，避免历史缓存被误认为实时行情。
+- 历史回放不会触发 AKShare 抓取，也不会写入 CSV。
+
 ## v0.9
 
 - Intraday theme hotspot pool.

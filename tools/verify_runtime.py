@@ -23,6 +23,11 @@ from src.intraday_hotspots import (  # noqa: E402
     build_theme_intraday_history,
     calculate_intraday_theme_metrics,
 )
+from src.snapshot_catalog import (  # noqa: E402
+    build_snapshot_catalog,
+    get_latest_snapshot_date,
+    load_snapshot_by_date,
+)
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
 from src.theme_pool import build_theme_snapshot  # noqa: E402
@@ -150,11 +155,74 @@ def _semiconductor_comparison(
         print(f"  breadth value: {row['main_net_inflow_billion']:.1f} 亿 | used_count={row.get('used_sector_count', 0)}")
 
 
+def _best_replay_row(catalog: pd.DataFrame) -> pd.Series | None:
+    if catalog is None or catalog.empty:
+        return None
+    readable = catalog[catalog["is_readable"].fillna(False)]
+    if readable.empty:
+        return None
+    candidates = readable[readable["captured_time_count"].ge(2) & readable["industry_rows"].gt(0)]
+    if candidates.empty:
+        candidates = readable[readable["industry_rows"].gt(0)]
+    if candidates.empty:
+        candidates = readable
+    return candidates.sort_values(["captured_time_count", "snapshot_date"], ascending=[False, False]).iloc[0]
+
+
+def _verify_historical_replay(catalog: pd.DataFrame, watchlist_themes: list[str]) -> None:
+    print("CSV 快照目录检查:")
+    if catalog is None or catalog.empty:
+        print("  EMPTY: 暂无本地 CSV 快照。")
+        return
+    print(f"  可用日期数量: {len(catalog)}")
+    print(f"  latest_snapshot_date: {get_latest_snapshot_date(catalog) or '<none>'}")
+    print("  available snapshot dates:")
+    for _, row in catalog.iterrows():
+        print(
+            f"    {row['snapshot_date']}: rows={row['row_count']} | "
+            f"captured_time={row['captured_time_count']} | quality={row['quality_label']}"
+        )
+
+    best = _best_replay_row(catalog)
+    if best is None:
+        print("  best replay date: <none>")
+        return
+    best_date = str(best["snapshot_date"])
+    best_ticks = load_snapshot_by_date(best_date, str(PROJECT_ROOT / "data/ticks"))
+    best_latest = _latest_snapshot(best_ticks[best_ticks["sector_type"].eq("行业资金流")]) if "sector_type" in best_ticks else pd.DataFrame()
+    print(f"  best replay date: {best_date}")
+    print(f"  best replay captured_time_count: {int(best['captured_time_count'])}")
+    print(f"  best replay quality_label: {best['quality_label']}")
+    if best_ticks.empty or best_latest.empty:
+        print("  historical replay build: <empty>")
+        return
+
+    replay_theme = build_theme_snapshot(best_latest, theme_mode="strict_representative")
+    replay_radar = build_theme_radar_snapshot(replay_theme)
+    fund_profile = load_fund_profiles()
+    fund_exposure = build_fund_theme_exposure(get_funds(fund_profile))
+    holding_pool = build_holding_related_pool(fund_exposure, replay_radar)
+    latest_rank = best_latest.sort_values("main_net_inflow_billion", ascending=False).head(5)
+    print(f"  是否可以通过 selected historical date 构建 theme radar: {not replay_radar.empty}")
+    print(f"  是否可以通过 selected historical date 构建 holding related pool: {not holding_pool.empty}")
+    print(f"  是否可以通过 selected historical date 构建 ranking: {not latest_rank.empty}")
+
+    if int(best["captured_time_count"]) >= 2:
+        replay_history = build_theme_intraday_history(best_ticks, mode="breadth")
+        replay_metrics = calculate_intraday_theme_metrics(replay_history)
+        replay_hotspots = build_intraday_hotspot_pool(replay_metrics, top_n=12)
+        print(f"  是否可以用 best replay date 构建 theme_intraday_history: {not replay_history.empty}")
+        print(f"  是否可以用 best replay date 构建 intraday hotspot pool: {not replay_hotspots.empty}")
+    else:
+        print("  best replay captured_time 少于 2，跳过日内热点回放构建。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
     ticks = load_latest_ticks()
     latest = _latest_snapshot(ticks)
+    snapshot_catalog = build_snapshot_catalog(str(PROJECT_ROOT / "data/ticks"))
 
     print(f"项目路径: {PROJECT_ROOT}")
     print(f"Python 版本: {sys.version.split()[0]}")
@@ -171,6 +239,7 @@ def main() -> int:
     print(f"最新 captured_time: {latest_time}")
     sector_type = latest["sector_type"].iloc[0] if not latest.empty and "sector_type" in latest else "<none>"
     print(f"当前 sector_type: {sector_type}")
+    _verify_historical_replay(snapshot_catalog, [])
 
     if not latest.empty:
         _print_rank("最新 Top 5 净流入:", latest.sort_values("main_net_inflow_billion", ascending=False).head(5))

@@ -41,6 +41,13 @@ from src.intraday_hotspots import (
     split_hotspot_sections,
 )
 from src.market_time import get_market_status
+from src.snapshot_catalog import (
+    build_snapshot_catalog,
+    get_latest_snapshot_date,
+    get_snapshot_summary,
+    infer_view_data_status,
+    load_snapshot_by_date,
+)
 from src.storage import append_snapshot, load_latest_ticks, load_today_ticks
 from src.theme_concepts import build_theme_concept_summary
 from src.theme_pool import apply_theme_pool_to_ticks, build_theme_snapshot
@@ -63,6 +70,7 @@ from src.ui_components import (
     render_intraday_hotspot_table,
     render_market_temperature_card,
     render_rank_tables,
+    render_snapshot_catalog_table,
     render_status_bar,
     render_theme_concept_cards,
     render_theme_radar_cards,
@@ -187,8 +195,48 @@ def _load_cache_ticks(trade_date: str, sector_type: str) -> pd.DataFrame:
 def main() -> None:
     inject_global_css()
 
+    now = get_china_now()
+    trade_date = now.strftime("%Y-%m-%d")
+    market_status = get_market_status(now)
+    can_fetch = market_status in FETCH_ALLOWED_STATUSES
+    snapshot_catalog_df = build_snapshot_catalog()
+    latest_snapshot_date = get_latest_snapshot_date(snapshot_catalog_df)
+
     with st.sidebar:
         st.header("监测设置")
+        st.markdown("### 数据日期 / 历史回放")
+        date_mode = st.selectbox(
+            "数据日期",
+            ("自动使用最新缓存", "选择历史日期"),
+            index=0,
+            key="snapshot_date_mode",
+        )
+        history_mode_requested = date_mode == "选择历史日期"
+        selected_snapshot_date = trade_date if can_fetch else (latest_snapshot_date or trade_date)
+        if history_mode_requested:
+            if snapshot_catalog_df.empty:
+                st.caption("暂无本地 CSV 快照。")
+                selected_snapshot_date = None
+            else:
+                options = snapshot_catalog_df["snapshot_date"].astype(str).tolist()
+                current_history_date = st.session_state.get("selected_history_snapshot_date")
+                history_index = options.index(current_history_date) if current_history_date in options else 0
+                labels = {
+                    row["snapshot_date"]: (
+                        f"{row['snapshot_date']} · {int(row['captured_time_count'])} 个时间点 · {row['quality_label']}"
+                    )
+                    for _, row in snapshot_catalog_df.iterrows()
+                }
+                selected_snapshot_date = st.selectbox(
+                    "选择缓存日期",
+                    options,
+                    format_func=lambda value: labels.get(value, value),
+                    index=history_index,
+                    key="selected_history_snapshot_date",
+                )
+        elif latest_snapshot_date and not can_fetch:
+            st.caption(f"非交易时间自动展示最新缓存：{latest_snapshot_date}")
+
         display_mode = st.selectbox("展示模式", ("基金观察池", "原始板块"), index=0)
         theme_mode_label = None
         theme_mode = "strict_representative"
@@ -217,11 +265,6 @@ def main() -> None:
             st.caption("概念资金流低频刷新，用于主题热度辅助观察。")
 
     st_autorefresh(interval=refresh_interval * 1000, key="fund_flow_refresh")
-
-    now = get_china_now()
-    trade_date = now.strftime("%Y-%m-%d")
-    market_status = get_market_status(now)
-    can_fetch = market_status in FETCH_ALLOWED_STATUSES
     error = None
     concept_error = None
     data_status = "CACHE"
@@ -230,6 +273,13 @@ def main() -> None:
     status_note = "暂无可用缓存"
     latest_label = "最新缓存"
     latest_status_time = None
+    is_history_replay = bool(
+        not demo_mode
+        and (
+            history_mode_requested
+            or (selected_snapshot_date and selected_snapshot_date != trade_date)
+        )
+    )
 
     if demo_mode:
         ticks_df = _make_demo_data(sector_type, now)
@@ -239,6 +289,23 @@ def main() -> None:
         status_note = "模拟数据，仅用于 UI 调试，不代表真实行情。"
         concept_status_note = "DEMO 模式下不抓取概念资金流"
         latest_label = "模拟时间"
+    elif is_history_replay:
+        all_ticks_df = load_snapshot_by_date(selected_snapshot_date)
+        ticks_df = _filter_sector_type(all_ticks_df, sector_type)
+        data_status = "HISTORY" if not all_ticks_df.empty else "EMPTY"
+        status_note = (
+            "历史回放模式，当前展示本地 CSV 缓存，不代表实时行情。"
+            if not all_ticks_df.empty
+            else "暂无可用真实缓存，可等待抓取或启用 DEMO 测试 UI。"
+        )
+        latest_label = "回放时间"
+        concept_summary = get_concept_cache_summary(all_ticks_df)
+        if concept_summary.get("has_concept_cache"):
+            concept_data_status = "CONCEPT_CACHE"
+            concept_status_note = "历史回放中的概念缓存"
+        else:
+            concept_data_status = "CONCEPT_EMPTY"
+            concept_status_note = "该日期暂无概念资金流缓存"
     else:
         is_concept_main = sector_type == CONCEPT_SECTOR_TYPE
         all_ticks_df = load_today_ticks(trade_date)
@@ -338,13 +405,38 @@ def main() -> None:
     has_display_cache = (not demo_mode) and (not ticks_df.empty)
     if data_status == "CACHE" and not has_display_cache:
         status_note = "暂无可用缓存"
+    active_summary = get_snapshot_summary(all_ticks_df)
+    if not demo_mode and active_summary["row_count"] == 0:
+        data_status = "EMPTY"
+        status_note = "暂无可用真实缓存，可等待抓取或启用 DEMO 测试 UI。"
+    view_status = infer_view_data_status(
+        selected_snapshot_date or "",
+        trade_date,
+        data_status,
+        demo_mode,
+        history_mode_requested=history_mode_requested,
+    )
+    if view_status == "HISTORY":
+        data_status = "HISTORY"
+        status_note = "历史回放模式，当前展示本地 CSV 缓存，不代表实时行情。"
+    elif view_status == "EMPTY":
+        data_status = "EMPTY"
 
     latest_time = _latest_time(ticks_df, now.strftime("%H:%M:%S"))
+    if ticks_df.empty and active_summary.get("latest_captured_time"):
+        latest_time = str(active_summary["latest_captured_time"])
     if latest_status_time is None:
         latest_status_time = latest_time
-    header_date = trade_date
+    header_date = selected_snapshot_date or trade_date
     if not ticks_df.empty and "trade_date" in ticks_df.columns:
         header_date = str(ticks_df["trade_date"].dropna().iloc[-1])
+
+    selected_catalog_row = pd.DataFrame()
+    if not snapshot_catalog_df.empty and selected_snapshot_date:
+        selected_catalog_row = snapshot_catalog_df[snapshot_catalog_df["snapshot_date"].astype(str).eq(str(selected_snapshot_date))]
+    quality_label = selected_catalog_row["quality_label"].iloc[0] if not selected_catalog_row.empty else (
+        "DEMO" if demo_mode else "EMPTY"
+    )
 
     display_ticks_df = ticks_df
     if display_mode == "基金观察池":
@@ -391,8 +483,8 @@ def main() -> None:
     intraday_hotspot_pool_df = build_intraday_hotspot_pool(intraday_metrics_df, top_n=12)
     intraday_sections = split_hotspot_sections(intraday_hotspot_pool_df)
     intraday_summary = build_intraday_hotspot_summary(intraday_hotspot_pool_df)
-    snapshot_count = 0 if ticks_df.empty else len(ticks_df)
-    captured_time_count = ticks_df["captured_time"].nunique() if not ticks_df.empty and "captured_time" in ticks_df.columns else 0
+    snapshot_count = int(active_summary.get("row_count", 0) or 0)
+    captured_time_count = int(active_summary.get("captured_time_count", 0) or 0)
     extra_status = f"主题口径：{theme_mode_label}" if display_mode == "基金观察池" else None
     theme_note = None
     if display_mode == "基金观察池":
@@ -421,13 +513,20 @@ def main() -> None:
             latest_label=latest_label,
             latest_time=latest_status_time,
             extra_text=extra_status,
+            selected_snapshot_date=selected_snapshot_date,
+            captured_time_count=captured_time_count,
+            quality_label=quality_label,
         )
         if theme_note:
             st.markdown(
                 f"<div class='small-note'>基金观察池会将相近行业/概念归并为基金主题，仅用于辅助观察。{theme_note}</div>",
                 unsafe_allow_html=True,
             )
-        if not can_fetch and not demo_mode and has_display_cache:
+        if data_status == "HISTORY":
+            st.caption("历史回放模式不会触发 AKShare 抓取，也不会写入 CSV。")
+        elif data_status == "EMPTY":
+            st.caption("暂无可用真实缓存，可等待抓取或启用 DEMO 测试 UI。")
+        elif not can_fetch and not demo_mode and has_display_cache:
             st.caption("非交易时间，展示最近缓存数据。")
         render_error_box(error, has_cache=has_display_cache)
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
@@ -453,7 +552,7 @@ def main() -> None:
 
     with tab_intraday:
         st.markdown(
-            "<div class='concept-note'>本页基于本地 CSV 中同一交易日的多个资金流快照，观察主题资金在日内的变化。"
+            f"<div class='concept-note'>本页基于所选数据日期 <b>{selected_snapshot_date or '--'}</b> 的本地 CSV 资金流快照，观察主题资金在日内的变化。"
             "结果仅用于解释已发生的资金流状态，不预测未来走势，不构成投资建议。</div>",
             unsafe_allow_html=True,
         )
@@ -473,7 +572,7 @@ def main() -> None:
 
     with tab_holdings:
         st.markdown(
-            "<div class='concept-note'>本页基于 <code>config/fund_profiles.json</code> 中的手动主题配置，将关注基金/ETF 映射到当前主题资金状态。"
+            f"<div class='concept-note'>本页基于 <code>config/fund_profiles.json</code> 中的手动主题配置，将关注基金/ETF 映射到所选日期 <b>{selected_snapshot_date or '--'}</b> 的主题资金状态。"
             "它不读取真实账户，也不代表真实基金持仓，不构成投资建议。</div>",
             unsafe_allow_html=True,
         )
@@ -498,6 +597,8 @@ def main() -> None:
             theme_mode_label=theme_mode_label,
             snapshot_count=snapshot_count,
             captured_time_count=captured_time_count,
+            selected_snapshot_date=selected_snapshot_date,
+            quality_label=quality_label,
         )
         st.markdown("#### 数据源说明")
         st.markdown(
@@ -505,6 +606,15 @@ def main() -> None:
             "- 页面 rerun 时会按市场状态尝试抓取；抓取成功写入 CSV，失败则读取最近真实缓存。\n"
             "- CSV 路径：`data/ticks/sector_flow_YYYY-MM-DD.csv`。"
         )
+        st.markdown("#### 历史快照回放")
+        st.markdown(
+            f"- 当前数据日期：`{selected_snapshot_date or '--'}`，视图状态：`{data_status}`。\n"
+            "- HISTORY 表示历史回放，只读取所选日期本地 CSV 缓存，不代表实时行情。\n"
+            "- 历史回放不会触发 AKShare 抓取，也不会写入 CSV。\n"
+            "- EMPTY 表示暂无可用真实缓存，可等待正常抓取或启用 DEMO 进行 UI 测试。\n"
+            "- 历史回放只用于观察已保存的资金流状态。"
+        )
+        render_snapshot_catalog_table(snapshot_catalog_df)
         st.markdown("#### 概念资金流辅助")
         st.markdown(
             f"- 概念辅助状态：`{concept_data_status}`，{concept_status_note}。\n"

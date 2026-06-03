@@ -10,6 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
+from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
 
 
@@ -22,6 +23,7 @@ REQUIRED_FILES = (
     "src/theme_concepts.py",
     "src/fund_profiles.py",
     "src/intraday_hotspots.py",
+    "src/snapshot_catalog.py",
     "src/watchlist.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -107,6 +109,7 @@ def summarize_csv(path: Path | None) -> dict:
 
 def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     latest_csv = find_latest_csv(project_root / "data/ticks")
+    catalog = build_snapshot_catalog(str(project_root / "data/ticks"))
     return {
         "project_root": str(project_root),
         "python": check_python_version(),
@@ -115,12 +118,16 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         "watchlist": load_watchlist_status(project_root / "config/watchlist.json"),
         "fund_profiles": load_fund_profile_status(project_root / "config/fund_profiles.json"),
         "csv": summarize_csv(latest_csv),
+        "snapshot_catalog": {
+            "date_count": int(len(catalog)),
+            "latest_snapshot_date": get_latest_snapshot_date(catalog) or "<none>",
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v0.9 本地冒烟检查")
+    print("Fund Flow Monitor v1.0 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -148,6 +155,9 @@ def main() -> int:
     print(f"CSV 行数: {csv['rows']}")
     print(f"captured_time 数量: {csv['captured_time_count']}")
     print(f"最新 captured_time: {csv['latest_captured_time']}")
+    catalog = report["snapshot_catalog"]
+    print(f"CSV 快照日期数量: {catalog['date_count']}")
+    print(f"最新快照日期: {catalog['latest_snapshot_date']}")
 
     ok = (
         py["ok"]

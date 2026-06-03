@@ -34,6 +34,8 @@ def inject_global_css() -> None:
         .status-live { color: #26e07f; font-weight: 850; }
         .status-cache { color: #60a5fa; font-weight: 850; }
         .status-demo { color: #ffd166; font-weight: 850; }
+        .status-history { color: #c084fc; font-weight: 850; }
+        .status-empty { color: #9ca3af; font-weight: 850; }
         .small-note { color: #9ca3af; font-size: 13px; margin: 0.15rem 0 0.4rem; text-align: center; }
         .demo-alert { border: 1px solid rgba(255, 179, 0, .55); background: rgba(255, 179, 0, .10); color: #ffd166; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; text-align: center; font-weight: 800; letter-spacing: .02em; }
         .cache-alert { border: 1px solid rgba(96, 165, 250, .25); background: rgba(37, 99, 235, .08); color: #bfdbfe; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; font-size: 13px; }
@@ -120,13 +122,25 @@ def render_status_bar(
     latest_label: str,
     latest_time: str | None,
     extra_text: str | None = None,
+    selected_snapshot_date: str | None = None,
+    captured_time_count: int | None = None,
+    quality_label: str | None = None,
 ) -> None:
     market_text = STATUS_TEXT.get(market_status, market_status)
     status_class = {
         "LIVE": "status-live",
         "CACHE": "status-cache",
         "DEMO": "status-demo",
+        "HISTORY": "status-history",
+        "EMPTY": "status-empty",
     }.get(data_status, "")
+    snapshot_bits = ""
+    if selected_snapshot_date:
+        snapshot_bits += f" ｜ 数据日期：<b>{escape(str(selected_snapshot_date))}</b>"
+    if captured_time_count is not None:
+        snapshot_bits += f" ｜ 时间点：<b>{int(captured_time_count)}</b>"
+    if quality_label:
+        snapshot_bits += f" ｜ 质量：<b>{escape(str(quality_label))}</b>"
     html = (
         "<div class='compact-status'>"
         f"数据源：<b>{escape(DATA_SOURCE)}</b> ｜ "
@@ -136,6 +150,7 @@ def render_status_bar(
         f"{escape(latest_label)}：<b>{escape(latest_time or '--:--:--')}</b> ｜ "
         f"刷新：<b>{refresh_interval}秒</b> ｜ "
         f"板块类型：<b>{escape(sector_type)}</b>"
+        f"{snapshot_bits}"
         f"{f' ｜ {escape(extra_text)}' if extra_text else ''}"
         "</div>"
     )
@@ -143,6 +158,16 @@ def render_status_bar(
     if data_status == "DEMO":
         st.markdown(
             "<div class='demo-alert'>DEMO MODE - 当前为模拟数据，不是真实行情</div>",
+            unsafe_allow_html=True,
+        )
+    elif data_status == "HISTORY":
+        st.markdown(
+            "<div class='cache-alert'>历史回放，本页展示本地 CSV 缓存，不代表实时行情。</div>",
+            unsafe_allow_html=True,
+        )
+    elif data_status == "EMPTY":
+        st.markdown(
+            "<div class='cache-alert'>暂无可用真实缓存，可等待抓取或启用 DEMO 测试 UI。</div>",
             unsafe_allow_html=True,
         )
 
@@ -596,6 +621,8 @@ def render_data_trust_panel(
     theme_mode_label: str | None,
     snapshot_count: int,
     captured_time_count: int,
+    selected_snapshot_date: str | None = None,
+    quality_label: str | None = None,
 ) -> None:
     market_text = STATUS_TEXT.get(market_status, market_status)
     theme_text = theme_mode_label if display_mode == "基金观察池" else "原始板块"
@@ -603,14 +630,18 @@ def render_data_trust_panel(
         "LIVE": "status-live",
         "CACHE": "status-cache",
         "DEMO": "status-demo",
+        "HISTORY": "status-history",
+        "EMPTY": "status-empty",
     }.get(data_status, "")
     items = [
         ("数据源", DATA_SOURCE),
         ("数据状态", data_status),
+        ("数据日期", selected_snapshot_date or "--"),
         (latest_label, latest_time or "--:--:--"),
         ("市场状态", market_text),
         ("主题口径", theme_text or "--"),
         ("CSV 快照 / 时间点", f"{snapshot_count} 行 / {captured_time_count} 个时间点"),
+        ("快照质量", quality_label or "--"),
         ("展示模式", display_mode),
         ("板块类型", sector_type),
         ("状态说明", status_note),
@@ -634,8 +665,43 @@ def render_data_trust_panel(
         "<div class='trust-copy'>"
         "<b>LIVE</b>：本轮页面刷新成功抓取 AKShare 数据，并使用本轮快照。<br>"
         "<b>CACHE</b>：本轮抓取失败或处于非交易时段，当前展示最近一次真实 CSV 缓存。<br>"
-        "<b>DEMO</b>：模拟数据仅用于 UI 调试，不代表真实行情；DEMO 不会写入真实 CSV。"
+        "<b>HISTORY</b>：历史回放，只读取所选日期的本地 CSV，不触发 AKShare 抓取，也不会写入 CSV。<br>"
+        "<b>DEMO</b>：模拟数据仅用于 UI 调试，不代表真实行情；DEMO 不会写入真实 CSV。<br>"
+        "<b>EMPTY</b>：暂无可用真实缓存，可等待抓取或启用 DEMO 测试 UI。"
         "</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_snapshot_catalog_table(catalog_df: pd.DataFrame, max_rows: int = 30) -> None:
+    st.markdown("<div class='radar-section-title'>CSV 快照目录</div>", unsafe_allow_html=True)
+    if catalog_df is None or catalog_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无本地 CSV 快照。</div></div>", unsafe_allow_html=True)
+        return
+    headers = ["日期", "行数", "时间点", "最新时间", "行业行数", "概念行数", "文件大小", "质量标签", "说明"]
+    rows = []
+    for _, row in catalog_df.head(max_rows).iterrows():
+        values = [
+            row.get("snapshot_date", "--"),
+            int(row.get("row_count", 0) or 0),
+            int(row.get("captured_time_count", 0) or 0),
+            row.get("latest_captured_time") or "--",
+            int(row.get("industry_rows", 0) or 0),
+            int(row.get("concept_rows", 0) or 0),
+            f"{float(row.get('file_size_kb', 0) or 0):.1f} KB",
+            row.get("quality_label", "--"),
+            row.get("quality_reason", "--"),
+        ]
+        cells = "".join(f"<td>{escape(str(value))}</td>" for value in values)
+        rows.append(f"<tr>{cells}</tr>")
+    head = "".join(f"<th>{escape(header)}</th>" for header in headers)
+    html = (
+        "<div class='rank-panel'>"
+        "<table class='rank-table'>"
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
         "</div>"
     )
     st.markdown(html, unsafe_allow_html=True)
