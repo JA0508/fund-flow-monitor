@@ -33,6 +33,15 @@ from src.fund_profiles import (
     load_fund_profiles,
     validate_fund_profile,
 )
+from src.fund_profile_importer import (
+    SAMPLE_FUND_PROFILE_CSV,
+    build_profile_summary_from_csv,
+    build_profile_theme_exposure_table,
+    load_fund_profiles_csv,
+    merge_profile_exposure_with_theme_radar,
+    summarize_profile_observations,
+    validate_fund_profiles_csv,
+)
 from src.intraday_hotspots import (
     build_intraday_hotspot_pool,
     build_intraday_hotspot_summary,
@@ -102,6 +111,7 @@ from src.ui_components import (
     render_brief_overview_cards,
     render_first_run_guide,
     render_fund_profile_overview,
+    render_fund_profile_csv_panel,
     render_fund_summary_cards,
     render_holding_related_table,
     render_header,
@@ -613,6 +623,12 @@ def main() -> None:
     overlap_warning_df = build_overlap_warning_report(taxonomy)
     holding_pool_df = build_holding_related_pool(fund_exposure_df, radar_theme_df)
     fund_summary_df = build_fund_summary(holding_pool_df)
+    sample_profile_csv_df = load_fund_profiles_csv(SAMPLE_FUND_PROFILE_CSV)
+    sample_profile_validation = validate_fund_profiles_csv(sample_profile_csv_df, taxonomy)
+    sample_profile_summary_df = build_profile_summary_from_csv(sample_profile_csv_df, sample_profile_validation)
+    sample_profile_exposure_df = build_profile_theme_exposure_table(sample_profile_csv_df, taxonomy)
+    sample_profile_merged_df = merge_profile_exposure_with_theme_radar(sample_profile_exposure_df, radar_theme_df)
+    sample_profile_observation_df = summarize_profile_observations(sample_profile_merged_df)
     intraday_mode = theme_mode if display_mode == "基金观察池" else "breadth"
     intraday_history_df = build_theme_intraday_history(all_ticks_df, mode=intraday_mode)
     intraday_snapshot_count = (
@@ -797,9 +813,39 @@ def main() -> None:
             "它不读取真实账户，也不代表真实基金持仓，不构成投资建议。</div>",
             unsafe_allow_html=True,
         )
-        render_fund_profile_overview(fund_profile, fund_profile_warnings, fund_exposure_df)
-        render_fund_summary_cards(fund_summary_df, max_cards=8)
-        render_holding_related_table(holding_pool_df, max_rows=30)
+        holding_config_source = st.selectbox(
+            "配置来源选择",
+            ("默认 JSON 配置", "SAMPLE CSV 模板"),
+            index=0,
+            key="holding_config_source",
+        )
+        if holding_config_source == "默认 JSON 配置":
+            render_fund_profile_overview(fund_profile, fund_profile_warnings, fund_exposure_df)
+            render_fund_summary_cards(fund_summary_df, max_cards=8)
+            render_holding_related_table(holding_pool_df, max_rows=30)
+            with st.expander("查看 SAMPLE CSV 模板校验", expanded=False):
+                render_fund_profile_csv_panel(
+                    SAMPLE_FUND_PROFILE_CSV,
+                    sample_profile_validation,
+                    sample_profile_summary_df,
+                    sample_profile_exposure_df,
+                    sample_profile_merged_df,
+                    sample_profile_observation_df,
+                )
+        else:
+            st.markdown(
+                "<div class='concept-note'>当前展示 SAMPLE CSV 主题暴露模板。该 CSV 不是账户持仓文件，不包含真实金额、份额、成本或收益，"
+                "仅用于演示基金/ETF 与主题库的映射流程。</div>",
+                unsafe_allow_html=True,
+            )
+            render_fund_profile_csv_panel(
+                SAMPLE_FUND_PROFILE_CSV,
+                sample_profile_validation,
+                sample_profile_summary_df,
+                sample_profile_exposure_df,
+                sample_profile_merged_df,
+                sample_profile_observation_df,
+            )
 
     with tab_brief:
         st.markdown(
@@ -904,6 +950,16 @@ def main() -> None:
         st.markdown(
             "持仓相关池来自 `config/fund_profiles.json` 的手动主题配置。它只表示你想观察的基金/ETF 与主题暴露关系，"
             "不读取真实账户，不代表真实基金持仓，也不预测基金净值。"
+        )
+        st.markdown("#### 基金/ETF 主题暴露模板说明")
+        st.markdown(
+            f"- 默认关注组合配置：`config/fund_profiles.json`。\n"
+            f"- CSV 演示模板：`{SAMPLE_FUND_PROFILE_CSV}`。\n"
+            "- CSV 只表达基金/ETF 与主题之间的暴露关系，不是账户持仓文件。\n"
+            "- CSV 不包含真实份额、金额、成本、收益，也不会读取真实券商账户。\n"
+            "- CSV 导入只用于页面展示和配置校验，不触发 AKShare，也不会写入 `data/ticks`。\n"
+            "- 主题名应尽量匹配 `config/theme_taxonomy.json`；未注册主题会在校验面板提示。\n"
+            "- 配置校验只解释主题暴露与当前主题资金状态，不产生买卖建议。"
         )
         st.markdown("#### 日内热点池")
         st.markdown(

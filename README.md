@@ -363,6 +363,47 @@ sample_data/ticks/sector_flow_2026-01-16.csv
 
 ## 15. Watchlist
 
+## 15. Fund / ETF Theme Exposure Template
+
+v1.6 增加基金/ETF 主题暴露 CSV 模板，用于演示“关注基金/ETF 如何映射到基金观察主题”。
+
+示例路径：
+
+```text
+sample_data/fund_profiles/sample_fund_profiles.csv
+docs/templates/fund_profiles_template.csv
+```
+
+字段说明：
+
+| 字段 | 含义 |
+| --- | --- |
+| `profile_id` | 关注组合唯一 ID，例如 `DEMO_SEMI`。 |
+| `profile_name` | 展示名称，例如半导体主题基金示例。 |
+| `fund_code` | 示例代码，必须使用 `DEMO-` 前缀，避免被误解为真实基金代码。 |
+| `fund_type` | 主题基金、ETF、混合基金或观察组合等轻量标签。 |
+| `description` | 配置说明。 |
+| `theme_name` | 主题名称，应匹配 `config/theme_taxonomy.json`。 |
+| `exposure_weight` | 主题暴露权重，建议 0 到 1 之间。 |
+| `exposure_role` | `core`、`satellite`、`watch`、`hedge` 等观察角色。 |
+| `notes` | 备注说明。 |
+
+使用方式：
+
+1. 启动 app。
+2. 进入“持仓相关池”tab。
+3. 在“配置来源选择”中查看“默认 JSON 配置”或“SAMPLE CSV 模板”。
+4. 查看 CSV 校验概览、Profile 概览、主题暴露明细和主题资金观察结果。
+
+边界说明：
+
+- CSV 不是账户持仓文件。
+- CSV 不包含真实金额、份额、成本、收益或账户信息。
+- 项目不读取真实券商账户，不接券商，不推荐基金，不预测未来走势。
+- CSV 导入只用于学习研究、作品集展示和主题映射演示，不构成投资建议。
+
+## 16. Watchlist
+
 关注主题来自：
 
 ```text
@@ -387,7 +428,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 16. Quick Start
+## 17. Quick Start
 
 ```bash
 git clone <repo-url>
@@ -412,7 +453,7 @@ python tools/probe_akshare.py
 python tools/probe_concept_flow.py
 ```
 
-## 17. Streamlit Cloud Deployment
+## 18. Streamlit Cloud Deployment
 
 部署到 Streamlit Cloud 时：
 
@@ -425,7 +466,7 @@ python tools/probe_concept_flow.py
 
 如果云端 AKShare 访问不稳定，页面仍可通过 SAMPLE 模式展示完整产品能力。SAMPLE 是合成数据，不代表真实行情。
 
-## 18. Validation
+## 19. Validation
 
 ```bash
 python -m pytest -q
@@ -436,7 +477,7 @@ python tools/verify_runtime.py
 
 `tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要和 sample catalog。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示和 SAMPLE 样例链路。
 
-## 19. Known Limitations
+## 20. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -446,6 +487,7 @@ python tools/verify_runtime.py
 - 广度观察可能包含上下级板块重叠，只能作为主题热度观察。
 - 概念资金流接口可能比行业接口更不稳定，因此当前只做低频辅助刷新。
 - 持仓相关池只读取本地手动配置，不代表真实基金持仓或账户资产。
+- 基金/ETF 主题暴露 CSV 只是主题映射模板，不是账户持仓导入工具。
 - 日内热点池依赖本地 CSV 快照数量，快照过少时无法判断日内变化。
 - 历史回放只读取单日 CSV，暂未提供多日趋势对比或跨日回放动画。
 - 多日趋势目前只基于每个 CSV 日期的最后快照，暂未提供多日趋势折线图或更复杂的统计。
@@ -454,7 +496,7 @@ python tools/verify_runtime.py
 - SAMPLE 样例数据是人工合成的演示包，只用于复现页面功能，不代表真实行情。
 - Streamlit Cloud 上 AKShare 访问可能受网络环境影响；公开展示时可使用 SAMPLE 模式。
 
-## 20. Roadmap
+## 21. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
@@ -466,6 +508,7 @@ python tools/verify_runtime.py
 - v1.3：主题观察简报、统一解释层、Markdown 导出。
 - v1.4：可复现演示模式、合成样例数据包、首次运行体验优化。
 - v1.5：Streamlit Cloud 部署准备、GitHub 作品集展示优化、首次访问体验打磨。
-- v1.6+：ETF / 基金成分映射增强、观察简报模板优化、主题库人工编辑面板、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
+- v1.6：基金/ETF 主题暴露 CSV 模板导入、配置校验、持仓相关池增强。
+- v1.7+：本地数据采集脚本与缓存治理、数据快照质量面板增强、观察简报模板 polish、presentation mode / screenshots、SQLite / DuckDB、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

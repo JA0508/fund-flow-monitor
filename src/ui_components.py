@@ -515,6 +515,123 @@ def render_holding_related_table(holding_pool_df: pd.DataFrame, max_rows: int = 
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_fund_profile_csv_panel(
+    csv_path: str,
+    validation_report: dict,
+    profile_summary_df: pd.DataFrame,
+    exposure_df: pd.DataFrame,
+    merged_df: pd.DataFrame,
+    observation_summary_df: pd.DataFrame,
+    max_rows: int = 24,
+) -> None:
+    st.markdown("<div class='radar-section-title'>基金/ETF 主题暴露配置</div>", unsafe_allow_html=True)
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        "<div class='trust-item'><div class='trust-label'>默认 JSON 配置</div><div class='trust-value'>config/fund_profiles.json</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>CSV 示例模板</div><div class='trust-value'>{escape(csv_path)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>校验状态</div><div class='trust-value'>{escape(str(validation_report.get('validation_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Profile 数量</div><div class='trust-value'>{int(validation_report.get('profile_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>CSV 行数</div><div class='trust-value'>{int(validation_report.get('row_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Warning / Error</div><div class='trust-value'>{int(validation_report.get('warning_count', 0) or 0)} / {int(validation_report.get('error_count', 0) or 0)}</div></div>"
+        "</div>"
+        "<div class='trust-copy'>CSV 只表达基金/ETF 与主题的暴露关系，不是账户持仓文件，不包含真实金额、份额、成本或收益；"
+        "它不读取真实账户，不触发 AKShare，也不会写入 data/ticks。</div>"
+        f"<div class='trust-copy'>{escape(str(validation_report.get('validation_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+    warnings = list(validation_report.get("warnings") or [])
+    errors = list(validation_report.get("errors") or [])
+    unknown = list(validation_report.get("unknown_themes") or [])
+    if warnings or errors:
+        details = [f"Error: {item}" for item in errors] + [f"Warning: {item}" for item in warnings]
+        st.markdown(
+            "<div class='holding-warning'>"
+            + "<br>".join(escape(str(item)) for item in details[:8])
+            + ("<br>..." if len(details) > 8 else "")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown("<div class='concept-note'>配置校验通过。主题名称已与当前主题库对齐。</div>", unsafe_allow_html=True)
+    if unknown:
+        st.markdown(
+            f"<div class='holding-warning'>未注册主题：{escape('，'.join(map(str, unknown)))}</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div class='radar-section-title'>CSV Profile 概览</div>", unsafe_allow_html=True)
+    summary_rows = []
+    if profile_summary_df is not None and not profile_summary_df.empty:
+        for _, row in profile_summary_df.head(max_rows).iterrows():
+            summary_rows.append(
+                [
+                    row.get("profile_name", "--"),
+                    row.get("fund_code", "--"),
+                    row.get("fund_type", "--"),
+                    int(row.get("theme_count", 0) or 0),
+                    f"{float(row.get('total_exposure_weight', 0) or 0):.2f}",
+                    int(row.get("core_theme_count", 0) or 0),
+                    row.get("validation_label", "--"),
+                ]
+            )
+    _render_simple_table(["Profile", "代码", "类型", "主题数", "权重合计", "核心主题", "校验"], summary_rows, "暂无 CSV profile 概览。")
+
+    with st.expander("CSV 主题暴露明细", expanded=False):
+        exposure_rows = []
+        if exposure_df is not None and not exposure_df.empty:
+            for _, row in exposure_df.head(max_rows).iterrows():
+                exposure_rows.append(
+                    [
+                        row.get("profile_name", "--"),
+                        row.get("theme_name", "--"),
+                        row.get("theme_group", "--"),
+                        f"{float(row.get('exposure_weight', 0) or 0):.1%}",
+                        row.get("exposure_role", "--"),
+                        "是" if bool(row.get("taxonomy_registered")) else "否",
+                    ]
+                )
+        _render_simple_table(["Profile", "主题", "分组", "权重", "角色", "已注册"], exposure_rows, "暂无 CSV 主题暴露明细。")
+
+    st.markdown("<div class='radar-section-title'>CSV 持仓相关观察摘要</div>", unsafe_allow_html=True)
+    observation_rows = []
+    if observation_summary_df is not None and not observation_summary_df.empty:
+        for _, row in observation_summary_df.head(max_rows).iterrows():
+            observation_rows.append(
+                [
+                    row.get("profile_name", "--"),
+                    row.get("fund_code", "--"),
+                    int(row.get("related_theme_count", 0) or 0),
+                    int(row.get("positive_theme_count", 0) or 0),
+                    int(row.get("pressure_theme_count", 0) or 0),
+                    int(row.get("unknown_theme_count", 0) or 0),
+                    f"{float(row.get('weighted_net_inflow_score', 0) or 0):.2f}",
+                    row.get("profile_observation_label", "--"),
+                ]
+            )
+    _render_simple_table(["Profile", "代码", "主题数", "偏强", "承压", "未注册", "观察分", "状态"], observation_rows, "暂无 CSV 观察摘要。")
+
+    with st.expander("CSV 主题雷达合并明细", expanded=False):
+        merged_rows = []
+        if merged_df is not None and not merged_df.empty:
+            for _, row in merged_df.head(max_rows).iterrows():
+                amount = pd.to_numeric(pd.Series([row.get("main_net_inflow_billion")]), errors="coerce").iloc[0]
+                merged_rows.append(
+                    [
+                        row.get("profile_name", "--"),
+                        row.get("theme_name", "--"),
+                        f"{float(row.get('exposure_weight', 0) or 0):.1%}",
+                        row.get("theme_status") or "样本不足",
+                        "--" if pd.isna(amount) else format_billion(amount),
+                        row.get("observation_label", "--"),
+                        row.get("observation_reason", "--"),
+                    ]
+                )
+        _render_simple_table(["Profile", "主题", "权重", "主题状态", "主力净流入", "观察", "说明"], merged_rows, "暂无 CSV 合并观察明细。")
+
+
 def render_intraday_hotspot_overview(summary: dict, snapshot_count: int) -> None:
     html = (
         "<div class='radar-section-title'>日内热点概览</div>"

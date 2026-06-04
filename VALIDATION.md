@@ -389,6 +389,44 @@ Deployment preparation should not change analytics logic:
 - SAMPLE mode must not write `data/ticks`.
 - Existing tabs must continue to work.
 
+## v1.6 Fund / ETF Theme Exposure CSV Checks
+
+CSV profile configuration must remain a local, non-account template:
+
+- `sample_data/fund_profiles/sample_fund_profiles.csv` exists.
+- CSV includes `profile_id`, `profile_name`, `fund_code`, `fund_type`, `description`, `theme_name`, `exposure_weight`, `exposure_role`, and `notes`.
+- All sample `fund_code` values use the `DEMO-` prefix.
+- CSV does not include real asset fields such as amount, shares, cost, profit, account, or balance.
+- CSV themes should match `config/theme_taxonomy.json`.
+- Unknown themes are reported by validation.
+- Negative or nonnumeric weights are reported as errors.
+- Weights above 1 and duplicated profile-theme rows are reported as warnings.
+- Holding-related tab shows CSV validation overview, profile summary, theme exposure detail, and observation summary.
+- CSV import does not trigger AKShare.
+- CSV import does not write `data/ticks`.
+- CSV import does not overwrite `config/fund_profiles.json`.
+- CSV text and generated observation text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
+- CSV text must not describe future price or fund NAV prediction.
+
+`smoke_check.py` should report:
+
+- sample fund profile row count
+- sample profile count
+- validation label
+- warning count
+- error count
+
+`verify_runtime.py` should report:
+
+- fund profile csv path
+- csv profile count
+- csv row count
+- csv validation label
+- csv warning count
+- csv error count
+- whether profile summary, theme exposure table, theme radar merge, and observation summary can be built
+- profile observation forbidden hits
+
 `smoke_check.py` should report:
 
 - `.streamlit/config.toml`

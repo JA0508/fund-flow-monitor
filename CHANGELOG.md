@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v1.6
+
+- Fund / ETF theme exposure CSV template.
+- 新增 `sample_data/fund_profiles/sample_fund_profiles.csv` 示例配置。
+- 新增 `src/fund_profile_importer.py`，支持 CSV 读取、标准化、校验和主题雷达合并观察。
+- 持仓相关池 tab 增加 CSV 配置来源、校验概览、Profile 概览、主题暴露明细和观察摘要。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 CSV profile readiness 检查。
+
 ## v1.5
 
 - Streamlit Cloud deployment preparation.

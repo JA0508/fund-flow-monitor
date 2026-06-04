@@ -1,0 +1,21 @@
+profile_id,profile_name,fund_code,fund_type,description,theme_name,exposure_weight,exposure_role,notes
+DEMO_SEMI,半导体主题基金示例,DEMO-SEMI,主题基金,合成示例配置，仅用于主题暴露观察演示。,半导体/芯片链,0.70,core,示例主题暴露，不代表真实基金持仓。
+DEMO_SEMI,半导体主题基金示例,DEMO-SEMI,主题基金,合成示例配置，仅用于主题暴露观察演示。,AI算力/TMT,0.20,satellite,示例主题暴露，不包含份额、成本或收益。
+DEMO_SEMI,半导体主题基金示例,DEMO-SEMI,主题基金,合成示例配置，仅用于主题暴露观察演示。,证券金融,0.10,watch,用于观察相关主题资金状态。
+DEMO_AI,AI 科技主题基金示例,DEMO-AI,主题基金,合成示例配置，仅用于主题暴露观察演示。,AI算力/TMT,0.65,core,示例主题暴露，不代表真实基金持仓。
+DEMO_AI,AI 科技主题基金示例,DEMO-AI,主题基金,合成示例配置，仅用于主题暴露观察演示。,半导体/芯片链,0.20,satellite,用于观察科技主题内部资金分化。
+DEMO_AI,AI 科技主题基金示例,DEMO-AI,主题基金,合成示例配置，仅用于主题暴露观察演示。,消费,0.15,watch,示例辅助主题，不包含账户信息。
+DEMO_NEWENERGY,新能源主题基金示例,DEMO-NEWENERGY,主题基金,合成示例配置，仅用于主题暴露观察演示。,新能源链,0.75,core,示例主题暴露，不代表真实基金持仓。
+DEMO_NEWENERGY,新能源主题基金示例,DEMO-NEWENERGY,主题基金,合成示例配置，仅用于主题暴露观察演示。,半导体/芯片链,0.10,satellite,用于观察产业链交叉主题。
+DEMO_NEWENERGY,新能源主题基金示例,DEMO-NEWENERGY,主题基金,合成示例配置，仅用于主题暴露观察演示。,红利防御,0.15,hedge,示例防御观察主题。
+DEMO_DIVIDEND,红利防御主题基金示例,DEMO-DIVIDEND,ETF,合成示例配置，仅用于主题暴露观察演示。,红利防御,0.80,core,示例主题暴露，不代表真实 ETF 持仓。
+DEMO_DIVIDEND,红利防御主题基金示例,DEMO-DIVIDEND,ETF,合成示例配置，仅用于主题暴露观察演示。,证券金融,0.15,satellite,用于观察金融相关主题状态。
+DEMO_DIVIDEND,红利防御主题基金示例,DEMO-DIVIDEND,ETF,合成示例配置，仅用于主题暴露观察演示。,消费,0.05,watch,示例辅助主题。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,半导体/芯片链,0.18,watch,示例主题暴露，不读取真实账户。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,AI算力/TMT,0.18,watch,示例主题暴露，不包含真实金额。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,新能源链,0.14,watch,示例主题暴露，不包含份额或收益。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,红利防御,0.18,watch,用于观察主题资金状态。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,医药,0.12,watch,用于观察医药主题资金状态。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,消费,0.10,watch,用于观察消费主题资金状态。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,军工,0.05,watch,用于观察军工主题资金状态。
+DEMO_BALANCED,均衡配置观察组合示例,DEMO-BALANCED,观察组合,合成示例配置，仅用于作品集演示主题映射流程。,证券金融,0.05,watch,用于观察金融主题资金状态。

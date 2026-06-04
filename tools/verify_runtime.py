@@ -18,6 +18,16 @@ from src.fund_profiles import (  # noqa: E402
     load_fund_profiles,
     validate_fund_profile,
 )
+from src.fund_profile_importer import (  # noqa: E402
+    SAMPLE_FUND_PROFILE_CSV,
+    build_profile_summary_from_csv,
+    build_profile_theme_exposure_table,
+    load_fund_profiles_csv,
+    merge_profile_exposure_with_theme_radar,
+    summarize_profile_observations,
+    validate_fund_profiles_csv,
+    validate_profile_observation_text,
+)
 from src.intraday_hotspots import (  # noqa: E402
     build_intraday_hotspot_pool,
     build_intraday_hotspot_summary,
@@ -413,6 +423,37 @@ def _verify_theme_taxonomy(latest_df: pd.DataFrame, watchlist_themes: list[str],
     print(f"  overlap warning count: {len(overlap) if isinstance(overlap, pd.DataFrame) else 0}")
 
 
+def _verify_fund_profile_csv(radar: pd.DataFrame, taxonomy: dict) -> None:
+    print("基金/ETF 主题暴露 CSV 检查:")
+    csv_path = PROJECT_ROOT / SAMPLE_FUND_PROFILE_CSV
+    csv_df = load_fund_profiles_csv(str(csv_path))
+    validation = validate_fund_profiles_csv(csv_df, taxonomy)
+    summary = build_profile_summary_from_csv(csv_df, validation)
+    exposure = build_profile_theme_exposure_table(csv_df, taxonomy)
+    merged = merge_profile_exposure_with_theme_radar(exposure, radar)
+    observation = summarize_profile_observations(merged)
+    text_parts = []
+    if not merged.empty and "observation_reason" in merged.columns:
+        text_parts.extend(merged["observation_reason"].dropna().astype(str).tolist())
+    if not observation.empty and "profile_observation_reason" in observation.columns:
+        text_parts.extend(observation["profile_observation_reason"].dropna().astype(str).tolist())
+    forbidden_hits = validate_profile_observation_text(" ".join(text_parts))
+    print(f"  fund profile csv path: {SAMPLE_FUND_PROFILE_CSV}")
+    print(f"  csv exists: {csv_path.exists()}")
+    print(f"  csv profile count: {validation.get('profile_count')}")
+    print(f"  csv row count: {validation.get('row_count')}")
+    print(f"  csv validation label: {validation.get('validation_label')}")
+    print(f"  csv warning count: {validation.get('warning_count')}")
+    print(f"  csv error count: {validation.get('error_count')}")
+    print(f"  是否可以构建 profile summary: {not summary.empty}")
+    print(f"  是否可以构建 profile theme exposure table: {not exposure.empty}")
+    print(f"  是否可以合并当前 theme_radar: {not merged.empty}")
+    print(f"  是否可以生成 profile observation summary: {not observation.empty}")
+    print(f"  profile observation forbidden_hits: {forbidden_hits}")
+    if validation.get("unknown_themes"):
+        print(f"  unknown themes: {validation.get('unknown_themes')}")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -508,7 +549,9 @@ def main() -> int:
     print(f"holding related rows: {len(holding_pool)}")
     if missing_themes:
         print(f"fund profile theme warning: 以下主题未在当前 theme_radar_df 中匹配: {missing_themes}")
+    taxonomy = load_theme_taxonomy()
     _verify_theme_taxonomy(latest, watchlist_themes, fund_exposure)
+    _verify_fund_profile_csv(radar, taxonomy)
     print("fund summary Top 3:")
     if fund_summary.empty:
         print("  <empty>")

@@ -10,6 +10,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
+from src.fund_profile_importer import (  # noqa: E402
+    build_profile_theme_exposure_table,
+    load_fund_profiles_csv,
+    validate_fund_profiles_csv,
+)
 from src import insight_brief  # noqa: E402
 from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_date  # noqa: E402
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
@@ -30,6 +35,7 @@ REQUIRED_FILES = (
     "src/theme_coverage.py",
     "src/theme_taxonomy.py",
     "src/fund_profiles.py",
+    "src/fund_profile_importer.py",
     "src/insight_brief.py",
     "src/intraday_hotspots.py",
     "src/multi_day_trends.py",
@@ -42,6 +48,7 @@ REQUIRED_FILES = (
     "config/theme_taxonomy.json",
     "sample_data/ticks/sector_flow_2026-01-15.csv",
     "sample_data/ticks/sector_flow_2026-01-16.csv",
+    "sample_data/fund_profiles/sample_fund_profiles.csv",
     "README.md",
 )
 
@@ -138,6 +145,9 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     latest_csv = find_latest_csv(project_root / "data/ticks")
     catalog = build_snapshot_catalog(str(project_root / "data/ticks"))
     sample_catalog = build_sample_snapshot_catalog(str(project_root / "sample_data/ticks"))
+    sample_profile_csv = load_fund_profiles_csv(str(project_root / "sample_data/fund_profiles/sample_fund_profiles.csv"))
+    sample_profile_validation = validate_fund_profiles_csv(sample_profile_csv, load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json")))
+    sample_profile_exposure = build_profile_theme_exposure_table(sample_profile_csv, load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json")))
     return {
         "project_root": str(project_root),
         "python": check_python_version(),
@@ -156,12 +166,20 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "date_count": int(len(sample_catalog)),
             "latest_sample_date": get_latest_sample_date(sample_catalog) or "<none>",
         },
+        "sample_profile_csv": {
+            "row_count": int(sample_profile_validation.get("row_count", 0)),
+            "profile_count": int(sample_profile_validation.get("profile_count", 0)),
+            "validation_label": sample_profile_validation.get("validation_label", "--"),
+            "warning_count": int(sample_profile_validation.get("warning_count", 0)),
+            "error_count": int(sample_profile_validation.get("error_count", 0)),
+            "exposure_rows": int(len(sample_profile_exposure)),
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.5 本地冒烟检查")
+    print("Fund Flow Monitor v1.6 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -201,6 +219,11 @@ def main() -> int:
     sample_catalog = report["sample_catalog"]
     print(f"SAMPLE 样例日期数量: {sample_catalog['date_count']}")
     print(f"最新 SAMPLE 日期: {sample_catalog['latest_sample_date']}")
+    sample_profile = report["sample_profile_csv"]
+    print(f"SAMPLE fund profile CSV 行数: {sample_profile['row_count']}")
+    print(f"SAMPLE fund profile 数量: {sample_profile['profile_count']}")
+    print(f"SAMPLE fund profile validation: {sample_profile['validation_label']}")
+    print(f"SAMPLE fund profile warnings/errors: {sample_profile['warning_count']} / {sample_profile['error_count']}")
 
     ok = (
         py["ok"]
@@ -211,6 +234,8 @@ def main() -> int:
         and taxonomy["ok"]
         and report["insight_brief_import"]
         and sample_catalog["date_count"] >= 2
+        and sample_profile["profile_count"] >= 5
+        and sample_profile["error_count"] == 0
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1
