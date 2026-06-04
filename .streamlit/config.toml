@@ -1,0 +1,25 @@
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#f0c65a"
+backgroundColor = "#050505"
+secondaryBackgroundColor = "#0B0F14"
+textColor = "#e5e7eb"
+linkColor = "#f0c65a"
+codeBackgroundColor = "#0B0F14"
+borderColor = "#1f2937"
+baseRadius = "8px"
+showWidgetBorder = true
+showSidebarBorder = true
+
+[theme.sidebar]
+backgroundColor = "#080808"
+secondaryBackgroundColor = "#0B0F14"
+textColor = "#e5e7eb"
+primaryColor = "#f0c65a"
+borderColor = "#1f2937"

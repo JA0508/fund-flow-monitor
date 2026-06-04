@@ -17,9 +17,12 @@ from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_th
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
 
 
-REQUIRED_IMPORTS = ("streamlit", "pandas", "plotly", "akshare")
+REQUIRED_IMPORTS = ("streamlit", "pandas", "plotly", "akshare", "numpy")
 REQUIRED_FILES = (
     "app.py",
+    "requirements.txt",
+    ".streamlit/config.toml",
+    ".streamlit/secrets.example.toml",
     "src/theme_pool.py",
     "src/theme_radar.py",
     "src/concept_flow.py",
@@ -37,6 +40,8 @@ REQUIRED_FILES = (
     "config/watchlist.json",
     "config/fund_profiles.json",
     "config/theme_taxonomy.json",
+    "sample_data/ticks/sector_flow_2026-01-15.csv",
+    "sample_data/ticks/sector_flow_2026-01-16.csv",
     "README.md",
 )
 
@@ -156,7 +161,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.4 本地冒烟检查")
+    print("Fund Flow Monitor v1.5 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")

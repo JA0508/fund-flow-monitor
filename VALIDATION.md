@@ -363,6 +363,52 @@ Forbidden wording check:
 - SAMPLE text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
 - SAMPLE text must not describe future price or fund NAV prediction.
 
+## v1.5 Deployment And First-run Checks
+
+Deployment preparation should not change analytics logic:
+
+- `requirements.txt` includes at least `streamlit`, `pandas`, `plotly`, `akshare`, `numpy`, and `pytest`.
+- `.streamlit/config.toml` exists.
+- `.streamlit/config.toml` uses dark theme and `server.headless = true`.
+- `.streamlit/secrets.example.toml` exists.
+- `.streamlit/secrets.toml` must not be committed.
+- `.gitignore` keeps ignoring `.streamlit/secrets.toml`, `.venv/`, `.env`, and `data/ticks/*.csv`.
+- `sample_data/ticks/*.csv` must not be ignored.
+- README includes:
+  - project one-line description
+  - project boundary
+  - SAMPLE mode explanation
+  - Streamlit Cloud deployment notes
+  - first-run instructions
+- If real cache is empty or real fetch fails without cache, the app shows a clear first-run guide:
+  - use SAMPLE data
+  - use DEMO for UI testing
+  - retry real data later
+- SAMPLE mode remains explicit and never appears as `LIVE`, `CACHE`, or `HISTORY`.
+- SAMPLE mode must not trigger AKShare.
+- SAMPLE mode must not write `data/ticks`.
+- Existing tabs must continue to work.
+
+`smoke_check.py` should report:
+
+- `.streamlit/config.toml`
+- `.streamlit/secrets.example.toml`
+- sample CSV files
+- numpy import
+- sample catalog date count
+
+`verify_runtime.py` should report:
+
+- requirements check
+- theme.base
+- server.headless
+- browser.gatherUsageStats
+- whether real `secrets.toml` exists in the project directory
+
+Forbidden wording check:
+
+- Deployment and first-run text must not include action-oriented investment wording.
+
 ## Data-source roadmap
 
 This Streamlit MVP intentionally keeps the request strategy small:

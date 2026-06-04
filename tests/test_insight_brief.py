@@ -22,6 +22,9 @@ def test_build_data_context_summary_status_labels():
     assert build_data_context_summary("2026-06-03", "CACHE", summary, "严格代表口径")["data_context_label"] == "缓存观察"
     assert build_data_context_summary("2026-06-01", "HISTORY", summary, "严格代表口径")["data_context_label"] == "历史回放"
     assert build_data_context_summary("2026-06-03", "DEMO", summary, "严格代表口径")["data_context_label"] == "模拟演示"
+    sample = build_data_context_summary("2026-01-16", "SAMPLE", summary, "严格代表口径")
+    assert sample["data_context_label"] == "演示样例"
+    assert "不代表真实行情" in sample["data_context_reason"]
     assert build_data_context_summary("2026-06-03", "EMPTY", {}, "严格代表口径")["data_context_label"] == "暂无真实数据"
 
 

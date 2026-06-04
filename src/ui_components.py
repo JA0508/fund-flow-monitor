@@ -41,6 +41,9 @@ def inject_global_css() -> None:
         .demo-alert { border: 1px solid rgba(255, 179, 0, .55); background: rgba(255, 179, 0, .10); color: #ffd166; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; text-align: center; font-weight: 800; letter-spacing: .02em; }
         .sample-alert { border: 1px solid rgba(240, 198, 90, .42); background: rgba(240, 198, 90, .10); color: #f0c65a; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; text-align: center; font-weight: 800; letter-spacing: .02em; }
         .cache-alert { border: 1px solid rgba(96, 165, 250, .25); background: rgba(37, 99, 235, .08); color: #bfdbfe; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; font-size: 13px; }
+        .onboarding-card { border: 1px solid rgba(240,198,90,.28); background: linear-gradient(135deg, rgba(240,198,90,.10), rgba(11,15,20,.92)); color: #d1d5db; padding: 13px 15px; border-radius: 8px; margin: 8px 0 12px; }
+        .onboarding-title { color: #f0c65a; font-weight: 850; font-size: 15px; margin-bottom: 6px; }
+        .onboarding-list { margin: 4px 0 0 18px; padding: 0; line-height: 1.65; }
         .error-box { border: 1px solid rgba(248,113,113,.45); background: rgba(127,29,29,.35); color: #fecaca; padding: 10px 12px; border-radius: 8px; margin: 8px 0; }
         .rank-title { font-size: 17px; font-weight: 800; margin: 6px 0 8px; }
         .rank-panel { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; }
@@ -689,6 +692,23 @@ def render_error_box(error: str | None, has_cache: bool) -> None:
             )
         with st.expander("查看错误详情", expanded=False, icon=":material/error:"):
             st.code(error)
+
+
+def render_first_run_guide(reason: str | None = None) -> None:
+    detail = escape(reason or "当前没有可用真实缓存或实时抓取暂不可用。")
+    html = (
+        "<div class='onboarding-card'>"
+        "<div class='onboarding-title'>首次访问提示</div>"
+        f"<div>{detail} 你可以：</div>"
+        "<ol class='onboarding-list'>"
+        "<li>切换到 <b>SAMPLE 演示样例数据</b>，完整体验页面功能。</li>"
+        "<li>开启 <b>DEMO</b> 测试 UI。</li>"
+        "<li>稍后重试真实数据抓取。</li>"
+        "</ol>"
+        "<div class='radar-meta'>SAMPLE 是仓库内置合成 CSV，不代表真实行情，不触发 AKShare，也不会写入 data/ticks。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_concept_error_box(error: str | None, has_cache: bool) -> None:

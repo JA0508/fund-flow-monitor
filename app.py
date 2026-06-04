@@ -100,6 +100,7 @@ from src.ui_components import (
     render_error_box,
     render_brief_download,
     render_brief_overview_cards,
+    render_first_run_guide,
     render_fund_profile_overview,
     render_fund_summary_cards,
     render_holding_related_table,
@@ -260,6 +261,11 @@ def main() -> None:
             key="data_source_mode",
         )
         sample_mode = data_source_mode == "演示样例数据"
+        if not sample_mode and snapshot_catalog_df.empty:
+            st.warning(
+                "当前没有本地真实缓存。公开部署或首次运行时，建议切换到 SAMPLE 演示样例数据体验完整功能。",
+                icon=":material/info:",
+            )
         st.markdown("### 数据日期 / 历史回放")
         history_mode_requested = False
         if sample_mode:
@@ -710,9 +716,11 @@ def main() -> None:
             if sample_mode:
                 st.caption("暂无可用演示样例数据，可运行 python tools/generate_sample_data.py 生成。")
             else:
-                st.caption("当前没有本地真实缓存。你可以：1. 等待实时抓取成功；2. 使用演示样例数据体验完整功能；3. 开启 DEMO 进行 UI 测试。")
+                render_first_run_guide("当前没有可用真实缓存或实时抓取暂不可用。")
         elif not can_fetch and not demo_mode and has_display_cache:
             st.caption("非交易时间，展示最近缓存数据。")
+        if error and not has_display_cache and not sample_mode:
+            render_first_run_guide("本轮真实数据抓取失败，且当前没有可用真实缓存。")
         render_error_box(error, has_cache=has_display_cache)
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         st.markdown(
@@ -800,6 +808,7 @@ def main() -> None:
             unsafe_allow_html=True,
         )
         if data_status == "EMPTY":
+            render_first_run_guide("当前没有可用真实缓存或实时抓取暂不可用。")
             st.markdown(
                 "<div class='rank-panel'><div class='rank-empty'>暂无可用真实缓存，简报当前仅能生成 EMPTY 数据说明。</div></div>",
                 unsafe_allow_html=True,

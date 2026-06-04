@@ -21,6 +21,7 @@ def test_check_project_files_reports_missing_files(tmp_path):
     result = check_project_files(tmp_path)
     assert result["app.py"] is True
     assert result["src/theme_pool.py"] is False
+    assert result[".streamlit/config.toml"] is False
 
 
 def test_load_watchlist_status_reads_custom_file(tmp_path):

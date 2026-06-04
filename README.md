@@ -1,5 +1,9 @@
 # Fund Flow Monitor / 养基宝主题资金流雷达
 
+A Streamlit-based A-share fund-flow dashboard with theme radar, intraday hotspots, multi-day trends, holding-related pools, taxonomy audit, observation brief export, and reproducible SAMPLE mode.
+
+> 本项目用于学习研究、可视化展示和基金主题观察。它不是基金净值工具，不是股票交易系统，不提供买卖建议，也不预测未来走势。
+
 ## 1. Project Overview
 
 Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit、AKShare、Plotly 和 pandas** 构建的 A 股主题资金流监测 MVP。项目使用 AKShare 获取东方财富行业/概念板块主力资金流数据，将盘中快照保存为本地 CSV，并通过“基金观察池”把原始行业板块归并为更适合基金投资观察的主题，例如半导体/芯片链、AI算力/TMT、新能源链、红利防御、医药和证券金融。
@@ -40,6 +44,16 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - CSV 数据质量面板：展示快照日期、行数、时间点数量、行业/概念行数和质量标签。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
+
+## First-run Experience
+
+新用户 clone 仓库或打开 Streamlit Cloud 时，通常没有本地真实 `data/ticks/*.csv`。v1.5 的默认体验是：
+
+- 真实数据模式继续保持可信状态，不把缓存、历史、样例或模拟数据伪装为实时行情。
+- 如果 AKShare 暂不可用或真实缓存为空，页面会提示切换到 `SAMPLE 演示样例数据`。
+- SAMPLE 模式读取仓库内置合成 CSV：`sample_data/ticks/*.csv`。
+- SAMPLE 模式可以展示实时曲线、主题雷达、日内热点、多日趋势、持仓相关池、观察简报、排行榜和数据说明。
+- SAMPLE 模式不触发 AKShare，不读取真实缓存，也不会写入 `data/ticks`。
 
 ## Portfolio Description
 
@@ -376,14 +390,20 @@ config/watchlist.json
 ## 16. Quick Start
 
 ```bash
+git clone <repo-url>
 cd fund-flow-monitor
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python tools/generate_sample_data.py
-python tools/verify_runtime.py
 streamlit run app.py
 ```
+
+首次打开页面后：
+
+1. 选择 `真实数据 / 本地缓存`：使用 AKShare 和本地真实 CSV。
+2. 选择 `演示样例数据`：使用合成 SAMPLE 数据完整体验页面。
+3. 开启 `DEMO`：仅测试 UI，不写入 CSV。
 
 可选：先检查 AKShare 接口。
 
@@ -392,7 +412,20 @@ python tools/probe_akshare.py
 python tools/probe_concept_flow.py
 ```
 
-## 17. Validation
+## 17. Streamlit Cloud Deployment
+
+部署到 Streamlit Cloud 时：
+
+- Main file path: `app.py`
+- Python dependencies: `requirements.txt`
+- Theme and headless config: `.streamlit/config.toml`
+- Secrets: 当前项目不需要 secrets；如未来需要，请在 `.streamlit/secrets.toml` 本地配置，仓库只提交 `.streamlit/secrets.example.toml`。
+- Real cache: `data/ticks/*.csv` 不提交到 GitHub。
+- Demo package: `sample_data/ticks/*.csv` 会提交到 GitHub，用于公开演示和离线体验。
+
+如果云端 AKShare 访问不稳定，页面仍可通过 SAMPLE 模式展示完整产品能力。SAMPLE 是合成数据，不代表真实行情。
+
+## 18. Validation
 
 ```bash
 python -m pytest -q
@@ -403,7 +436,7 @@ python tools/verify_runtime.py
 
 `tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要和 sample catalog。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示和 SAMPLE 样例链路。
 
-## 18. Known Limitations
+## 19. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -419,8 +452,9 @@ python tools/verify_runtime.py
 - 主题库仍是轻量人工规则，需要后续结合基金持仓、ETF 成分和行业分类体系持续校准。
 - 观察简报是基于当前页面结果的规则化摘要，不调用大模型，不生成预测结论。
 - SAMPLE 样例数据是人工合成的演示包，只用于复现页面功能，不代表真实行情。
+- Streamlit Cloud 上 AKShare 访问可能受网络环境影响；公开展示时可使用 SAMPLE 模式。
 
-## 19. Roadmap
+## 20. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
@@ -431,6 +465,7 @@ python tools/verify_runtime.py
 - v1.2：主题库配置化、主题覆盖审计、归并质量面板。
 - v1.3：主题观察简报、统一解释层、Markdown 导出。
 - v1.4：可复现演示模式、合成样例数据包、首次运行体验优化。
-- v1.5+：ETF / 基金成分映射增强、观察简报模板优化、主题库人工编辑面板、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
+- v1.5：Streamlit Cloud 部署准备、GitHub 作品集展示优化、首次访问体验打磨。
+- v1.6+：ETF / 基金成分映射增强、观察简报模板优化、主题库人工编辑面板、多日趋势可视化图表增强、数据库存储、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

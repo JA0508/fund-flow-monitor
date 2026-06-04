@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v1.5
+
+- Streamlit Cloud deployment preparation.
+- 新增 `.streamlit/config.toml` 深色主题和 headless 配置。
+- 新增 `.streamlit/secrets.example.toml`，明确真实 secrets 不提交。
+- README 增强首次运行、SAMPLE 模式和 Streamlit Cloud 部署说明。
+- 首次访问时若真实缓存为空或抓取不可用，页面提示切换 SAMPLE 或 DEMO。
+- `smoke_check.py` 和 `verify_runtime.py` 增加部署配置与 sample package 检查。
+
 ## v1.4
 
 - Reproducible sample data mode.

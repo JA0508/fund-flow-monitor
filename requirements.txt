@@ -2,8 +2,8 @@ streamlit
 streamlit-autorefresh
 akshare
 pandas
+numpy
 plotly
 python-dotenv
 pytz
 pytest
-

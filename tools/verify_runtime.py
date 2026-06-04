@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tomllib
 from pathlib import Path
 
 import pandas as pd
@@ -71,6 +72,35 @@ from src.theme_taxonomy import (  # noqa: E402
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist  # noqa: E402
 
 DEMO_CHECK_FIELDS = ("source", "sector_type", "mode", "data_mode")
+
+
+def _verify_deployment_files() -> None:
+    print("部署配置检查:")
+    requirements = PROJECT_ROOT / "requirements.txt"
+    config_path = PROJECT_ROOT / ".streamlit/config.toml"
+    secrets_example = PROJECT_ROOT / ".streamlit/secrets.example.toml"
+    secrets_real = PROJECT_ROOT / ".streamlit/secrets.toml"
+    required_packages = {"streamlit", "pandas", "plotly", "akshare", "numpy", "pytest"}
+    packages = set()
+    if requirements.exists():
+        packages = {
+            line.strip().split("==")[0].split(">=")[0].split("<=")[0]
+            for line in requirements.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        }
+    missing_packages = sorted(required_packages - packages)
+    config = {}
+    if config_path.exists():
+        with config_path.open("rb") as handle:
+            config = tomllib.load(handle)
+    print(f"  requirements.txt 存在: {requirements.exists()}")
+    print(f"  requirements 缺失关键依赖: {missing_packages}")
+    print(f"  .streamlit/config.toml 存在: {config_path.exists()}")
+    print(f"  theme.base: {config.get('theme', {}).get('base')}")
+    print(f"  server.headless: {config.get('server', {}).get('headless')}")
+    print(f"  browser.gatherUsageStats: {config.get('browser', {}).get('gatherUsageStats')}")
+    print(f"  secrets.example 存在: {secrets_example.exists()}")
+    print(f"  secrets.toml 是否被放入项目目录: {secrets_real.exists()}")
 
 
 def _akshare_info() -> tuple[str, bool]:
@@ -405,6 +435,7 @@ def main() -> int:
     print(f"最新 captured_time: {latest_time}")
     sector_type = latest["sector_type"].iloc[0] if not latest.empty and "sector_type" in latest else "<none>"
     print(f"当前 sector_type: {sector_type}")
+    _verify_deployment_files()
     _verify_historical_replay(snapshot_catalog, [])
     _verify_multi_day_trends(snapshot_catalog)
     _verify_sample_mode()
