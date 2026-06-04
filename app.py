@@ -75,6 +75,7 @@ from src.snapshot_catalog import (
     infer_view_data_status,
     load_snapshot_by_date,
 )
+from src.snapshot_quality import build_snapshot_quality_report
 from src.sample_data import (
     SAMPLE_DIR,
     build_sample_snapshot_catalog,
@@ -124,6 +125,8 @@ from src.ui_components import (
     render_multi_day_trend_table,
     render_rank_tables,
     render_snapshot_catalog_table,
+    render_snapshot_quality_cards,
+    render_snapshot_quality_notes,
     render_status_bar,
     render_observation_brief_cards,
     render_theme_concept_cards,
@@ -260,6 +263,7 @@ def main() -> None:
     latest_snapshot_date = get_latest_snapshot_date(snapshot_catalog_df)
     sample_catalog_df = build_sample_snapshot_catalog()
     latest_sample_date = get_latest_sample_date(sample_catalog_df)
+    snapshot_quality_report = build_snapshot_quality_report()
 
     with st.sidebar:
         st.header("监测设置")
@@ -909,14 +913,36 @@ def main() -> None:
             "- EMPTY 表示暂无可用真实缓存，可等待正常抓取或启用 DEMO 进行 UI 测试。\n"
             "- 历史回放只用于观察已保存的资金流状态。"
         )
+        render_snapshot_quality_cards(snapshot_quality_report)
+        render_snapshot_quality_notes(snapshot_quality_report)
+        if int(snapshot_quality_report.get("local_file_count", 0) or 0) == 0:
+            st.markdown(
+                "<div class='concept-note'>当前暂无本地真实 CSV 缓存。可以使用 SAMPLE 演示数据体验功能，也可以手动运行 "
+                "<code>python tools/collect_market_snapshot.py --dry-run</code> 或 "
+                "<code>python tools/collect_market_snapshot.py</code> 采集一次真实快照。页面不会自动执行采集脚本。</div>",
+                unsafe_allow_html=True,
+            )
+        render_snapshot_catalog_table(
+            snapshot_quality_report.get("local_catalog_df", pd.DataFrame()),
+            title="本地真实缓存文件质量目录",
+        )
+        render_snapshot_catalog_table(
+            snapshot_quality_report.get("sample_catalog_df", pd.DataFrame()),
+            title="SAMPLE 样例数据文件质量目录",
+        )
+        st.markdown(
+            "- `data/ticks` 是本地真实缓存目录，不提交 GitHub。\n"
+            "- `sample_data/ticks` 是合成演示数据目录，可提交 GitHub，但不代表真实行情。\n"
+            "- 数据质量面板只检查文件、字段、重复记录和基础数值，不做投资判断。"
+        )
         st.markdown("#### 真实缓存目录 data/ticks")
-        render_snapshot_catalog_table(snapshot_catalog_df)
+        render_snapshot_catalog_table(snapshot_catalog_df, title="历史回放快照目录")
         st.markdown("#### 演示样例目录 sample_data/ticks")
         st.markdown(
             "- `sample_data` 是可提交到 GitHub 的合成演示数据包，用于无网络或无真实缓存时体验完整页面。\n"
             "- SAMPLE 模式不会读取 `data/ticks`，不会触发 AKShare，也不会写入真实 CSV。"
         )
-        render_snapshot_catalog_table(sample_catalog_df)
+        render_snapshot_catalog_table(sample_catalog_df, title="SAMPLE 历史回放目录")
         render_theme_taxonomy_panel(taxonomy, taxonomy_warnings, taxonomy_consistency, taxonomy_definition_df)
         render_theme_coverage_panel(coverage_report, usage_report_df, overlap_warning_df)
         st.markdown("#### 概念资金流辅助")

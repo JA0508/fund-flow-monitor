@@ -913,25 +913,99 @@ def render_data_trust_panel(
     st.markdown(html, unsafe_allow_html=True)
 
 
-def render_snapshot_catalog_table(catalog_df: pd.DataFrame, max_rows: int = 30) -> None:
-    st.markdown("<div class='radar-section-title'>CSV 快照目录</div>", unsafe_allow_html=True)
+def render_snapshot_quality_cards(report: dict) -> None:
+    st.markdown("<div class='radar-section-title'>CSV 快照数据质量</div>", unsafe_allow_html=True)
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>本地真实缓存</div><div class='trust-value'>{int(report.get('local_file_count', 0) or 0)} 个文件</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>本地缓存行数</div><div class='trust-value'>{int(report.get('local_total_rows', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>本地最新日期</div><div class='trust-value'>{escape(str(report.get('local_latest_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>本地质量</div><div class='trust-value'>{escape(str(report.get('local_quality_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>本地 Warning / Error</div><div class='trust-value'>{int(report.get('local_warning_count', 0) or 0)} / {int(report.get('local_error_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE 文件</div><div class='trust-value'>{int(report.get('sample_file_count', 0) or 0)} 个文件</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE 行数</div><div class='trust-value'>{int(report.get('sample_total_rows', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE 最新日期</div><div class='trust-value'>{escape(str(report.get('sample_latest_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE 质量</div><div class='trust-value'>{escape(str(report.get('sample_quality_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE Warning / Error</div><div class='trust-value'>{int(report.get('sample_warning_count', 0) or 0)} / {int(report.get('sample_error_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>治理状态</div><div class='trust-value'>{escape(str(report.get('report_label', '--')))}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(report.get('report_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_snapshot_quality_notes(report: dict) -> None:
+    warnings = []
+    errors = []
+    for label, catalog in (
+        ("本地真实缓存", report.get("local_catalog_df")),
+        ("SAMPLE 样例数据", report.get("sample_catalog_df")),
+    ):
+        if isinstance(catalog, pd.DataFrame) and not catalog.empty:
+            issue_rows = catalog[(catalog.get("warning_count", 0) > 0) | (catalog.get("error_count", 0) > 0)]
+            for _, row in issue_rows.iterrows():
+                text = (
+                    f"{label} {row.get('file_name', '--')}："
+                    f"warning={int(row.get('warning_count', 0) or 0)}, "
+                    f"error={int(row.get('error_count', 0) or 0)}, "
+                    f"quality={row.get('quality_label', '--')}"
+                )
+                if int(row.get("error_count", 0) or 0):
+                    errors.append(text)
+                else:
+                    warnings.append(text)
+    if not warnings and not errors:
+        st.markdown(
+            "<div class='concept-note'>当前 CSV 快照质量检查未发现明显 warning/error。数据质量检查只做文件和字段检查，不做投资判断。</div>",
+            unsafe_allow_html=True,
+        )
+        return
+    with st.expander("查看 CSV 快照 warning / error", expanded=False):
+        if errors:
+            st.markdown("<div class='holding-warning'>" + "<br>".join(escape(item) for item in errors[:12]) + "</div>", unsafe_allow_html=True)
+        if warnings:
+            st.markdown("<div class='concept-note'>" + "<br>".join(escape(item) for item in warnings[:12]) + "</div>", unsafe_allow_html=True)
+
+
+def render_snapshot_catalog_table(catalog_df: pd.DataFrame, title: str = "CSV 快照目录", max_rows: int = 30) -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(title)}</div>", unsafe_allow_html=True)
     if catalog_df is None or catalog_df.empty:
         st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无本地 CSV 快照。</div></div>", unsafe_allow_html=True)
         return
-    headers = ["日期", "行数", "时间点", "最新时间", "行业行数", "概念行数", "文件大小", "质量标签", "说明"]
+    is_quality_catalog = "file_name" in catalog_df.columns
+    headers = (
+        ["文件", "日期", "行数", "时间点", "最新时间", "文件大小", "质量标签", "Warning", "Error"]
+        if is_quality_catalog
+        else ["日期", "行数", "时间点", "最新时间", "行业行数", "概念行数", "文件大小", "质量标签", "说明"]
+    )
     rows = []
     for _, row in catalog_df.head(max_rows).iterrows():
-        values = [
-            row.get("snapshot_date", "--"),
-            int(row.get("row_count", 0) or 0),
-            int(row.get("captured_time_count", 0) or 0),
-            row.get("latest_captured_time") or "--",
-            int(row.get("industry_rows", 0) or 0),
-            int(row.get("concept_rows", 0) or 0),
-            f"{float(row.get('file_size_kb', 0) or 0):.1f} KB",
-            row.get("quality_label", "--"),
-            row.get("quality_reason", "--"),
-        ]
+        if is_quality_catalog:
+            values = [
+                row.get("file_name", "--"),
+                row.get("data_date", "--"),
+                int(row.get("row_count", 0) or 0),
+                int(row.get("captured_time_count", 0) or 0),
+                row.get("latest_captured_time") or "--",
+                f"{float(row.get('file_size_kb', 0) or 0):.1f} KB",
+                row.get("quality_label", "--"),
+                int(row.get("warning_count", 0) or 0),
+                int(row.get("error_count", 0) or 0),
+            ]
+        else:
+            values = [
+                row.get("snapshot_date", "--"),
+                int(row.get("row_count", 0) or 0),
+                int(row.get("captured_time_count", 0) or 0),
+                row.get("latest_captured_time") or "--",
+                int(row.get("industry_rows", 0) or 0),
+                int(row.get("concept_rows", 0) or 0),
+                f"{float(row.get('file_size_kb', 0) or 0):.1f} KB",
+                row.get("quality_label", "--"),
+                row.get("quality_reason", "--"),
+            ]
         cells = "".join(f"<td>{escape(str(value))}</td>" for value in values)
         rows.append(f"<tr>{cells}</tr>")
     head = "".join(f"<th>{escape(header)}</th>" for header in headers)

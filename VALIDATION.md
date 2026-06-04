@@ -10,6 +10,55 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v1.7 Snapshot Governance Checks
+
+Run:
+
+```bash
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/collect_market_snapshot.py --no-network
+```
+
+Required checks:
+
+- `src/snapshot_quality.py` exists.
+- `tools/collect_market_snapshot.py` exists.
+- `tests/test_snapshot_quality.py` and `tests/test_collect_market_snapshot.py` pass without network access.
+- `tools/smoke_check.py` reports snapshot quality local/sample file counts.
+- `tools/verify_runtime.py` reports `snapshot_quality_report_label`, local/sample file counts, sample catalog row count, and `snapshot_quality_forbidden_hits`.
+- `tools/collect_market_snapshot.py --no-network` does not access AKShare and does not write files.
+- `tools/collect_market_snapshot.py --dry-run` may attempt a real fetch, but must not write `data/ticks`; if AKShare fails, it should print a clear error and not generate fake data.
+- The Streamlit page must not run the collection script automatically.
+- The collection script must not run as a background service, timer, or loop.
+- The collection script must not write to `sample_data/ticks`.
+- `data/ticks/*.csv` remains ignored by Git.
+- `sample_data/ticks/*.csv` remains commit-ready.
+
+Manual page checks:
+
+- `数据说明` tab contains `CSV 快照数据质量`.
+- It shows local real cache summary and SAMPLE sample data summary.
+- It shows local CSV file quality table and SAMPLE CSV file quality table.
+- Missing `data/ticks` or an empty local cache should not crash the app.
+- Bad CSV or missing fields should show warning/error in an expander rather than breaking the page.
+- The first-run prompt may show:
+
+```bash
+python tools/collect_market_snapshot.py --dry-run
+python tools/collect_market_snapshot.py
+```
+
+but it must not execute these commands from Streamlit.
+
+Text boundary checks:
+
+- Data quality text only describes file/field quality.
+- It must not describe investment conclusions, trading actions, or future price direction.
+- SAMPLE and DEMO still must not be written into `data/ticks`.
+
 For v0.5 it also checks whether the app can build:
 
 - `theme_radar_snapshot`

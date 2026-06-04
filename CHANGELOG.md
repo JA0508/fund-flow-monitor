@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v1.7
+
+- Local market snapshot collection script.
+- 新增 `tools/collect_market_snapshot.py`，支持手动采集一次行业资金流快照、`--dry-run`、`--no-network` 和重复写入防护。
+- 新增 `src/snapshot_quality.py`，支持 CSV 快照质量审计、坏 CSV 容错、缺字段检查和重复 `captured_time + sector_name` 检测。
+- 数据说明 tab 增加 CSV 快照数据质量面板，区分本地真实缓存和 SAMPLE 样例数据。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 snapshot quality readiness 检查。
+- 新增 snapshot governance tests，确保测试和运行时验证默认不访问网络。
+
 ## v1.6
 
 - Fund / ETF theme exposure CSV template.

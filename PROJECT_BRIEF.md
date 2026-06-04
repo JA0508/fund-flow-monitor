@@ -110,6 +110,12 @@ v1.5 增加 Streamlit Cloud 部署准备：`.streamlit/config.toml` 提供深色
 
 首次访问时，如果没有真实缓存或 AKShare 暂不可用，页面会提示使用 SAMPLE 演示样例数据或 DEMO。这样公开部署环境也能展示完整产品能力，同时保持真实数据、历史缓存、样例数据和模拟数据之间的边界。
 
+## 本地 CSV 快照治理
+
+v1.7 增加 `tools/collect_market_snapshot.py` 手动采集脚本和 `src/snapshot_quality.py` 快照质量审计模块。采集脚本只手动运行一次，不是后台服务，不自动循环，不高频请求 AKShare；`--dry-run` 可检查抓取和快照质量但不写文件，`--no-network` 可离线检查脚本导入和参数。
+
+数据说明页会展示本地真实缓存 `data/ticks` 与合成演示数据 `sample_data/ticks` 的文件数、行数、时间点数量、坏 CSV、缺字段和重复记录情况。质量面板只做文件和字段治理，不做投资判断。当前仍然是 CSV MVP，不是生产级数据平台。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -125,6 +131,8 @@ v1.5 增加 Streamlit Cloud 部署准备：`.streamlit/config.toml` 提供深色
 - 观察简报是规则化摘要，不调用大模型，不提供个性化投资结论。
 - SAMPLE 样例数据是合成数据，仅用于演示和测试页面能力。
 - 云端环境可能无法稳定访问免费数据源，公开演示时可使用 SAMPLE 模式。
+- 本地采集脚本是手动一次性工具，暂未提供调度、失败重试、节流队列、数据库治理或正式数据血缘追踪。
+- CSV 快照质量检查是基础审计，不替代生产级数据质量系统。
 
 ## 后续计划
 
@@ -139,4 +147,5 @@ v1.5 增加 Streamlit Cloud 部署准备：`.streamlit/config.toml` 提供深色
 - 保持演示样例数据可复现。
 - 完善 Streamlit Cloud 和 GitHub 作品集展示。
 - 增强基金/ETF 主题暴露模板和配置校验。
+- 增强本地 CSV 快照治理和采集节流策略。
 - 在 MVP 稳定后，再考虑 FastAPI + React + ECharts 重构。

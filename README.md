@@ -361,8 +361,6 @@ sample_data/ticks/sector_flow_2026-01-16.csv
 2. 如果没有网络或接口失败，选择“演示样例数据”体验完整功能。
 3. 如需重新生成样例包，可运行 `python tools/generate_sample_data.py`。
 
-## 15. Watchlist
-
 ## 15. Fund / ETF Theme Exposure Template
 
 v1.6 增加基金/ETF 主题暴露 CSV 模板，用于演示“关注基金/ETF 如何映射到基金观察主题”。
@@ -402,7 +400,41 @@ docs/templates/fund_profiles_template.csv
 - 项目不读取真实券商账户，不接券商，不推荐基金，不预测未来走势。
 - CSV 导入只用于学习研究、作品集展示和主题映射演示，不构成投资建议。
 
-## 16. Watchlist
+## 16. Local Snapshot Collection
+
+v1.7 增加手动本地采集脚本，用于采集一次当前行业资金流快照并写入 `data/ticks`。
+
+```bash
+python tools/collect_market_snapshot.py --dry-run
+python tools/collect_market_snapshot.py
+```
+
+说明：
+
+- 这是手动工具，不是后台服务，不会自动循环，不做高频抓取。
+- 默认只复用项目已有 AKShare 行业资金流数据源，不新增接口。
+- `--dry-run` 会尝试抓取并做质量检查，但不写入文件。
+- `--no-network` 只检查脚本参数和导入，不访问 AKShare，也不写入文件。
+- 默认输出到 `data/ticks/sector_flow_YYYY-MM-DD.csv`；`data/ticks/*.csv` 是本地真实缓存，不提交 GitHub。
+- 如果 AKShare 失败，脚本会输出清晰错误，不生成假数据，不写 SAMPLE。
+
+## 17. CSV Snapshot Quality
+
+v1.7 在“数据说明”tab 增加 CSV 快照数据质量面板，用于审计本地真实缓存和 SAMPLE 样例数据。
+
+检查内容包括：
+
+- CSV 文件数、行数、文件大小和最新日期。
+- `captured_time` 数量和最新时间。
+- 必需字段是否缺失。
+- `main_net_inflow_billion` 是否可解析为数值。
+- `sector_name` 是否为空。
+- 同一 `captured_time + sector_name` 是否存在明显重复追加。
+- 坏 CSV 或缺字段 CSV 会显示 warning/error，但不会让页面崩溃。
+
+数据质量面板只做文件和字段检查，不做投资判断。`sample_data/ticks` 是合成演示数据，可提交 GitHub；`data/ticks` 是本地真实缓存，继续被 `.gitignore` 忽略。
+
+## 18. Watchlist
 
 关注主题来自：
 
@@ -428,7 +460,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 17. Quick Start
+## 19. Quick Start
 
 ```bash
 git clone <repo-url>
@@ -437,6 +469,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python tools/generate_sample_data.py
+python tools/collect_market_snapshot.py --no-network
 streamlit run app.py
 ```
 
@@ -451,9 +484,10 @@ streamlit run app.py
 ```bash
 python tools/probe_akshare.py
 python tools/probe_concept_flow.py
+python tools/collect_market_snapshot.py --dry-run
 ```
 
-## 18. Streamlit Cloud Deployment
+## 20. Streamlit Cloud Deployment
 
 部署到 Streamlit Cloud 时：
 
@@ -466,18 +500,19 @@ python tools/probe_concept_flow.py
 
 如果云端 AKShare 访问不稳定，页面仍可通过 SAMPLE 模式展示完整产品能力。SAMPLE 是合成数据，不代表真实行情。
 
-## 19. Validation
+## 21. Validation
 
 ```bash
 python -m pytest -q
 python -m compileall app.py src tests tools
 python tools/smoke_check.py
 python tools/verify_runtime.py
+python tools/collect_market_snapshot.py --no-network
 ```
 
-`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要和 sample catalog。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示和 SAMPLE 样例链路。
+`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要、sample catalog 和 snapshot quality readiness。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示、SAMPLE 样例链路和 CSV 快照质量治理。`collect_market_snapshot.py --no-network` 不访问 AKShare，只验证手动采集脚本可导入和参数可用。
 
-## 20. Known Limitations
+## 22. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
@@ -495,8 +530,10 @@ python tools/verify_runtime.py
 - 观察简报是基于当前页面结果的规则化摘要，不调用大模型，不生成预测结论。
 - SAMPLE 样例数据是人工合成的演示包，只用于复现页面功能，不代表真实行情。
 - Streamlit Cloud 上 AKShare 访问可能受网络环境影响；公开展示时可使用 SAMPLE 模式。
+- `tools/collect_market_snapshot.py` 是手动一次性采集工具，不是生产级采集服务，也没有节假日、失败重试、限流队列或数据库治理。
+- CSV 快照质量检查是基础字段审计，不替代正式数据质量平台。
 
-## 21. Roadmap
+## 23. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
@@ -509,6 +546,7 @@ python tools/verify_runtime.py
 - v1.4：可复现演示模式、合成样例数据包、首次运行体验优化。
 - v1.5：Streamlit Cloud 部署准备、GitHub 作品集展示优化、首次访问体验打磨。
 - v1.6：基金/ETF 主题暴露 CSV 模板导入、配置校验、持仓相关池增强。
-- v1.7+：本地数据采集脚本与缓存治理、数据快照质量面板增强、观察简报模板 polish、presentation mode / screenshots、SQLite / DuckDB、FastAPI + React + ECharts 产品化重构。
+- v1.7：本地数据采集脚本、CSV 快照治理、数据质量面板增强。
+- v1.8+：展示 polish / presentation mode、README screenshots 更新、观察简报模板优化、本地采集节流策略增强、SQLite / DuckDB、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

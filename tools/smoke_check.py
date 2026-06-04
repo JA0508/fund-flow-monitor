@@ -18,6 +18,7 @@ from src.fund_profile_importer import (  # noqa: E402
 from src import insight_brief  # noqa: E402
 from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_date  # noqa: E402
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
+from src.snapshot_quality import build_snapshot_quality_report  # noqa: E402
 from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_theme_taxonomy  # noqa: E402
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
 
@@ -41,8 +42,10 @@ REQUIRED_FILES = (
     "src/multi_day_trends.py",
     "src/snapshot_catalog.py",
     "src/sample_data.py",
+    "src/snapshot_quality.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
+    "tools/collect_market_snapshot.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
     "config/theme_taxonomy.json",
@@ -148,6 +151,10 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     sample_profile_csv = load_fund_profiles_csv(str(project_root / "sample_data/fund_profiles/sample_fund_profiles.csv"))
     sample_profile_validation = validate_fund_profiles_csv(sample_profile_csv, load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json")))
     sample_profile_exposure = build_profile_theme_exposure_table(sample_profile_csv, load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json")))
+    snapshot_quality = build_snapshot_quality_report(
+        directory=str(project_root / "data/ticks"),
+        sample_directory=str(project_root / "sample_data/ticks"),
+    )
     return {
         "project_root": str(project_root),
         "python": check_python_version(),
@@ -174,12 +181,21 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "error_count": int(sample_profile_validation.get("error_count", 0)),
             "exposure_rows": int(len(sample_profile_exposure)),
         },
+        "snapshot_quality": {
+            "local_file_count": int(snapshot_quality.get("local_file_count", 0) or 0),
+            "sample_file_count": int(snapshot_quality.get("sample_file_count", 0) or 0),
+            "report_label": snapshot_quality.get("report_label", "--"),
+            "local_warning_count": int(snapshot_quality.get("local_warning_count", 0) or 0),
+            "local_error_count": int(snapshot_quality.get("local_error_count", 0) or 0),
+            "sample_warning_count": int(snapshot_quality.get("sample_warning_count", 0) or 0),
+            "sample_error_count": int(snapshot_quality.get("sample_error_count", 0) or 0),
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.6 本地冒烟检查")
+    print("Fund Flow Monitor v1.7 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -224,6 +240,15 @@ def main() -> int:
     print(f"SAMPLE fund profile 数量: {sample_profile['profile_count']}")
     print(f"SAMPLE fund profile validation: {sample_profile['validation_label']}")
     print(f"SAMPLE fund profile warnings/errors: {sample_profile['warning_count']} / {sample_profile['error_count']}")
+    snapshot_quality = report["snapshot_quality"]
+    print(f"snapshot quality report: {snapshot_quality['report_label']}")
+    print(f"snapshot quality local files: {snapshot_quality['local_file_count']}")
+    print(f"snapshot quality sample files: {snapshot_quality['sample_file_count']}")
+    print(
+        "snapshot quality warnings/errors: "
+        f"local {snapshot_quality['local_warning_count']}/{snapshot_quality['local_error_count']} | "
+        f"sample {snapshot_quality['sample_warning_count']}/{snapshot_quality['sample_error_count']}"
+    )
 
     ok = (
         py["ok"]
@@ -236,6 +261,7 @@ def main() -> int:
         and sample_catalog["date_count"] >= 2
         and sample_profile["profile_count"] >= 5
         and sample_profile["error_count"] == 0
+        and snapshot_quality["sample_file_count"] >= 1
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

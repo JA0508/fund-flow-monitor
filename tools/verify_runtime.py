@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import tomllib
+import importlib.util
 from pathlib import Path
 
 import pandas as pd
@@ -61,6 +62,11 @@ from src.snapshot_catalog import (  # noqa: E402
     get_latest_snapshot_date,
     get_snapshot_summary,
     load_snapshot_by_date,
+)
+from src.snapshot_quality import (  # noqa: E402
+    build_snapshot_quality_report,
+    summarize_snapshot_quality,
+    validate_snapshot_quality_text,
 )
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
@@ -454,6 +460,33 @@ def _verify_fund_profile_csv(radar: pd.DataFrame, taxonomy: dict) -> None:
         print(f"  unknown themes: {validation.get('unknown_themes')}")
 
 
+def _verify_snapshot_quality() -> None:
+    print("CSV 快照质量治理检查:")
+    report = build_snapshot_quality_report(
+        directory=str(PROJECT_ROOT / "data/ticks"),
+        sample_directory=str(PROJECT_ROOT / "sample_data/ticks"),
+    )
+    summary = summarize_snapshot_quality(report)
+    forbidden_hits = validate_snapshot_quality_text(summary)
+    sample_catalog = report.get("sample_catalog_df", pd.DataFrame())
+    collect_script = PROJECT_ROOT / "tools/collect_market_snapshot.py"
+    spec = importlib.util.spec_from_file_location("collect_market_snapshot", collect_script)
+    collect_import_ok = spec is not None and spec.loader is not None
+    if collect_import_ok and spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        collect_import_ok = hasattr(module, "build_parser") and hasattr(module, "collect_once")
+    print(f"  snapshot_quality_report_label: {report.get('report_label')}")
+    print(f"  local_file_count: {report.get('local_file_count')}")
+    print(f"  sample_file_count: {report.get('sample_file_count')}")
+    print(f"  local warning/error: {report.get('local_warning_count')} / {report.get('local_error_count')}")
+    print(f"  sample warning/error: {report.get('sample_warning_count')} / {report.get('sample_error_count')}")
+    print(f"  sample_catalog row count: {len(sample_catalog) if isinstance(sample_catalog, pd.DataFrame) else 0}")
+    print(f"  snapshot_quality_forbidden_hits: {forbidden_hits}")
+    print(f"  collect_market_snapshot.py import: {collect_import_ok}")
+    print("  verify_runtime 不执行真实采集；如需手动检查可运行 python tools/collect_market_snapshot.py --no-network。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -552,6 +585,7 @@ def main() -> int:
     taxonomy = load_theme_taxonomy()
     _verify_theme_taxonomy(latest, watchlist_themes, fund_exposure)
     _verify_fund_profile_csv(radar, taxonomy)
+    _verify_snapshot_quality()
     print("fund summary Top 3:")
     if fund_summary.empty:
         print("  <empty>")
