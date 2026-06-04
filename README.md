@@ -55,6 +55,35 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - SAMPLE 模式可以展示实时曲线、主题雷达、日内热点、多日趋势、持仓相关池、观察简报、排行榜和数据说明。
 - SAMPLE 模式不触发 AKShare，不读取真实缓存，也不会写入 `data/ticks`。
 
+## Demo Walkthrough
+
+公开演示或 Streamlit Cloud 首次访问时，推荐按下面顺序浏览：
+
+1. 在侧边栏选择 `演示样例数据`，确保没有真实缓存或网络不稳定时也能完整展示。
+2. 在侧边栏打开 `作品集演示模式`，减少调试噪音并保留关键状态提示。
+3. 查看 `实时曲线`，确认 SAMPLE / CACHE / HISTORY 等数据状态 badge 和资金流曲线。
+4. 查看 `主题雷达`，理解项目如何把原始板块资金流转译为基金观察主题。
+5. 查看 `日内热点` 和 `多日趋势`，观察本地 CSV 快照沉淀后的解释层。
+6. 查看 `持仓相关池`，了解 JSON 配置和 SAMPLE CSV 主题暴露模板。
+7. 查看 `观察简报`，下载 Markdown 报告。
+8. 查看 `数据说明`，确认数据状态、主题库治理、CSV 快照质量和截图指南。
+
+## Portfolio Presentation Mode
+
+v1.8 新增 `作品集演示模式`。它只调整页面呈现密度：首屏更突出项目定位，冗长 CSV 明细和调试信息默认折叠，便于 GitHub、Streamlit Cloud 和简历项目展示。
+
+这个模式不会改变任何主题计算、排行榜、日内热点、多日趋势或观察简报结果；不会触发 AKShare；不会写入 CSV；也不会隐藏 SAMPLE / DEMO 的非真实行情提示。
+
+## Technical Highlights
+
+- Streamlit + Plotly 深色金融大屏，支持本地运行和 Streamlit Cloud 演示。
+- 可信数据状态系统：`LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY`。
+- SAMPLE 合成数据包让新用户无真实缓存、无网络时也能复现完整功能。
+- 配置化主题库和覆盖审计，解释主题归并口径和重叠风险。
+- 基金/ETF 主题暴露 CSV 模板，展示可配置的持仓相关池流程，但不读取真实账户。
+- 观察简报 Markdown 导出，统一整合主题雷达、日内热点、多日趋势和数据质量说明。
+- 本地 CSV 快照质量治理和手动采集脚本，保持 CSV MVP 的可追溯性。
+
 ## Portfolio Description
 
 这是一个从“复刻资金流动态图”进一步升级为“基金主题资金流雷达”的数据可视化项目。系统不仅展示 A 股行业/主题主力资金净流入曲线，还通过可解释的主题归并、三档口径和自选 watchlist，将原始板块资金流转换成更适合基金投资辅助观察的产品化视图。
@@ -69,6 +98,8 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - **轻量 MVP 架构**：使用 Streamlit + Plotly + AKShare + CSV 快照实现快速验证，后续可平滑升级到 FastAPI + React + ECharts。
 
 ## 3. Screenshots
+
+截图指南见 [`docs/screenshots/SCREENSHOT_GUIDE.md`](docs/screenshots/SCREENSHOT_GUIDE.md)。README 只引用仓库中已经存在的截图，避免 GitHub 页面出现损坏图片链接。
 
 ### Real-time Fund Flow Curve
 
@@ -88,65 +119,15 @@ The ranking tab separates net inflow and net outflow lists. Inflow ranking only 
 
 ![Fund Flow Ranking](docs/screenshots/ranking.png)
 
-### Observation Brief
-
-The observation brief tab combines theme radar, intraday hotspots, multi-day trends, holding-related pool, and theme coverage audit into one Markdown-ready report. It only explains displayed or cached fund-flow states and does not predict future market moves.
-
-![Observation Brief](docs/screenshots/observation_brief.png)
-
-### Holding Related Pool
-
-The holding-related pool maps manually configured fund/ETF theme exposure to current theme fund-flow status. It does not read real accounts and does not represent real holdings.
-
-![Holding Related Pool](docs/screenshots/holding_pool.png)
-
-### Intraday Hotspots
-
-The intraday hotspot tab explains how theme fund-flow changes across local CSV snapshots during the same trading day. It observes completed intraday changes only and does not predict future moves.
-
-![Intraday Hotspots](docs/screenshots/intraday_hotspots.png)
-
-### Historical Snapshot Replay
-
-The history replay view lets users choose an existing local CSV date and review that day without triggering AKShare requests or writing new snapshots.
-
-![Historical Snapshot Replay](docs/screenshots/history_replay.png)
-
-### Multi-day Theme Trends
-
-The multi-day trend tab compares the latest theme snapshot from each cached CSV date. It only explains saved historical fund-flow states and does not predict future moves.
-
-![Multi-day Theme Trends](docs/screenshots/multi_day_trends.png)
-
-### CSV Snapshot Catalog
-
-The data explanation tab includes a CSV snapshot catalog and quality labels for each cached date.
-
-![CSV Snapshot Catalog](docs/screenshots/snapshot_catalog.png)
-
-### Sample Data Mode
-
-The sample mode uses bundled synthetic CSV snapshots under `sample_data/ticks/`, so a freshly cloned repository can demonstrate the curve, theme radar, intraday hotspots, multi-day trends, holding-related pool, and observation brief without network access or real local cache.
-
-![Sample Data Mode](docs/screenshots/sample_mode.png)
-
-### Theme Taxonomy
-
-The data explanation tab documents the configurable fund-theme taxonomy, including primary sectors, related sectors, concept keywords, aliases, and overlap notes.
-
-![Theme Taxonomy](docs/screenshots/theme_taxonomy.png)
-
-### Theme Coverage Audit
-
-The coverage audit explains how much of the latest sector snapshot is covered by the theme taxonomy and highlights high-flow sectors that are not yet mapped.
-
-![Theme Coverage Audit](docs/screenshots/theme_coverage.png)
-
 ### Data Trust Panel
 
 The data explanation tab shows the current data source, `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY` state, latest cache time, CSV snapshot count, theme mode explanation, watchlist usage, and disclaimer.
 
 ![Data Trust Panel](docs/screenshots/data_info.png)
+
+### Planned Screenshot Slots
+
+The following screenshots are recommended by the guide but are not linked until real files exist: `observation_brief.png`, `holding_pool.png`, `intraday_hotspots.png`, `history_replay.png`, `multi_day_trends.png`, `snapshot_catalog.png`, `sample_mode.png`, `theme_taxonomy.png`, and `theme_coverage.png`.
 
 ## 4. Architecture
 

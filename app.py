@@ -16,6 +16,7 @@ from src.concept_flow import (
 )
 from src.config import (
     APP_CN_NAME,
+    APP_VERSION,
     DEFAULT_SECTOR_TYPE,
     DEFAULT_TOP_IN,
     DEFAULT_TOP_OUT,
@@ -76,6 +77,16 @@ from src.snapshot_catalog import (
     load_snapshot_by_date,
 )
 from src.snapshot_quality import build_snapshot_quality_report
+from src.presentation import (
+    build_demo_walkthrough_steps,
+    build_portfolio_intro_context,
+    build_screenshot_checklist,
+    build_status_badge_config,
+    get_display_mode_options,
+    is_portfolio_mode,
+    normalize_display_mode,
+    should_show_debug_details,
+)
 from src.sample_data import (
     SAMPLE_DIR,
     build_sample_snapshot_catalog,
@@ -102,6 +113,7 @@ from src.theme_taxonomy import (
 from src.transform import normalize_sector_flow
 from src.ui_components import (
     inject_global_css,
+    render_compact_notice,
     render_divergence_cards,
     render_app_footer,
     render_concept_error_box,
@@ -110,6 +122,7 @@ from src.ui_components import (
     render_error_box,
     render_brief_download,
     render_brief_overview_cards,
+    render_demo_walkthrough_cards,
     render_first_run_guide,
     render_fund_profile_overview,
     render_fund_profile_csv_panel,
@@ -124,9 +137,12 @@ from src.ui_components import (
     render_multi_day_trend_overview,
     render_multi_day_trend_table,
     render_rank_tables,
+    render_portfolio_intro_card,
+    render_screenshot_checklist,
     render_snapshot_catalog_table,
     render_snapshot_quality_cards,
     render_snapshot_quality_notes,
+    render_status_badge,
     render_status_bar,
     render_observation_brief_cards,
     render_theme_concept_cards,
@@ -267,6 +283,16 @@ def main() -> None:
 
     with st.sidebar:
         st.header("监测设置")
+        presentation_mode_label = st.selectbox(
+            "展示模式",
+            get_display_mode_options(),
+            index=0,
+            key="presentation_mode",
+        )
+        presentation_mode_label = normalize_display_mode(presentation_mode_label)
+        portfolio_mode = is_portfolio_mode(presentation_mode_label)
+        show_debug_details = should_show_debug_details(presentation_mode_label)
+        st.caption("作品集演示模式会减少调试噪音，但保留 SAMPLE / DEMO / warning 等关键边界提示。")
         st.markdown("### 数据来源")
         data_source_mode = st.selectbox(
             "数据来源模式",
@@ -337,7 +363,7 @@ def main() -> None:
             elif latest_snapshot_date and not can_fetch:
                 st.caption(f"非交易时间自动展示最新缓存：{latest_snapshot_date}")
 
-        display_mode = st.selectbox("展示模式", ("基金观察池", "原始板块"), index=0)
+        display_mode = st.selectbox("数据展示模式", ("基金观察池", "原始板块"), index=0)
         theme_mode_label = None
         theme_mode = "strict_representative"
         if display_mode == "基金观察池":
@@ -703,12 +729,24 @@ def main() -> None:
             )
         )
 
+    status_badge_config = build_status_badge_config(data_status)
+    portfolio_intro_context = build_portfolio_intro_context(
+        app_version=APP_VERSION,
+        view_status=data_status,
+        selected_date=selected_snapshot_date or header_date,
+        display_mode=presentation_mode_label,
+    )
+    demo_walkthrough_steps = build_demo_walkthrough_steps()
+    screenshot_checklist = build_screenshot_checklist()
+
     render_header(header_date, latest_time)
+    render_portfolio_intro_card(portfolio_intro_context, compact=not portfolio_mode)
     tab_curve, tab_radar, tab_intraday, tab_multi_day, tab_holdings, tab_brief, tab_rank, tab_data = st.tabs(
         ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "观察简报", "排行榜", "数据说明")
     )
 
     with tab_curve:
+        render_status_badge(status_badge_config)
         render_status_bar(
             market_status=market_status,
             refresh_interval=refresh_interval,
@@ -727,6 +765,18 @@ def main() -> None:
             st.markdown(
                 f"<div class='small-note'>基金观察池会将相近行业/概念归并为基金主题，仅用于辅助观察。{theme_note}</div>",
                 unsafe_allow_html=True,
+            )
+        if captured_time_count < 3 and data_status not in {"EMPTY", "DEMO"}:
+            render_compact_notice(
+                "快照数量较少",
+                "当前时间点数量有限，适合观察已保存状态，曲线仍在形成中。",
+                tone="warning",
+            )
+        if data_status == "SAMPLE":
+            render_compact_notice(
+                "SAMPLE 演示样例数据",
+                "当前页面只读取 sample_data/ticks 的合成样例，不代表真实行情，不触发 AKShare，也不写入 data/ticks。",
+                tone="warning",
             )
         if data_status == "HISTORY":
             st.caption("历史回放模式不会触发 AKShare 抓取，也不会写入 CSV。")
@@ -749,6 +799,11 @@ def main() -> None:
         )
 
     with tab_radar:
+        render_compact_notice(
+            "基金主题观察",
+            "主题雷达将原始板块资金流归并为基金观察主题，只描述已展示或已缓存的资金流状态，不构成投资建议。",
+            tone="info",
+        )
         render_theme_taxonomy_status(taxonomy, taxonomy_warnings, coverage_report, taxonomy_consistency)
         render_market_temperature_card(build_market_temperature(radar_theme_df))
         render_theme_radar_cards(watchlist_radar_df, max_cards=8)
@@ -770,6 +825,8 @@ def main() -> None:
             "结果仅用于解释已发生的资金流状态，不预测未来走势，不构成投资建议。</div>",
             unsafe_allow_html=True,
         )
+        if sample_mode:
+            render_compact_notice("SAMPLE 样例说明", "当前日内热点来自合成样例快照，用于演示页面能力，不代表真实行情。", tone="warning")
         if intraday_snapshot_count < 2:
             st.markdown(
                 "<div class='rank-panel'><div class='rank-empty'>当前快照数量不足，暂无法判断日内变化。请等待更多快照或继续使用实时曲线。</div></div>",
@@ -827,7 +884,7 @@ def main() -> None:
             render_fund_profile_overview(fund_profile, fund_profile_warnings, fund_exposure_df)
             render_fund_summary_cards(fund_summary_df, max_cards=8)
             render_holding_related_table(holding_pool_df, max_rows=30)
-            with st.expander("查看 SAMPLE CSV 模板校验", expanded=False):
+            with st.expander("查看 SAMPLE CSV 模板校验", expanded=show_debug_details):
                 render_fund_profile_csv_panel(
                     SAMPLE_FUND_PROFILE_CSV,
                     sample_profile_validation,
@@ -863,6 +920,12 @@ def main() -> None:
                 "<div class='rank-panel'><div class='rank-empty'>暂无可用真实缓存，简报当前仅能生成 EMPTY 数据说明。</div></div>",
                 unsafe_allow_html=True,
             )
+        if portfolio_mode:
+            render_compact_notice(
+                "作品集演示提示",
+                "简报正文会先做动作性表达检查；通过后才提供 Markdown 下载，适合用于项目展示和复盘记录。",
+                tone="success",
+            )
         render_brief_overview_cards(brief_data_context, observation_brief, brief_forbidden_hits)
         render_observation_brief_cards(observation_brief)
         render_brief_download(brief_markdown, selected_snapshot_date or header_date, brief_forbidden_hits)
@@ -873,6 +936,14 @@ def main() -> None:
             render_concept_hotspots(concept_hotspots_df, max_rows=10)
 
     with tab_data:
+        with st.expander("作品集演示与截图指南", expanded=portfolio_mode):
+            render_demo_walkthrough_cards(demo_walkthrough_steps)
+            render_screenshot_checklist(screenshot_checklist)
+            st.markdown(
+                "- 推荐使用 SAMPLE 数据来源和作品集演示模式截图，保证可复现。\n"
+                "- 截图指南文件：`docs/screenshots/SCREENSHOT_GUIDE.md`。\n"
+                "- 截图时不要展示真实私有路径、`.env`、secrets 或个人真实缓存内容。"
+            )
         render_data_trust_panel(
             data_status=data_status,
             status_note=status_note,
@@ -922,27 +993,29 @@ def main() -> None:
                 "<code>python tools/collect_market_snapshot.py</code> 采集一次真实快照。页面不会自动执行采集脚本。</div>",
                 unsafe_allow_html=True,
             )
-        render_snapshot_catalog_table(
-            snapshot_quality_report.get("local_catalog_df", pd.DataFrame()),
-            title="本地真实缓存文件质量目录",
-        )
-        render_snapshot_catalog_table(
-            snapshot_quality_report.get("sample_catalog_df", pd.DataFrame()),
-            title="SAMPLE 样例数据文件质量目录",
-        )
+        with st.expander("查看 CSV 文件质量目录", expanded=show_debug_details):
+            render_snapshot_catalog_table(
+                snapshot_quality_report.get("local_catalog_df", pd.DataFrame()),
+                title="本地真实缓存文件质量目录",
+            )
+            render_snapshot_catalog_table(
+                snapshot_quality_report.get("sample_catalog_df", pd.DataFrame()),
+                title="SAMPLE 样例数据文件质量目录",
+            )
         st.markdown(
             "- `data/ticks` 是本地真实缓存目录，不提交 GitHub。\n"
             "- `sample_data/ticks` 是合成演示数据目录，可提交 GitHub，但不代表真实行情。\n"
             "- 数据质量面板只检查文件、字段、重复记录和基础数值，不做投资判断。"
         )
-        st.markdown("#### 真实缓存目录 data/ticks")
-        render_snapshot_catalog_table(snapshot_catalog_df, title="历史回放快照目录")
-        st.markdown("#### 演示样例目录 sample_data/ticks")
-        st.markdown(
-            "- `sample_data` 是可提交到 GitHub 的合成演示数据包，用于无网络或无真实缓存时体验完整页面。\n"
-            "- SAMPLE 模式不会读取 `data/ticks`，不会触发 AKShare，也不会写入真实 CSV。"
-        )
-        render_snapshot_catalog_table(sample_catalog_df, title="SAMPLE 历史回放目录")
+        with st.expander("查看历史回放与 SAMPLE 快照目录", expanded=show_debug_details):
+            st.markdown("#### 真实缓存目录 data/ticks")
+            render_snapshot_catalog_table(snapshot_catalog_df, title="历史回放快照目录")
+            st.markdown("#### 演示样例目录 sample_data/ticks")
+            st.markdown(
+                "- `sample_data` 是可提交到 GitHub 的合成演示数据包，用于无网络或无真实缓存时体验完整页面。\n"
+                "- SAMPLE 模式不会读取 `data/ticks`，不会触发 AKShare，也不会写入真实 CSV。"
+            )
+            render_snapshot_catalog_table(sample_catalog_df, title="SAMPLE 历史回放目录")
         render_theme_taxonomy_panel(taxonomy, taxonomy_warnings, taxonomy_consistency, taxonomy_definition_df)
         render_theme_coverage_panel(coverage_report, usage_report_df, overlap_warning_df)
         st.markdown("#### 概念资金流辅助")

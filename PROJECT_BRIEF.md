@@ -114,6 +114,8 @@ v1.5 增加 Streamlit Cloud 部署准备：`.streamlit/config.toml` 提供深色
 
 v1.7 增加 `tools/collect_market_snapshot.py` 手动采集脚本和 `src/snapshot_quality.py` 快照质量审计模块。采集脚本只手动运行一次，不是后台服务，不自动循环，不高频请求 AKShare；`--dry-run` 可检查抓取和快照质量但不写文件，`--no-network` 可离线检查脚本导入和参数。
 
+v1.8 增加作品集演示模式、统一数据状态 badge 和截图指南。作品集演示模式只优化页面呈现密度，减少冗长调试信息对首屏的干扰，不改变主题计算结果，不触发 AKShare，不写入 CSV，也不会隐藏 SAMPLE / DEMO 的非真实行情提示。`docs/screenshots/SCREENSHOT_GUIDE.md` 用于指导 GitHub、Streamlit Cloud 和简历展示截图，避免暴露真实缓存、本地路径或 secrets。
+
 数据说明页会展示本地真实缓存 `data/ticks` 与合成演示数据 `sample_data/ticks` 的文件数、行数、时间点数量、坏 CSV、缺字段和重复记录情况。质量面板只做文件和字段治理，不做投资判断。当前仍然是 CSV MVP，不是生产级数据平台。
 
 ## 当前限制

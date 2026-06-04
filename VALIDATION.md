@@ -10,6 +10,39 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v1.8 Portfolio Presentation Checks
+
+Run:
+
+```bash
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `src/presentation.py` exists.
+- Sidebar contains `展示模式` with `标准模式` and `作品集演示模式`.
+- Standard mode keeps the v1.7 experience.
+- Portfolio mode reduces debug noise but does not change calculations.
+- Portfolio mode does not trigger AKShare and does not write CSV.
+- `SAMPLE` and `DEMO` non-real-data notices remain visible.
+- Unified status badge supports `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY`.
+- `数据说明` tab includes demo walkthrough and screenshot checklist.
+- `docs/screenshots/SCREENSHOT_GUIDE.md` exists.
+- README includes Demo Walkthrough and Portfolio Presentation Mode.
+- README must not contain broken Markdown image links.
+- Page and documentation must not contain trading actions or future-direction predictions.
+
+Manual page checks:
+
+- Switch `数据来源模式` to SAMPLE and `展示模式` to `作品集演示模式`.
+- Browse `实时曲线`, `主题雷达`, `日内热点`, `多日趋势`, `持仓相关池`, `观察简报`, `排行榜`, and `数据说明`.
+- Confirm `SAMPLE` is always described as synthetic demo data and not real market data.
+- Confirm long CSV/debug details are available through expanders rather than removed.
+
 ## v1.7 Snapshot Governance Checks
 
 Run:

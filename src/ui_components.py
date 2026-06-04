@@ -41,6 +41,31 @@ def inject_global_css() -> None:
         .demo-alert { border: 1px solid rgba(255, 179, 0, .55); background: rgba(255, 179, 0, .10); color: #ffd166; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; text-align: center; font-weight: 800; letter-spacing: .02em; }
         .sample-alert { border: 1px solid rgba(240, 198, 90, .42); background: rgba(240, 198, 90, .10); color: #f0c65a; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; text-align: center; font-weight: 800; letter-spacing: .02em; }
         .cache-alert { border: 1px solid rgba(96, 165, 250, .25); background: rgba(37, 99, 235, .08); color: #bfdbfe; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; font-size: 13px; }
+        .status-badge { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 900; letter-spacing: .02em; border: 1px solid rgba(255,255,255,.14); }
+        .badge-success { color: #26e07f; background: rgba(38,224,127,.10); border-color: rgba(38,224,127,.35); }
+        .badge-info { color: #93c5fd; background: rgba(96,165,250,.10); border-color: rgba(96,165,250,.32); }
+        .badge-warning { color: #f0c65a; background: rgba(240,198,90,.12); border-color: rgba(240,198,90,.38); }
+        .badge-danger { color: #fecaca; background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.38); }
+        .badge-purple { color: #d8b4fe; background: rgba(192,132,252,.12); border-color: rgba(192,132,252,.38); }
+        .badge-neutral { color: #d1d5db; background: rgba(156,163,175,.10); border-color: rgba(156,163,175,.24); }
+        .portfolio-intro { border: 1px solid rgba(240,198,90,.24); background: linear-gradient(135deg, rgba(240,198,90,.10), rgba(8,8,8,.96) 48%, rgba(11,15,20,.95)); border-radius: 8px; padding: 13px 15px; margin: 6px 0 10px; }
+        .portfolio-intro.compact { padding: 9px 12px; margin-bottom: 7px; }
+        .portfolio-title { color: #f0c65a; font-size: 20px; font-weight: 900; margin-bottom: 3px; }
+        .portfolio-intro.compact .portfolio-title { font-size: 16px; }
+        .portfolio-subtitle { color: #e5e7eb; font-size: 13.5px; font-weight: 750; }
+        .portfolio-value { color: #aab2c0; font-size: 13px; line-height: 1.55; margin: 7px 0; }
+        .portfolio-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #8b949e; font-size: 12.5px; margin-top: 7px; }
+        .capability-list { color: #c9d1d9; font-size: 12.5px; line-height: 1.65; margin-top: 7px; }
+        .notice-card { border: 1px solid rgba(255,255,255,.10); background: #080808; border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+        .notice-title { color: #f3f4f6; font-weight: 850; font-size: 14px; margin-bottom: 4px; }
+        .notice-body { color: #aab2c0; font-size: 13px; line-height: 1.6; }
+        .notice-info { border-color: rgba(96,165,250,.25); background: rgba(37,99,235,.07); }
+        .notice-warning { border-color: rgba(240,198,90,.30); background: rgba(240,198,90,.08); }
+        .notice-danger { border-color: rgba(248,113,113,.30); background: rgba(127,29,29,.20); }
+        .notice-success { border-color: rgba(38,224,127,.24); background: rgba(38,224,127,.07); }
+        .walkthrough-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 11px 13px; min-height: 112px; margin-bottom: 8px; }
+        .walkthrough-step { color: #f0c65a; font-size: 14px; font-weight: 850; margin-bottom: 5px; }
+        .walkthrough-body { color: #aab2c0; font-size: 12.5px; line-height: 1.55; }
         .onboarding-card { border: 1px solid rgba(240,198,90,.28); background: linear-gradient(135deg, rgba(240,198,90,.10), rgba(11,15,20,.92)); color: #d1d5db; padding: 13px 15px; border-radius: 8px; margin: 8px 0 12px; }
         .onboarding-title { color: #f0c65a; font-weight: 850; font-size: 15px; margin-bottom: 6px; }
         .onboarding-list { margin: 4px 0 0 18px; padding: 0; line-height: 1.65; }
@@ -111,6 +136,90 @@ def inject_global_css() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_status_badge(status_config: dict) -> None:
+    tone = escape(str(status_config.get("tone", "neutral")))
+    label = escape(str(status_config.get("label", "--")))
+    short_label = escape(str(status_config.get("short_label", "--")))
+    description = escape(str(status_config.get("description", "")))
+    html = (
+        f"<span class='status-badge badge-{tone}'>{short_label} ｜ {label}</span>"
+        f"<span style='color:#8b949e;font-size:12.5px;margin-left:8px;'>{description}</span>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_portfolio_intro_card(intro_context: dict, compact: bool = False) -> None:
+    status = intro_context.get("status_badge", {})
+    tone = escape(str(status.get("tone", "neutral")))
+    badge = (
+        f"<span class='status-badge badge-{tone}'>"
+        f"{escape(str(status.get('short_label', '--')))} ｜ {escape(str(status.get('label', '--')))}</span>"
+    )
+    caps = " / ".join(escape(str(item)) for item in intro_context.get("key_capabilities", []))
+    notes = " ｜ ".join(escape(str(item)) for item in intro_context.get("boundary_notes", []))
+    compact_class = " compact" if compact else ""
+    extra = "" if compact else f"<div class='capability-list'>核心能力：{caps}</div><div class='capability-list'>边界：{notes}</div>"
+    html = (
+        f"<div class='portfolio-intro{compact_class}'>"
+        f"<div class='portfolio-title'>{escape(str(intro_context.get('title', APP_CN_NAME)))}</div>"
+        f"<div class='portfolio-subtitle'>{escape(str(intro_context.get('subtitle', '')))}</div>"
+        f"<div class='portfolio-value'>{escape(str(intro_context.get('value_proposition', '')))}不构成投资建议。</div>"
+        f"<div class='portfolio-meta'>{badge}<span>数据日期：{escape(str(intro_context.get('selected_date', '--')))}</span>"
+        f"<span>展示模式：{escape(str(intro_context.get('mode_label', '--')))}</span>"
+        f"<span>{escape(str(intro_context.get('app_version', APP_VERSION)))}</span></div>"
+        f"{extra}"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_compact_notice(title: str, body: str, tone: str = "info") -> None:
+    tone = tone if tone in {"info", "warning", "danger", "success"} else "info"
+    html = (
+        f"<div class='notice-card notice-{tone}'>"
+        f"<div class='notice-title'>{escape(str(title))}</div>"
+        f"<div class='notice-body'>{escape(str(body))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_demo_walkthrough_cards(steps: list[dict]) -> None:
+    if not steps:
+        return
+    st.markdown("<div class='radar-section-title'>作品集演示步骤</div>", unsafe_allow_html=True)
+    cols = st.columns(3)
+    for idx, step in enumerate(steps):
+        html = (
+            "<div class='walkthrough-card'>"
+            f"<div class='walkthrough-step'>{idx + 1}. {escape(str(step.get('step_title', '--')))}</div>"
+            f"<div class='walkthrough-body'>位置：{escape(str(step.get('target_tab', '--')))}</div>"
+            f"<div class='walkthrough-body'>{escape(str(step.get('description', '')))}</div>"
+            f"<div class='walkthrough-body'>看点：{escape(str(step.get('expected_user_takeaway', '')))}</div>"
+            "</div>"
+        )
+        with cols[idx % 3]:
+            st.markdown(html, unsafe_allow_html=True)
+
+
+def render_screenshot_checklist(checklist: list[dict]) -> None:
+    if not checklist:
+        return
+    st.markdown("<div class='radar-section-title'>截图准备清单</div>", unsafe_allow_html=True)
+    rows = []
+    for item in checklist:
+        rows.append(
+            [
+                item.get("screenshot_name", "--"),
+                item.get("target_tab", "--"),
+                item.get("recommended_mode", "--"),
+                item.get("recommended_data_source", "--"),
+                item.get("what_to_capture", "--"),
+            ]
+        )
+    _render_simple_table(["文件名", "目标 tab", "展示模式", "数据来源", "截图重点"], rows, "暂无截图建议。")
 
 
 def render_header(trade_date: str, latest_time: str | None) -> None:

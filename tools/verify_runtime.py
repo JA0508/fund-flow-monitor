@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tomllib
 import importlib.util
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -67,6 +68,14 @@ from src.snapshot_quality import (  # noqa: E402
     build_snapshot_quality_report,
     summarize_snapshot_quality,
     validate_snapshot_quality_text,
+)
+from src.presentation import (  # noqa: E402
+    build_demo_walkthrough_steps,
+    build_portfolio_intro_context,
+    build_screenshot_checklist,
+    build_status_badge_config,
+    get_display_mode_options,
+    validate_presentation_text,
 )
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
@@ -487,6 +496,52 @@ def _verify_snapshot_quality() -> None:
     print("  verify_runtime 不执行真实采集；如需手动检查可运行 python tools/collect_market_snapshot.py --no-network。")
 
 
+def _find_broken_readme_images() -> list[str]:
+    readme = PROJECT_ROOT / "README.md"
+    if not readme.exists():
+        return ["README.md missing"]
+    text = readme.read_text(encoding="utf-8")
+    links = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text)
+    broken = []
+    for link in links:
+        if link.startswith(("http://", "https://", "data:")):
+            continue
+        path = (PROJECT_ROOT / link).resolve()
+        if not path.exists():
+            broken.append(link)
+    return broken
+
+
+def _verify_presentation_readiness(selected_date: str, data_status: str) -> None:
+    print("作品集展示 readiness 检查:")
+    statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
+    badges = [build_status_badge_config(status) for status in statuses]
+    intro = build_portfolio_intro_context("v1.8", data_status, selected_date, "作品集演示模式")
+    checklist = build_screenshot_checklist()
+    steps = build_demo_walkthrough_steps()
+    text_parts = [
+        intro.get("title", ""),
+        intro.get("subtitle", ""),
+        intro.get("value_proposition", ""),
+        " ".join(intro.get("key_capabilities", [])),
+        " ".join(intro.get("boundary_notes", [])),
+    ]
+    for row in checklist:
+        text_parts.extend(str(row.get(key, "")) for key in ("screenshot_name", "what_to_capture", "notes"))
+    for row in steps:
+        text_parts.extend(str(row.get(key, "")) for key in ("step_title", "description", "expected_user_takeaway"))
+    forbidden_hits = validate_presentation_text(" ".join(text_parts))
+    broken_images = _find_broken_readme_images()
+    print(f"  portfolio_mode_available: {'作品集演示模式' in get_display_mode_options()}")
+    print(f"  screenshot_checklist_count: {len(checklist)}")
+    print(f"  demo_walkthrough_step_count: {len(steps)}")
+    print(f"  presentation_forbidden_hits: {forbidden_hits}")
+    print(f"  status_badge_supported_count: {sum(1 for badge in badges if badge.get('status') in statuses)}")
+    print(f"  README broken image count: {len(broken_images)}")
+    if broken_images:
+        print(f"  README broken images: {broken_images}")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -686,6 +741,7 @@ def main() -> int:
     print(f"  executive_summary 前 80 字: {observation_brief.get('executive_summary', '')[:80]}")
     print(f"  key_points 数量: {len(observation_brief.get('key_points', []))}")
     print(f"  forbidden_hits: {forbidden_hits}")
+    _verify_presentation_readiness(selected_date, "CACHE")
 
     concept_latest = get_concept_latest_snapshot(ticks)
     if concept_latest.empty:

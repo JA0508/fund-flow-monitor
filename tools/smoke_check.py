@@ -16,6 +16,11 @@ from src.fund_profile_importer import (  # noqa: E402
     validate_fund_profiles_csv,
 )
 from src import insight_brief  # noqa: E402
+from src.presentation import (  # noqa: E402
+    build_status_badge_config,
+    get_display_mode_options,
+    validate_presentation_text,
+)
 from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_date  # noqa: E402
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
 from src.snapshot_quality import build_snapshot_quality_report  # noqa: E402
@@ -43,6 +48,7 @@ REQUIRED_FILES = (
     "src/snapshot_catalog.py",
     "src/sample_data.py",
     "src/snapshot_quality.py",
+    "src/presentation.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
@@ -52,6 +58,7 @@ REQUIRED_FILES = (
     "sample_data/ticks/sector_flow_2026-01-15.csv",
     "sample_data/ticks/sector_flow_2026-01-16.csv",
     "sample_data/fund_profiles/sample_fund_profiles.csv",
+    "docs/screenshots/SCREENSHOT_GUIDE.md",
     "README.md",
 )
 
@@ -155,6 +162,15 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         directory=str(project_root / "data/ticks"),
         sample_directory=str(project_root / "sample_data/ticks"),
     )
+    presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
+    status_badges = [build_status_badge_config(status) for status in presentation_statuses]
+    readme_path = project_root / "README.md"
+    readme_text = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
+    presentation_text = " ".join(
+        get_display_mode_options()
+        + [str(item.get("label", "")) for item in status_badges]
+        + [str(item.get("description", "")) for item in status_badges]
+    )
     return {
         "project_root": str(project_root),
         "python": check_python_version(),
@@ -190,12 +206,20 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_warning_count": int(snapshot_quality.get("sample_warning_count", 0) or 0),
             "sample_error_count": int(snapshot_quality.get("sample_error_count", 0) or 0),
         },
+        "presentation": {
+            "display_mode_count": len(get_display_mode_options()),
+            "supported_status_count": sum(1 for item in status_badges if item.get("status") in presentation_statuses),
+            "screenshot_guide_exists": (project_root / "docs/screenshots/SCREENSHOT_GUIDE.md").exists(),
+            "readme_has_demo_walkthrough": "Demo Walkthrough" in readme_text,
+            "readme_has_portfolio_mode": "Portfolio Presentation Mode" in readme_text or "作品集演示模式" in readme_text,
+            "presentation_text_forbidden_hits": validate_presentation_text(presentation_text),
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.7 本地冒烟检查")
+    print("Fund Flow Monitor v1.8 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -249,6 +273,13 @@ def main() -> int:
         f"local {snapshot_quality['local_warning_count']}/{snapshot_quality['local_error_count']} | "
         f"sample {snapshot_quality['sample_warning_count']}/{snapshot_quality['sample_error_count']}"
     )
+    presentation = report["presentation"]
+    print(f"display mode count: {presentation['display_mode_count']}")
+    print(f"status badge supported count: {presentation['supported_status_count']}")
+    print(f"screenshot guide exists: {presentation['screenshot_guide_exists']}")
+    print(f"README has Demo Walkthrough: {presentation['readme_has_demo_walkthrough']}")
+    print(f"README has Portfolio Presentation Mode: {presentation['readme_has_portfolio_mode']}")
+    print(f"presentation text forbidden hits: {presentation['presentation_text_forbidden_hits']}")
 
     ok = (
         py["ok"]
@@ -262,6 +293,12 @@ def main() -> int:
         and sample_profile["profile_count"] >= 5
         and sample_profile["error_count"] == 0
         and snapshot_quality["sample_file_count"] >= 1
+        and presentation["display_mode_count"] == 2
+        and presentation["supported_status_count"] == 6
+        and presentation["screenshot_guide_exists"]
+        and presentation["readme_has_demo_walkthrough"]
+        and presentation["readme_has_portfolio_mode"]
+        and not presentation["presentation_text_forbidden_hits"]
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

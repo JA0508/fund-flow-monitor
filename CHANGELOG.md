@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v1.8
+
+- Portfolio presentation mode.
+- Unified data status badges for `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY`.
+- Demo walkthrough cards and screenshot checklist.
+- Added `docs/screenshots/SCREENSHOT_GUIDE.md`.
+- UI copy and layout polish for Streamlit portfolio presentation.
+- README screenshot section now avoids broken image links.
+
 ## v1.7
 
 - Local market snapshot collection script.
