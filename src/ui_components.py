@@ -34,10 +34,12 @@ def inject_global_css() -> None:
         .status-live { color: #26e07f; font-weight: 850; }
         .status-cache { color: #60a5fa; font-weight: 850; }
         .status-demo { color: #ffd166; font-weight: 850; }
+        .status-sample { color: #f0c65a; font-weight: 850; }
         .status-history { color: #c084fc; font-weight: 850; }
         .status-empty { color: #9ca3af; font-weight: 850; }
         .small-note { color: #9ca3af; font-size: 13px; margin: 0.15rem 0 0.4rem; text-align: center; }
         .demo-alert { border: 1px solid rgba(255, 179, 0, .55); background: rgba(255, 179, 0, .10); color: #ffd166; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; text-align: center; font-weight: 800; letter-spacing: .02em; }
+        .sample-alert { border: 1px solid rgba(240, 198, 90, .42); background: rgba(240, 198, 90, .10); color: #f0c65a; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; text-align: center; font-weight: 800; letter-spacing: .02em; }
         .cache-alert { border: 1px solid rgba(96, 165, 250, .25); background: rgba(37, 99, 235, .08); color: #bfdbfe; padding: 8px 12px; border-radius: 8px; margin: 4px 0 8px; font-size: 13px; }
         .error-box { border: 1px solid rgba(248,113,113,.45); background: rgba(127,29,29,.35); color: #fecaca; padding: 10px 12px; border-radius: 8px; margin: 8px 0; }
         .rank-title { font-size: 17px; font-weight: 800; margin: 6px 0 8px; }
@@ -132,12 +134,15 @@ def render_status_bar(
     selected_snapshot_date: str | None = None,
     captured_time_count: int | None = None,
     quality_label: str | None = None,
+    data_source_label: str | None = None,
 ) -> None:
     market_text = STATUS_TEXT.get(market_status, market_status)
+    source_text = data_source_label or DATA_SOURCE
     status_class = {
         "LIVE": "status-live",
         "CACHE": "status-cache",
         "DEMO": "status-demo",
+        "SAMPLE": "status-sample",
         "HISTORY": "status-history",
         "EMPTY": "status-empty",
     }.get(data_status, "")
@@ -150,7 +155,7 @@ def render_status_bar(
         snapshot_bits += f" ｜ 质量：<b>{escape(str(quality_label))}</b>"
     html = (
         "<div class='compact-status'>"
-        f"数据源：<b>{escape(DATA_SOURCE)}</b> ｜ "
+        f"数据源：<b>{escape(source_text)}</b> ｜ "
         f"数据状态：<span class='{status_class}'>{escape(data_status)}</span> ｜ "
         f"状态说明：<b>{escape(status_note)}</b> ｜ "
         f"市场状态：<b>{escape(market_text)}</b> ｜ "
@@ -165,6 +170,11 @@ def render_status_bar(
     if data_status == "DEMO":
         st.markdown(
             "<div class='demo-alert'>DEMO MODE - 当前为模拟数据，不是真实行情</div>",
+            unsafe_allow_html=True,
+        )
+    elif data_status == "SAMPLE":
+        st.markdown(
+            "<div class='sample-alert'>SAMPLE MODE - 当前为仓库内置合成样例数据，不代表真实行情</div>",
             unsafe_allow_html=True,
         )
     elif data_status == "HISTORY":
@@ -711,18 +721,21 @@ def render_data_trust_panel(
     captured_time_count: int,
     selected_snapshot_date: str | None = None,
     quality_label: str | None = None,
+    data_source_label: str | None = None,
 ) -> None:
     market_text = STATUS_TEXT.get(market_status, market_status)
     theme_text = theme_mode_label if display_mode == "基金观察池" else "原始板块"
+    source_text = data_source_label or DATA_SOURCE
     status_class = {
         "LIVE": "status-live",
         "CACHE": "status-cache",
         "DEMO": "status-demo",
+        "SAMPLE": "status-sample",
         "HISTORY": "status-history",
         "EMPTY": "status-empty",
     }.get(data_status, "")
     items = [
-        ("数据源", DATA_SOURCE),
+        ("数据源", source_text),
         ("数据状态", data_status),
         ("数据日期", selected_snapshot_date or "--"),
         (latest_label, latest_time or "--:--:--"),
@@ -755,6 +768,7 @@ def render_data_trust_panel(
         "<b>CACHE</b>：本轮抓取失败或处于非交易时段，当前展示最近一次真实 CSV 缓存。<br>"
         "<b>HISTORY</b>：历史回放，只读取所选日期的本地 CSV，不触发 AKShare 抓取，也不会写入 CSV。<br>"
         "<b>DEMO</b>：模拟数据仅用于 UI 调试，不代表真实行情；DEMO 不会写入真实 CSV。<br>"
+        "<b>SAMPLE</b>：仓库内置合成 CSV 示例数据，只读展示，不代表真实行情，也不会写入真实缓存。<br>"
         "<b>EMPTY</b>：暂无可用真实缓存，可等待抓取或启用 DEMO 测试 UI。"
         "</div>"
         "</div>"

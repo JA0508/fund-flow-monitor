@@ -172,9 +172,12 @@ def infer_view_data_status(
     live_status: str,
     is_demo: bool,
     history_mode_requested: bool = False,
+    is_sample: bool = False,
 ) -> str:
     if is_demo:
         return "DEMO"
+    if is_sample:
+        return "SAMPLE" if selected_date else "EMPTY"
     if not selected_date:
         return "EMPTY"
     if history_mode_requested:

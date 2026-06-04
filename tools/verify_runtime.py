@@ -40,6 +40,11 @@ from src.multi_day_trends import (  # noqa: E402
     build_multi_day_trend_summary,
     calculate_multi_day_theme_metrics,
 )
+from src.sample_data import (  # noqa: E402
+    build_sample_snapshot_catalog,
+    get_latest_sample_date,
+    load_sample_snapshot_by_date,
+)
 from src.snapshot_catalog import (  # noqa: E402
     build_snapshot_catalog,
     get_latest_snapshot_date,
@@ -288,6 +293,68 @@ def _verify_multi_day_trends(catalog: pd.DataFrame) -> None:
             )
 
 
+def _verify_sample_mode() -> None:
+    print("SAMPLE 演示样例数据检查:")
+    sample_dir = PROJECT_ROOT / "sample_data/ticks"
+    sample_catalog = build_sample_snapshot_catalog(str(sample_dir))
+    print(f"  sample_data/ticks 存在: {sample_dir.exists()}")
+    print(f"  sample date count: {len(sample_catalog)}")
+    if sample_catalog.empty:
+        print("  暂无 SAMPLE 样例数据，可运行 python tools/generate_sample_data.py 生成。")
+        return
+
+    latest_sample_date = get_latest_sample_date(sample_catalog)
+    sample_ticks = load_sample_snapshot_by_date(latest_sample_date or "", str(sample_dir))
+    sample_summary = get_snapshot_summary(sample_ticks)
+    sample_row = sample_catalog[sample_catalog["snapshot_date"].astype(str).eq(str(latest_sample_date))]
+    sample_quality = sample_row["quality_label"].iloc[0] if not sample_row.empty else "<none>"
+    has_sample_marker = False
+    for column in ("source", "data_mode"):
+        if column in sample_ticks.columns:
+            has_sample_marker = has_sample_marker or sample_ticks[column].astype(str).str.upper().str.contains("SAMPLE", regex=False).any()
+    print(f"  latest sample date: {latest_sample_date or '<none>'}")
+    print(f"  sample captured_time_count: {sample_summary.get('captured_time_count')}")
+    print(f"  sample quality_label: {sample_quality}")
+    print(f"  SAMPLE 数据包含 source/data_mode 标记: {has_sample_marker}")
+    print("  sample_data 不会写入 data/ticks；当前检查只读取 sample_data/ticks。")
+
+    sample_latest = _latest_snapshot(sample_ticks[sample_ticks["sector_type"].eq("行业资金流")]) if "sector_type" in sample_ticks else pd.DataFrame()
+    sample_theme = build_theme_snapshot(sample_latest, theme_mode="strict_representative")
+    sample_radar = build_theme_radar_snapshot(sample_theme)
+    sample_history = build_theme_intraday_history(sample_ticks, mode="breadth")
+    sample_metrics = calculate_intraday_theme_metrics(sample_history)
+    sample_hotspots = build_intraday_hotspot_pool(sample_metrics, top_n=12)
+    sample_daily = build_daily_theme_snapshots(sample_catalog, data_dir=str(sample_dir), mode="strict_representative")
+    sample_multi_metrics = calculate_multi_day_theme_metrics(sample_daily)
+    sample_multi_pool = build_multi_day_trend_pool(sample_multi_metrics, top_n=12)
+    sample_fund_profile = load_fund_profiles()
+    sample_exposure = build_fund_theme_exposure(get_funds(sample_fund_profile))
+    sample_holding = build_holding_related_pool(sample_exposure, sample_radar)
+    sample_fund_summary = build_fund_summary(sample_holding)
+    sample_data_context = build_data_context_summary(
+        latest_sample_date or "<none>",
+        "SAMPLE",
+        sample_summary,
+        "严格代表口径",
+    )
+    sample_brief = build_observation_brief(
+        sample_data_context,
+        summarize_theme_radar_for_brief(sample_radar),
+        summarize_intraday_for_brief(build_intraday_hotspot_summary(sample_hotspots), sample_hotspots),
+        summarize_multi_day_for_brief(build_multi_day_trend_summary(sample_multi_pool), sample_multi_pool),
+        summarize_holding_pool_for_brief(sample_fund_summary),
+        summarize_taxonomy_coverage_for_brief(build_theme_coverage_report(sample_latest, load_theme_taxonomy()), {}),
+    )
+    sample_markdown = render_brief_markdown(sample_brief)
+    sample_forbidden_hits = validate_brief_text(sample_markdown)
+    print(f"  是否可以用 sample 构建 theme radar: {not sample_radar.empty}")
+    print(f"  是否可以用 sample 构建 intraday hotspot pool: {not sample_hotspots.empty}")
+    print(f"  是否可以用 sample 构建 multi-day trend pool: {not sample_multi_pool.empty}")
+    print(f"  是否可以用 sample 构建 holding related pool: {not sample_holding.empty}")
+    print(f"  是否可以用 sample 构建 observation brief: {bool(sample_brief)}")
+    print(f"  sample brief forbidden_hits: {sample_forbidden_hits}")
+
+
 def _verify_theme_taxonomy(latest_df: pd.DataFrame, watchlist_themes: list[str], fund_exposure: pd.DataFrame) -> None:
     print("主题库治理检查:")
     taxonomy = load_theme_taxonomy()
@@ -340,6 +407,7 @@ def main() -> int:
     print(f"当前 sector_type: {sector_type}")
     _verify_historical_replay(snapshot_catalog, [])
     _verify_multi_day_trends(snapshot_catalog)
+    _verify_sample_mode()
 
     if not latest.empty:
         _print_rank("最新 Top 5 净流入:", latest.sort_values("main_net_inflow_billion", ascending=False).head(5))

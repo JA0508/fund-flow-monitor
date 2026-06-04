@@ -82,6 +82,7 @@ def build_data_context_summary(
         "CACHE": "缓存观察",
         "HISTORY": "历史回放",
         "DEMO": "模拟演示",
+        "SAMPLE": "演示样例",
         "EMPTY": "暂无真实数据",
     }
     reasons = {
@@ -89,6 +90,7 @@ def build_data_context_summary(
         "CACHE": "当前展示本地缓存数据，适合观察已保存的资金流状态。",
         "HISTORY": "当前为历史回放模式，不代表实时行情。",
         "DEMO": "当前为模拟演示数据，仅用于 UI 调试。",
+        "SAMPLE": "当前展示仓库内置合成样例数据，仅用于演示页面功能，不代表真实行情。",
         "EMPTY": "当前暂无可用真实缓存，可等待抓取或使用 DEMO 测试 UI。",
     }
     return {

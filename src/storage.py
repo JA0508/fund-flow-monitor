@@ -17,8 +17,13 @@ def get_today_file_path(trade_date: str) -> Path:
 def append_snapshot(df: pd.DataFrame) -> None:
     if df is None or df.empty:
         return
-    if "source" in df.columns and df["source"].astype(str).eq("DEMO").any():
-        raise ValueError("DEMO 数据不允许写入真实 CSV")
+    mode_columns = [column for column in ("source", "data_mode", "mode") if column in df.columns]
+    for column in mode_columns:
+        values = df[column].astype(str).str.upper()
+        if values.str.contains("DEMO", na=False).any():
+            raise ValueError("DEMO 数据不允许写入真实 CSV")
+        if values.str.contains("SAMPLE", na=False).any():
+            raise ValueError("SAMPLE 样例数据不允许写入真实 CSV")
 
     trade_date = str(df["trade_date"].iloc[0])
     path = get_today_file_path(trade_date)

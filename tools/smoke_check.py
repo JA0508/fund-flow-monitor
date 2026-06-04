@@ -11,6 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
 from src import insight_brief  # noqa: E402
+from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_date  # noqa: E402
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
 from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_theme_taxonomy  # noqa: E402
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
@@ -30,7 +31,9 @@ REQUIRED_FILES = (
     "src/intraday_hotspots.py",
     "src/multi_day_trends.py",
     "src/snapshot_catalog.py",
+    "src/sample_data.py",
     "src/watchlist.py",
+    "tools/generate_sample_data.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
     "config/theme_taxonomy.json",
@@ -129,6 +132,7 @@ def summarize_csv(path: Path | None) -> dict:
 def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     latest_csv = find_latest_csv(project_root / "data/ticks")
     catalog = build_snapshot_catalog(str(project_root / "data/ticks"))
+    sample_catalog = build_sample_snapshot_catalog(str(project_root / "sample_data/ticks"))
     return {
         "project_root": str(project_root),
         "python": check_python_version(),
@@ -143,12 +147,16 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "date_count": int(len(catalog)),
             "latest_snapshot_date": get_latest_snapshot_date(catalog) or "<none>",
         },
+        "sample_catalog": {
+            "date_count": int(len(sample_catalog)),
+            "latest_sample_date": get_latest_sample_date(sample_catalog) or "<none>",
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.3 本地冒烟检查")
+    print("Fund Flow Monitor v1.4 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -185,6 +193,9 @@ def main() -> int:
     catalog = report["snapshot_catalog"]
     print(f"CSV 快照日期数量: {catalog['date_count']}")
     print(f"最新快照日期: {catalog['latest_snapshot_date']}")
+    sample_catalog = report["sample_catalog"]
+    print(f"SAMPLE 样例日期数量: {sample_catalog['date_count']}")
+    print(f"最新 SAMPLE 日期: {sample_catalog['latest_sample_date']}")
 
     ok = (
         py["ok"]
@@ -194,6 +205,7 @@ def main() -> int:
         and fund_profiles["ok"]
         and taxonomy["ok"]
         and report["insight_brief_import"]
+        and sample_catalog["date_count"] >= 2
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

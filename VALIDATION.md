@@ -61,7 +61,7 @@ Manual Streamlit checks:
 - `实时曲线` contains the compact status bar, error/cache/demo notice, and main Plotly curve.
 - `主题雷达` contains 今日资金温度, 关注主题雷达, and 核心/广度分歧提示.
 - `排行榜` contains 今日净流入榜 and 今日净流出榜; inflow rows must be positive only and outflow rows must be negative only.
-- `数据说明` contains the data trust panel, `LIVE / CACHE / DEMO` explanation, theme mode explanation, watchlist instructions, and disclaimer.
+- `数据说明` contains the data trust panel, `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY` explanation, theme mode explanation, watchlist instructions, and disclaimer.
 - Page footer shows `养基宝主题资金流雷达 · v0.7 · Streamlit MVP`.
 - No Streamlit default white dataframe should appear in the main dashboard.
 - No trading or prediction wording should appear in user-facing text.
@@ -193,7 +193,7 @@ Historical replay uses local CSV snapshots only:
 - 排行榜 should use the selected date's latest `captured_time`.
 - 持仓相关池 should use the selected date's theme radar result and must not describe real holdings or returns.
 - 数据说明 tab should include:
-  - `LIVE / CACHE / HISTORY / DEMO / EMPTY` explanation
+  - `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY` explanation
   - selected snapshot date
   - CSV snapshot catalog
   - quality label and quality reason
@@ -318,6 +318,50 @@ Forbidden wording check:
 
 - Observation brief text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
 - Observation brief must not describe future price or fund NAV prediction.
+
+## v1.4 Sample Data Mode Checks
+
+The reproducible demo layer uses bundled synthetic CSV only:
+
+- `sample_data/ticks/sector_flow_2026-01-15.csv` exists.
+- `sample_data/ticks/sector_flow_2026-01-16.csv` exists.
+- `tools/generate_sample_data.py` can regenerate the sample files deterministically without network access.
+- Sample CSV contains `source=SAMPLE` or `data_mode=SAMPLE`.
+- `data/ticks/*.csv` remains ignored by git.
+- `sample_data/ticks/*.csv` is not ignored by git and should be committed.
+- Sidebar has `数据来源模式`.
+- Selecting `演示样例数据` displays `SAMPLE`.
+- SAMPLE mode must not trigger AKShare.
+- SAMPLE mode must not read or write `data/ticks`.
+- SAMPLE mode must not be displayed as `LIVE`, `CACHE`, or `HISTORY`.
+- SAMPLE mode should allow the main tabs to render:
+  - 实时曲线
+  - 主题雷达
+  - 日内热点
+  - 多日趋势
+  - 持仓相关池
+  - 观察简报
+  - 排行榜
+  - 数据说明
+- SAMPLE mode should support intraday hotspots because at least one sample date has multiple `captured_time` values.
+- SAMPLE mode should support multi-day trends because the sample package has at least two dates.
+- Observation brief in SAMPLE mode must say the data is synthetic and not real market data.
+- If real cache is empty, the app should show a friendly first-run hint: wait for real fetch, use sample data, or use DEMO.
+- If sample data is missing or damaged, the app should remain usable and suggest `python tools/generate_sample_data.py`.
+
+`verify_runtime.py` should report:
+
+- sample date count
+- latest sample date
+- sample captured_time_count
+- sample quality_label
+- whether sample data can build theme radar, intraday hotspot pool, multi-day trend pool, holding related pool, and observation brief
+- sample brief forbidden hits
+
+Forbidden wording check:
+
+- SAMPLE text must not include action-oriented words such as `买入`, `卖出`, `加仓`, `减仓`, `抄底`, `逃顶`, `推荐买`, `建议买`, `建仓`, or `清仓`.
+- SAMPLE text must not describe future price or fund NAV prediction.
 
 ## Data-source roadmap
 

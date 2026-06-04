@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v1.4
+
+- Reproducible sample data mode.
+- 新增 `sample_data/ticks/` 合成样例 CSV，方便无网络、无真实缓存时完整演示。
+- 新增 `SAMPLE` 数据状态，明确区分样例数据、历史缓存、真实缓存、实时抓取和 DEMO。
+- 新增 `tools/generate_sample_data.py`，可确定性重新生成样例数据包。
+- SAMPLE 模式只读样例目录，不触发 AKShare，不写入 `data/ticks`。
+- 优化首次运行体验：真实缓存为空时提示使用样例数据或 DEMO。
+
 ## v1.3
 
 - Observation brief.
