@@ -300,6 +300,46 @@ def get_warehouse_file_records(
         return _empty_df(FILE_RECORD_COLUMNS)
 
 
+def get_warehouse_available_source_types(conn: sqlite3.Connection | None) -> list[str]:
+    if conn is None or not _table_exists(conn, "snapshot_rows"):
+        return []
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT source_type FROM snapshot_rows WHERE source_type IS NOT NULL ORDER BY source_type"
+        ).fetchall()
+        return [str(row[0]).upper() for row in rows if row[0]]
+    except Exception:
+        return []
+
+
+def get_warehouse_date_range(conn: sqlite3.Connection | None, source_type: str | None = None) -> dict:
+    source = str(source_type or "ALL").upper()
+    result = {"min_date": None, "max_date": None, "date_count": 0, "source_type": source}
+    if conn is None or not _table_exists(conn, "snapshot_rows"):
+        return result
+    clauses: list[str] = []
+    params: list[Any] = []
+    if source_type and source != "ALL":
+        clauses.append("source_type = ?")
+        params.append(source)
+    where = "WHERE " + " AND ".join(clauses) if clauses else ""
+    try:
+        row = conn.execute(
+            f"""
+            SELECT MIN(data_date) AS min_date, MAX(data_date) AS max_date,
+                   COUNT(DISTINCT data_date) AS date_count
+            FROM snapshot_rows
+            {where}
+            """,
+            tuple(params),
+        ).fetchone()
+        if row:
+            result.update({"min_date": row["min_date"], "max_date": row["max_date"], "date_count": int(row["date_count"] or 0)})
+    except Exception:
+        return result
+    return result
+
+
 def _as_int(value: Any) -> int:
     try:
         if pd.isna(value):

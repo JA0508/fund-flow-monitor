@@ -48,6 +48,13 @@ from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_dat
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
 from src.snapshot_quality import build_snapshot_quality_report  # noqa: E402
 from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_theme_taxonomy  # noqa: E402
+from src.theme_history import (  # noqa: E402
+    build_theme_history_from_sector_history,
+    build_theme_history_matrix,
+    load_sector_history_from_warehouse,
+    summarize_theme_history,
+    validate_theme_history_text,
+)
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
 from tools.rebuild_local_warehouse import rebuild_local_warehouse as run_rebuild_local_warehouse  # noqa: E402
 
@@ -76,6 +83,7 @@ REQUIRED_FILES = (
     "src/brief_templates.py",
     "src/local_warehouse.py",
     "src/warehouse_explorer.py",
+    "src/theme_history.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
@@ -226,6 +234,12 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
                 sample_csv_dir=str(project_root / "sample_data/ticks"),
             )
             explorer_forbidden_hits = validate_warehouse_explorer_text(summarize_csv_warehouse_consistency(consistency))
+            taxonomy = load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json"))
+            sector_history = load_sector_history_from_warehouse(conn, source_type="SAMPLE", latest_per_day=True)
+            theme_history = build_theme_history_from_sector_history(sector_history, taxonomy, theme_mode="代表口径")
+            theme_history_matrix = build_theme_history_matrix(theme_history)
+            theme_history_summary = summarize_theme_history(theme_history)
+            theme_history_forbidden_hits = validate_theme_history_text(theme_history_summary.get("summary_reason", ""))
         finally:
             conn.close()
     return {
@@ -236,6 +250,12 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
         "explorer_source_type_count": int(source_summary_df["source_type"].nunique()) if not source_summary_df.empty else 0,
         "explorer_date_count": int(date_overview_df["data_date"].nunique()) if not date_overview_df.empty else 0,
         "csv_warehouse_consistency_label": consistency.get("overall_label"),
+        "theme_history_module_imported": True,
+        "temp_theme_history_row_count": int(len(theme_history)),
+        "temp_theme_history_theme_count": int(theme_history["theme_name"].nunique()) if not theme_history.empty else 0,
+        "temp_theme_history_matrix_shape": tuple(theme_history_matrix.shape),
+        "temp_theme_history_summary_label": theme_history_summary.get("summary_label"),
+        "theme_history_forbidden_hits": theme_history_forbidden_hits,
         "sample_rebuild_dry_run_label": dry_run.get("summary_label"),
         "sample_rebuild_temp_label": rebuild.get("rebuild_label"),
         "sample_inserted_rows": int(rebuild.get("inserted_rows", 0) or 0),
@@ -324,7 +344,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.1 本地冒烟检查")
+    print("Fund Flow Monitor v2.2 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -391,6 +411,11 @@ def main() -> int:
     print(f"warehouse gitignore ok: {warehouse['warehouse_gitignore_ok']}")
     print(f"warehouse text forbidden hits: {warehouse['warehouse_text_forbidden_hits']}")
     print(f"warehouse explorer forbidden hits: {warehouse['warehouse_explorer_forbidden_hits']}")
+    print(f"theme history module imported: {warehouse['theme_history_module_imported']}")
+    print(f"theme history rows/themes: {warehouse['temp_theme_history_row_count']} / {warehouse['temp_theme_history_theme_count']}")
+    print(f"theme history matrix shape: {warehouse['temp_theme_history_matrix_shape']}")
+    print(f"theme history summary label: {warehouse['temp_theme_history_summary_label']}")
+    print(f"theme history forbidden hits: {warehouse['theme_history_forbidden_hits']}")
     presentation = report["presentation"]
     print(f"display mode count: {presentation['display_mode_count']}")
     print(f"status badge supported count: {presentation['supported_status_count']}")
@@ -425,6 +450,10 @@ def main() -> int:
         and warehouse["warehouse_gitignore_ok"]
         and not warehouse["warehouse_text_forbidden_hits"]
         and not warehouse["warehouse_explorer_forbidden_hits"]
+        and warehouse["theme_history_module_imported"]
+        and warehouse["temp_theme_history_row_count"] > 0
+        and warehouse["temp_theme_history_theme_count"] > 0
+        and not warehouse["theme_history_forbidden_hits"]
         and presentation["display_mode_count"] == 2
         and presentation["supported_status_count"] == 6
         and presentation["screenshot_guide_exists"]

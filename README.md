@@ -488,6 +488,29 @@ v2.1 同时增加 CSV 与 SQLite 的一致性审计，用于判断 warehouse 是
 - LOCAL 只有显式运行 `python tools/rebuild_local_warehouse.py --include-local --include-sample --clear` 后才会导入。
 - 如果 CSV 文件目录与 warehouse 记录不一致，页面只提示“可按需手动重建”，不会自动改写任何文件。
 
+### Theme History from Warehouse
+
+v2.2 增加基于 warehouse 的主题级历史聚合。它把 warehouse 中已有的 sector flow 历史索引，按 `config/theme_taxonomy.json` 和现有主题口径聚合成基金主题时间序列。
+
+使用方式：
+
+```bash
+python tools/rebuild_local_warehouse.py --include-sample --clear
+streamlit run app.py
+```
+
+然后进入 `多日趋势` tab，查看 `Warehouse 主题历史观察（只读）`。
+
+功能边界：
+
+- 支持 `SAMPLE / LOCAL / ALL` source_type 过滤。
+- 支持严格代表口径、代表口径和广度观察。
+- 默认每个日期只取最新 captured_time，避免把日内多时间点混成多日历史。
+- SAMPLE 主题历史仅用于公开演示，不代表真实行情。
+- LOCAL 主题历史只有用户显式导入本地真实缓存后才可用。
+- 页面只读，不自动重建 warehouse，不访问网络，不写 SQLite，不写 CSV。
+- 主题历史只描述已保存的历史资金状态，不预测未来走势，不构成投资建议。
+
 ## 19. Watchlist
 
 关注主题来自：
@@ -611,6 +634,7 @@ python tools/rebuild_local_warehouse.py --include-sample --dry-run
 - v1.9：观察简报模板 polish、SAMPLE demo brief 离线导出、release checklist。
 - v2.0：本地 SQLite warehouse、CSV-first 双轨存储、warehouse 重建脚本和基础审计。
 - v2.1：Warehouse Explorer、CSV-SQLite 一致性审计和只读历史查询面板。
-- v2.2+：使用 warehouse 支撑更多历史查询、数据质量规则增强、README 实际截图更新、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
+- v2.2：warehouse-powered 主题级历史聚合、多日趋势 tab 增强和主题历史质量报告。
+- v2.3+：主题级历史图表 polish、数据质量规则增强、README 实际截图更新、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

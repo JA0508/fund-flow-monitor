@@ -1260,6 +1260,48 @@ def render_warehouse_explorer_notes(text: str) -> None:
     )
 
 
+def render_theme_history_summary_cards(summary: dict, quality_report: dict | None = None) -> None:
+    quality_report = quality_report or {}
+    st.markdown("<div class='radar-section-title'>Warehouse 主题历史观察（只读）</div>", unsafe_allow_html=True)
+    strongest = "，".join(str(item) for item in summary.get("strongest_latest_themes", [])[:5]) or "--"
+    pressured = "，".join(str(item) for item in summary.get("pressured_latest_themes", [])[:5]) or "--"
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>历史状态</div><div class='trust-value'>{escape(str(summary.get('summary_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Source / 日期</div><div class='trust-value'>{int(summary.get('source_type_count', 0) or 0)} / {int(summary.get('date_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>主题数</div><div class='trust-value'>{int(summary.get('theme_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>最新日期</div><div class='trust-value'>{escape(str(summary.get('latest_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>质量状态</div><div class='trust-value'>{escape(str(quality_report.get('quality_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Warning / Error</div><div class='trust-value'>{int(quality_report.get('warning_count', 0) or 0)} / {int(quality_report.get('error_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(summary.get('summary_reason', '')))}</div>"
+        f"<div class='trust-copy'>最新偏强主题：{escape(strongest)}；最新承压主题：{escape(pressured)}。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    warnings = list(quality_report.get("warnings") or []) + list(summary.get("warnings") or [])
+    errors = list(quality_report.get("errors") or []) + list(summary.get("errors") or [])
+    if warnings or errors:
+        with st.expander("查看主题历史 warning / error", expanded=False):
+            if errors:
+                st.markdown("<div class='holding-warning'>" + "<br>".join(escape(str(item)) for item in errors[:16]) + "</div>", unsafe_allow_html=True)
+            if warnings:
+                st.markdown("<div class='concept-note'>" + "<br>".join(escape(str(item)) for item in warnings[:16]) + "</div>", unsafe_allow_html=True)
+
+
+def render_theme_history_matrix(matrix_df: pd.DataFrame, title: str, max_rows: int = 30) -> None:
+    render_warehouse_explorer_table(matrix_df, title=title, empty_message="暂无主题历史矩阵。", max_rows=max_rows)
+
+
+def render_theme_status_timeline(timeline_df: pd.DataFrame, title: str, max_rows: int = 40) -> None:
+    render_warehouse_explorer_table(timeline_df, title=title, empty_message="暂无主题状态时间线。", max_rows=max_rows)
+
+
+def render_theme_history_notes(text: str) -> None:
+    st.markdown(f"<div class='concept-note'>{escape(str(text))}</div>", unsafe_allow_html=True)
+
+
 def _render_simple_table(headers: list[str], rows: list[list[object]], empty_message: str) -> None:
     if not rows:
         st.markdown(f"<div class='rank-panel'><div class='rank-empty'>{escape(empty_message)}</div></div>", unsafe_allow_html=True)

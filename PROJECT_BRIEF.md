@@ -135,6 +135,8 @@ Streamlit app 没有 SQLite 也能运行。数据说明页只读取已有 wareho
 
 v2.1 在此基础上增加 Warehouse Explorer 和 CSV-Warehouse 一致性审计。Explorer 只读取已有 SQLite 索引，展示 source_type 分布、日期、captured_time 和板块样本；一致性审计用于判断 CSV 目录与 warehouse 文件记录是否匹配。它不会访问网络，不会重建 warehouse，不会写 SQLite 或 CSV，也不会把 SAMPLE warehouse 解释成真实行情。
 
+v2.2 增加 warehouse-powered 主题级历史聚合。系统从 warehouse 只读查询历史 sector flow，再复用主题库和既有主题口径聚合为主题历史矩阵、主题状态时间线和质量报告。该功能只解释已保存的历史资金状态，不预测未来走势，不做投资建议，也不替代 CSV 主数据链路。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

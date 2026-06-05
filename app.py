@@ -120,6 +120,17 @@ from src.theme_coverage import (
     build_theme_usage_report,
 )
 from src.theme_pool import apply_theme_pool_to_ticks, build_theme_snapshot
+from src.theme_history import (
+    build_theme_history_from_sector_history,
+    build_theme_history_matrix,
+    build_theme_history_quality_report,
+    build_theme_status_timeline,
+    get_theme_history_mode_options,
+    load_sector_history_from_warehouse,
+    normalize_theme_history_mode,
+    summarize_theme_history,
+    summarize_theme_history_quality,
+)
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
 from src.theme_taxonomy import (
     audit_theme_name_consistency,
@@ -174,6 +185,10 @@ from src.ui_components import (
     render_observation_brief_cards,
     render_theme_concept_cards,
     render_theme_coverage_panel,
+    render_theme_history_matrix,
+    render_theme_history_notes,
+    render_theme_history_summary_cards,
+    render_theme_status_timeline,
     render_theme_taxonomy_panel,
     render_theme_taxonomy_status,
     render_theme_radar_cards,
@@ -184,6 +199,8 @@ from src.warehouse_explorer import (
     build_csv_warehouse_consistency_report,
     build_warehouse_explorer_summary,
     get_warehouse_captured_time_overview,
+    get_warehouse_available_source_types,
+    get_warehouse_date_range,
     get_warehouse_date_overview,
     get_warehouse_sector_sample,
     get_warehouse_source_type_summary,
@@ -961,6 +978,88 @@ def main() -> None:
             with st.expander("多日分化主题", expanded=False):
                 render_multi_day_trend_cards("多日分化主题", multi_day_sections["mixed_trends"], max_cards=6)
             render_multi_day_trend_table(multi_day_trend_pool_df, max_rows=30)
+        st.markdown("<div class='radar-section-title'>Warehouse 主题历史观察（只读）</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='concept-note'>该区域基于本地 SQLite warehouse 中已有的 sector-level 历史索引，"
+            "按 theme_taxonomy.json 和现有主题口径聚合为主题级历史观察。CSV 仍是主数据来源，页面不会自动重建 warehouse，也不会写 SQLite 或 CSV。</div>",
+            unsafe_allow_html=True,
+        )
+        theme_history_conn = None
+        try:
+            theme_history_conn, theme_history_status = load_warehouse_if_exists(warehouse_path)
+            if theme_history_conn is None:
+                st.markdown(
+                    "<div class='rank-panel'><div class='rank-empty'>当前未创建本地 warehouse。可在本地运行 "
+                    "<code>python tools/rebuild_local_warehouse.py --include-sample --clear</code> 后查看主题历史聚合。</div></div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                available_sources = get_warehouse_available_source_types(theme_history_conn)
+                source_options = ["ALL"] + [source for source in ("SAMPLE", "LOCAL") if source in available_sources]
+                if len(source_options) == 1:
+                    st.markdown(
+                        "<div class='rank-panel'><div class='rank-empty'>warehouse 中暂无可查询 source_type。</div></div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    h_col1, h_col2, h_col3, h_col4 = st.columns(4)
+                    with h_col1:
+                        history_source = st.selectbox(
+                            "主题历史 source_type",
+                            source_options,
+                            index=0,
+                            key="theme_history_source_type",
+                        )
+                    with h_col2:
+                        history_mode_label = st.selectbox(
+                            "主题历史口径",
+                            get_theme_history_mode_options(),
+                            index=get_theme_history_mode_options().index("代表口径"),
+                            key="theme_history_mode_label",
+                        )
+                    with h_col3:
+                        history_latest_per_day = st.checkbox("每日期最新快照", value=True, key="theme_history_latest_per_day")
+                    with h_col4:
+                        history_top_n = st.selectbox("主题历史 Top N", [3, 5, 8], index=1, key="theme_history_top_n")
+                    date_range = get_warehouse_date_range(
+                        theme_history_conn,
+                        None if history_source == "ALL" else history_source,
+                    )
+                    render_theme_history_notes(
+                        f"可用日期范围：{date_range.get('min_date') or '--'} 至 {date_range.get('max_date') or '--'}，"
+                        f"共 {date_range.get('date_count', 0)} 个日期。当前 source_type：{history_source}。"
+                    )
+                    sector_history_df = load_sector_history_from_warehouse(
+                        theme_history_conn,
+                        source_type=None if history_source == "ALL" else history_source,
+                        latest_per_day=history_latest_per_day,
+                        limit_days=60,
+                    )
+                    theme_history_df = build_theme_history_from_sector_history(
+                        sector_history_df,
+                        taxonomy,
+                        theme_mode=normalize_theme_history_mode(history_mode_label),
+                    )
+                    theme_history_summary = summarize_theme_history(theme_history_df, top_n=int(history_top_n))
+                    theme_history_quality = build_theme_history_quality_report(sector_history_df, theme_history_df)
+                    render_theme_history_summary_cards(theme_history_summary, theme_history_quality)
+                    render_theme_history_notes(summarize_theme_history_quality(theme_history_quality))
+                    if history_source == "SAMPLE" or (
+                        history_source == "ALL" and set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper()) == {"SAMPLE"}
+                    ):
+                        render_compact_notice(
+                            "SAMPLE 主题历史说明",
+                            "当前主题历史来自 SAMPLE 合成演示数据，仅用于展示主题级历史聚合流程，不代表真实行情。",
+                            tone="warning",
+                        )
+                    matrix_df = build_theme_history_matrix(theme_history_df)
+                    timeline_df = build_theme_status_timeline(theme_history_df)
+                    with st.expander("查看主题历史矩阵", expanded=show_debug_details):
+                        render_theme_history_matrix(matrix_df, "主题历史矩阵")
+                    with st.expander("查看主题状态时间线", expanded=show_debug_details):
+                        render_theme_status_timeline(timeline_df, "主题状态时间线")
+        finally:
+            safe_close_connection(theme_history_conn)
 
     with tab_holdings:
         st.markdown(
@@ -1231,6 +1330,15 @@ def main() -> None:
             )
         render_csv_warehouse_consistency_cards(csv_warehouse_consistency_report)
         render_warehouse_explorer_notes(csv_warehouse_consistency_text)
+        st.markdown("#### 主题历史聚合说明")
+        st.markdown(
+            "- 主题历史聚合基于 warehouse 中已有的历史 sector flow 行，只做只读查询。\n"
+            "- CSV 仍是 source of truth；warehouse 只是可重建索引。\n"
+            "- 主题历史聚合使用 `config/theme_taxonomy.json` 和当前已有的主题口径：严格代表口径 / 代表口径 / 广度观察。\n"
+            "- SAMPLE 主题历史仅用于公开演示，不代表真实行情。\n"
+            "- 该功能只描述已保存的历史资金状态，不预测未来走势，不构成投资建议。\n"
+            "- 页面不会自动重建 warehouse，也不会写 SQLite 或 CSV。"
+        )
         with st.expander("查看历史回放与 SAMPLE 快照目录", expanded=show_debug_details):
             st.markdown("#### 真实缓存目录 data/ticks")
             render_snapshot_catalog_table(snapshot_catalog_df, title="历史回放快照目录")

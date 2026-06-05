@@ -83,3 +83,15 @@ git status
 - 可选打开数据说明 tab，检查 `Warehouse Explorer（只读）` 是否展示 SAMPLE warehouse。
 - 确认 Explorer 只读查询，不自动重建 warehouse，不写 SQLite，不访问网络。
 - 确认 `git status` 不出现 `data/warehouse/*.sqlite`、`*.db` 或真实 CSV。
+
+## 8. 可选 Theme History 检查
+
+```bash
+python tools/rebuild_local_warehouse.py --include-sample --clear
+```
+
+- 打开 app，进入 `多日趋势` → `Warehouse 主题历史观察（只读）`。
+- 确认 SAMPLE 主题历史明确标注为合成演示数据，不代表真实行情。
+- 确认主题历史摘要、矩阵、状态时间线和质量报告可展示。
+- 确认页面不自动重建 warehouse，不写 SQLite，不写 CSV。
+- 确认 `data/warehouse/*.sqlite` 不进入 `git status`。

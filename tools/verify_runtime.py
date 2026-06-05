@@ -123,6 +123,13 @@ from src.theme_taxonomy import (  # noqa: E402
     load_theme_taxonomy,
     validate_theme_taxonomy,
 )
+from src.theme_history import (  # noqa: E402
+    build_theme_history_from_sector_history,
+    build_theme_history_quality_report,
+    build_theme_status_timeline,
+    load_sector_history_from_warehouse,
+    validate_theme_history_text,
+)
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist  # noqa: E402
 
 DEMO_CHECK_FIELDS = ("source", "sector_type", "mode", "data_mode")
@@ -551,6 +558,11 @@ def _verify_local_warehouse() -> None:
                 sample_csv_dir=str(PROJECT_ROOT / "sample_data/ticks"),
             )
             explorer_forbidden_hits = validate_warehouse_explorer_text(summarize_csv_warehouse_consistency(consistency))
+            sector_history = load_sector_history_from_warehouse(conn, source_type="SAMPLE", latest_per_day=True)
+            theme_history = build_theme_history_from_sector_history(sector_history, load_theme_taxonomy(), theme_mode="代表口径")
+            theme_timeline = build_theme_status_timeline(theme_history)
+            theme_quality = build_theme_history_quality_report(sector_history, theme_history)
+            theme_history_forbidden_hits = validate_theme_history_text(str(theme_quality.get("quality_label", "")))
         finally:
             conn.close()
     default_warehouse_exists = (PROJECT_ROOT / get_default_warehouse_path()).exists()
@@ -573,8 +585,14 @@ def _verify_local_warehouse() -> None:
     print(f"  temp_date_count: {date_overview_df['data_date'].nunique() if not date_overview_df.empty else 0}")
     print(f"  temp_row_count: {explorer_summary.get('row_count')}")
     print(f"  csv_warehouse_consistency_label: {consistency.get('overall_label')}")
+    print(f"  temp_sector_history_row_count: {len(sector_history)}")
+    print(f"  temp_theme_history_row_count: {len(theme_history)}")
+    print(f"  temp_theme_history_date_count: {theme_history['data_date'].nunique() if not theme_history.empty else 0}")
+    print(f"  temp_theme_status_timeline_rows: {len(theme_timeline)}")
+    print(f"  temp_theme_history_quality_label: {theme_quality.get('quality_label')}")
     print(f"  warehouse_forbidden_hits: {forbidden_hits}")
     print(f"  warehouse_explorer_forbidden_hits: {explorer_forbidden_hits}")
+    print(f"  theme_history_forbidden_hits: {theme_history_forbidden_hits}")
     print(f"  default_warehouse_exists: {default_warehouse_exists}")
     print(f"  default_warehouse_status: {default_status.get('status_label')}")
     print(f"  default_warehouse_source_type_count: {default_source_count}")

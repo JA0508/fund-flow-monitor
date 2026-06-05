@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v2.2
+
+- Warehouse-powered theme history aggregation.
+- 新增 `src/theme_history.py`，从 warehouse 只读查询 sector history 并复用现有主题口径聚合主题历史。
+- 多日趋势 tab 增加 `Warehouse 主题历史观察（只读）`，展示主题历史摘要、矩阵、状态时间线和质量报告。
+- 支持 SAMPLE / LOCAL / ALL source_type 过滤，SAMPLE-only 明确标注为合成演示数据。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 theme history readiness 检查。
+- 新增 theme history validation tests，保持 CSV-first 和只读边界。
+
 ## v2.1
 
 - Read-only warehouse explorer.
