@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v2.1
+
+- Read-only warehouse explorer.
+- 新增 `src/warehouse_explorer.py`，提供 source_type、日期、captured_time 和板块样本只读查询。
+- 新增 CSV-SQLite 一致性审计，用于判断 warehouse 是否需要从 CSV 手动重建。
+- 数据说明 tab 增加 `Warehouse Explorer（只读）` 和 CSV-Warehouse consistency 面板。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 warehouse explorer readiness 检查。
+- 新增 explorer validation tests，继续强调 CSV 是 source of truth，SQLite 只是可重建索引。
+
 ## v2.0
 
 - Local SQLite warehouse foundation.

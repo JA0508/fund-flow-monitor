@@ -80,3 +80,6 @@ git status
 - `--include-sample` 可以创建 `data/warehouse/fund_flow.sqlite`。
 - 创建后的 SQLite 文件必须被 `.gitignore` 忽略。
 - 重建脚本不访问网络，不触发 AKShare，不写 `data/ticks` 或 `sample_data/ticks`。
+- 可选打开数据说明 tab，检查 `Warehouse Explorer（只读）` 是否展示 SAMPLE warehouse。
+- 确认 Explorer 只读查询，不自动重建 warehouse，不写 SQLite，不访问网络。
+- 确认 `git status` 不出现 `data/warehouse/*.sqlite`、`*.db` 或真实 CSV。

@@ -49,6 +49,23 @@ def get_default_warehouse_path() -> str:
     return DEFAULT_WAREHOUSE_PATH
 
 
+def get_existing_warehouse_path(path: str | None = None) -> str:
+    return str(Path(path or get_default_warehouse_path()))
+
+
+def warehouse_exists(path: str | None = None) -> bool:
+    return Path(get_existing_warehouse_path(path)).exists()
+
+
+def safe_close_connection(conn: sqlite3.Connection | None) -> None:
+    if conn is None:
+        return
+    try:
+        conn.close()
+    except Exception:
+        return
+
+
 def ensure_warehouse_directory(path: str | None = None) -> str:
     warehouse_path = Path(path or get_default_warehouse_path())
     warehouse_path.parent.mkdir(parents=True, exist_ok=True)

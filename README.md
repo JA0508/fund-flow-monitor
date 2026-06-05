@@ -467,6 +467,27 @@ python tools/rebuild_local_warehouse.py --include-local --include-sample --clear
 
 数据说明 tab 中的 `本地 SQLite Warehouse（可重建索引）` 区域只读取已有 warehouse 状态：文件数、行数、LOCAL/SAMPLE 行数、可用日期和审计 warning。它不会触发重建，也不会改变页面当前的 CSV-first 数据流。
 
+### Warehouse Explorer
+
+v2.1 增加 `Warehouse Explorer（只读）`，用于查看已经重建到 SQLite 中的索引数据：
+
+- source_type 分布：LOCAL / SAMPLE 的文件数、行数、日期数和时间点数。
+- 日期概览：每个日期的行数、captured_time 数量、板块数量和最新时间。
+- captured_time 概览：每个时间点的板块数量和绝对资金流较大的样本板块。
+- 板块样本：按 source_type、日期和 captured_time 查询已有 warehouse 中的板块样本。
+
+Explorer 页面只读，不会自动重建 warehouse，不会写 SQLite，不会写 CSV，也不会访问 AKShare。没有 warehouse 时，app 仍然按 CSV 路径运行，并在数据说明 tab 给出手动重建命令。
+
+### CSV-Warehouse Consistency
+
+v2.1 同时增加 CSV 与 SQLite 的一致性审计，用于判断 warehouse 是否需要从 CSV 重新手动构建：
+
+- CSV 是 source of truth。
+- SQLite 是可重建查询索引。
+- SAMPLE-only warehouse 是公开演示的正常状态。
+- LOCAL 只有显式运行 `python tools/rebuild_local_warehouse.py --include-local --include-sample --clear` 后才会导入。
+- 如果 CSV 文件目录与 warehouse 记录不一致，页面只提示“可按需手动重建”，不会自动改写任何文件。
+
 ## 19. Watchlist
 
 关注主题来自：
@@ -589,6 +610,7 @@ python tools/rebuild_local_warehouse.py --include-sample --dry-run
 - v1.8：展示 polish / presentation mode、README screenshot guide。
 - v1.9：观察简报模板 polish、SAMPLE demo brief 离线导出、release checklist。
 - v2.0：本地 SQLite warehouse、CSV-first 双轨存储、warehouse 重建脚本和基础审计。
-- v2.1+：使用 SQLite warehouse 支撑更多历史查询、数据质量规则增强、README 实际截图更新、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
+- v2.1：Warehouse Explorer、CSV-SQLite 一致性审计和只读历史查询面板。
+- v2.2+：使用 warehouse 支撑更多历史查询、数据质量规则增强、README 实际截图更新、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

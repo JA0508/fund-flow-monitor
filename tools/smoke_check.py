@@ -31,6 +31,14 @@ from src.local_warehouse import (  # noqa: E402
     summarize_warehouse_status,
     validate_warehouse_text,
 )
+from src.warehouse_explorer import (  # noqa: E402
+    build_csv_warehouse_consistency_report,
+    build_warehouse_explorer_summary,
+    get_warehouse_date_overview,
+    get_warehouse_source_type_summary,
+    summarize_csv_warehouse_consistency,
+    validate_warehouse_explorer_text,
+)
 from src.presentation import (  # noqa: E402
     build_status_badge_config,
     get_display_mode_options,
@@ -67,6 +75,7 @@ REQUIRED_FILES = (
     "src/presentation.py",
     "src/brief_templates.py",
     "src/local_warehouse.py",
+    "src/warehouse_explorer.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
@@ -208,16 +217,31 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
             summary = query_warehouse_summary(conn)
             audit = audit_warehouse(conn)
             forbidden_hits = validate_warehouse_text(summarize_warehouse_status(summary, audit))
+            explorer_summary = build_warehouse_explorer_summary(conn)
+            source_summary_df = get_warehouse_source_type_summary(conn)
+            date_overview_df = get_warehouse_date_overview(conn)
+            consistency = build_csv_warehouse_consistency_report(
+                conn,
+                local_csv_dir=str(project_root / "data/ticks"),
+                sample_csv_dir=str(project_root / "sample_data/ticks"),
+            )
+            explorer_forbidden_hits = validate_warehouse_explorer_text(summarize_csv_warehouse_consistency(consistency))
         finally:
             conn.close()
     return {
         "warehouse_module_imported": True,
         "warehouse_schema_initialized": True,
+        "warehouse_explorer_imported": True,
+        "explorer_summary_available": bool(explorer_summary.get("explorer_available")),
+        "explorer_source_type_count": int(source_summary_df["source_type"].nunique()) if not source_summary_df.empty else 0,
+        "explorer_date_count": int(date_overview_df["data_date"].nunique()) if not date_overview_df.empty else 0,
+        "csv_warehouse_consistency_label": consistency.get("overall_label"),
         "sample_rebuild_dry_run_label": dry_run.get("summary_label"),
         "sample_rebuild_temp_label": rebuild.get("rebuild_label"),
         "sample_inserted_rows": int(rebuild.get("inserted_rows", 0) or 0),
         "warehouse_gitignore_ok": _git_check_ignore("data/warehouse/fund_flow.sqlite", project_root),
         "warehouse_text_forbidden_hits": forbidden_hits,
+        "warehouse_explorer_forbidden_hits": explorer_forbidden_hits,
     }
 
 
@@ -300,7 +324,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.0 本地冒烟检查")
+    print("Fund Flow Monitor v2.1 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -357,11 +381,16 @@ def main() -> int:
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
+    print(f"warehouse explorer imported: {warehouse['warehouse_explorer_imported']}")
+    print(f"warehouse explorer available: {warehouse['explorer_summary_available']}")
+    print(f"warehouse explorer source/date count: {warehouse['explorer_source_type_count']} / {warehouse['explorer_date_count']}")
+    print(f"CSV-Warehouse consistency: {warehouse['csv_warehouse_consistency_label']}")
     print(f"warehouse sample rebuild dry-run label: {warehouse['sample_rebuild_dry_run_label']}")
     print(f"warehouse sample rebuild temp label: {warehouse['sample_rebuild_temp_label']}")
     print(f"warehouse sample inserted rows: {warehouse['sample_inserted_rows']}")
     print(f"warehouse gitignore ok: {warehouse['warehouse_gitignore_ok']}")
     print(f"warehouse text forbidden hits: {warehouse['warehouse_text_forbidden_hits']}")
+    print(f"warehouse explorer forbidden hits: {warehouse['warehouse_explorer_forbidden_hits']}")
     presentation = report["presentation"]
     print(f"display mode count: {presentation['display_mode_count']}")
     print(f"status badge supported count: {presentation['supported_status_count']}")
@@ -390,9 +419,12 @@ def main() -> int:
         and snapshot_quality["sample_file_count"] >= 1
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
+        and warehouse["warehouse_explorer_imported"]
+        and warehouse["explorer_summary_available"]
         and warehouse["sample_inserted_rows"] > 0
         and warehouse["warehouse_gitignore_ok"]
         and not warehouse["warehouse_text_forbidden_hits"]
+        and not warehouse["warehouse_explorer_forbidden_hits"]
         and presentation["display_mode_count"] == 2
         and presentation["supported_status_count"] == 6
         and presentation["screenshot_guide_exists"]

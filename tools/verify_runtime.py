@@ -67,6 +67,15 @@ from src.local_warehouse import (  # noqa: E402
     summarize_warehouse_status,
     validate_warehouse_text,
 )
+from src.warehouse_explorer import (  # noqa: E402
+    build_csv_warehouse_consistency_report,
+    build_warehouse_explorer_summary,
+    get_warehouse_date_overview,
+    get_warehouse_source_type_summary,
+    load_warehouse_if_exists,
+    summarize_csv_warehouse_consistency,
+    validate_warehouse_explorer_text,
+)
 from src.multi_day_trends import (  # noqa: E402
     build_daily_theme_snapshots,
     build_multi_day_trend_pool,
@@ -533,16 +542,42 @@ def _verify_local_warehouse() -> None:
             dates = query_available_dates(conn)
             audit = audit_warehouse(conn)
             forbidden_hits = validate_warehouse_text(summarize_warehouse_status(summary, audit))
+            explorer_summary = build_warehouse_explorer_summary(conn)
+            source_summary_df = get_warehouse_source_type_summary(conn)
+            date_overview_df = get_warehouse_date_overview(conn)
+            consistency = build_csv_warehouse_consistency_report(
+                conn,
+                local_csv_dir=str(PROJECT_ROOT / "data/ticks"),
+                sample_csv_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+            )
+            explorer_forbidden_hits = validate_warehouse_explorer_text(summarize_csv_warehouse_consistency(consistency))
         finally:
             conn.close()
     default_warehouse_exists = (PROJECT_ROOT / get_default_warehouse_path()).exists()
+    default_conn, default_status = load_warehouse_if_exists(str(PROJECT_ROOT / get_default_warehouse_path()))
+    default_source_count = 0
+    try:
+        if default_conn is not None:
+            default_source_df = get_warehouse_source_type_summary(default_conn)
+            default_source_count = int(default_source_df["source_type"].nunique()) if not default_source_df.empty else 0
+    finally:
+        if default_conn is not None:
+            default_conn.close()
     print(f"  temp_warehouse_rebuild_label: {rebuild.get('rebuild_label')}")
     print(f"  temp_warehouse_row_count: {summary.get('snapshot_row_count')}")
     print(f"  temp_warehouse_file_count: {summary.get('snapshot_file_count')}")
     print(f"  temp_warehouse_available_date_count: {len(dates)}")
     print(f"  temp_warehouse_audit_label: {audit.get('audit_label')}")
+    print(f"  temp_explorer_label: {explorer_summary.get('explorer_label')}")
+    print(f"  temp_source_type_count: {source_summary_df['source_type'].nunique() if not source_summary_df.empty else 0}")
+    print(f"  temp_date_count: {date_overview_df['data_date'].nunique() if not date_overview_df.empty else 0}")
+    print(f"  temp_row_count: {explorer_summary.get('row_count')}")
+    print(f"  csv_warehouse_consistency_label: {consistency.get('overall_label')}")
     print(f"  warehouse_forbidden_hits: {forbidden_hits}")
+    print(f"  warehouse_explorer_forbidden_hits: {explorer_forbidden_hits}")
     print(f"  default_warehouse_exists: {default_warehouse_exists}")
+    print(f"  default_warehouse_status: {default_status.get('status_label')}")
+    print(f"  default_warehouse_source_type_count: {default_source_count}")
     print("  verify_runtime 只写入临时 SQLite，不写默认 data/warehouse。")
 
 

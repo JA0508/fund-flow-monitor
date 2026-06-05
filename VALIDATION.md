@@ -10,6 +10,31 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.1 Warehouse Explorer Checks
+
+Run:
+
+```bash
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/rebuild_local_warehouse.py --include-sample --clear
+```
+
+Required checks:
+
+- `src/warehouse_explorer.py` exists.
+- `tests/test_warehouse_explorer.py` passes.
+- The app still runs when `data/warehouse/fund_flow.sqlite` does not exist.
+- `数据说明` tab contains `Warehouse Explorer（只读）`.
+- Explorer can show source_type, date, captured_time and sector sample previews when a SAMPLE warehouse exists.
+- Explorer does not automatically rebuild warehouse.
+- Explorer does not write SQLite, does not write CSV and does not access network.
+- CSV-Warehouse consistency audit is visible and explains SAMPLE-only / LOCAL-not-imported states.
+- SAMPLE-only warehouse is not treated as a severe app error.
+- Page and docs contain no trading advice or prediction wording.
+
 ## v2.0 Local SQLite Warehouse Checks
 
 Run:

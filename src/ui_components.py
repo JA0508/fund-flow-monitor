@@ -1190,6 +1190,76 @@ def render_warehouse_notes(summary: dict, audit: dict | None = None) -> None:
             st.markdown("<div class='concept-note'>" + "<br>".join(escape(str(item)) for item in warnings[:12]) + "</div>", unsafe_allow_html=True)
 
 
+def render_warehouse_explorer_summary_cards(summary: dict) -> None:
+    st.markdown("<div class='radar-section-title'>Warehouse Explorer（只读）</div>", unsafe_allow_html=True)
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>Explorer 状态</div><div class='trust-value'>{escape(str(summary.get('explorer_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Source Type</div><div class='trust-value'>{int(summary.get('source_type_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>日期数</div><div class='trust-value'>{int(summary.get('date_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>时间点数</div><div class='trust-value'>{int(summary.get('captured_time_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>索引行数</div><div class='trust-value'>{int(summary.get('row_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>最新 LOCAL / SAMPLE</div><div class='trust-value'>{escape(str(summary.get('latest_local_date') or '--'))} / {escape(str(summary.get('latest_sample_date') or '--'))}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(summary.get('explorer_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_csv_warehouse_consistency_cards(report: dict) -> None:
+    local = report.get("local_consistency", {}) or {}
+    sample = report.get("sample_consistency", {}) or {}
+    st.markdown("<div class='radar-section-title'>CSV-Warehouse 一致性审计</div>", unsafe_allow_html=True)
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>总体状态</div><div class='trust-value'>{escape(str(report.get('overall_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>LOCAL</div><div class='trust-value'>{escape(str(local.get('consistency_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE</div><div class='trust-value'>{escape(str(sample.get('consistency_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>LOCAL CSV / WH</div><div class='trust-value'>{int(local.get('csv_file_count', 0) or 0)} / {int(local.get('warehouse_file_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE CSV / WH</div><div class='trust-value'>{int(sample.get('csv_file_count', 0) or 0)} / {int(sample.get('warehouse_file_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Warning / Error</div><div class='trust-value'>{int(report.get('warning_count', 0) or 0)} / {int(report.get('error_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(report.get('overall_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    warnings = list(report.get("warnings") or [])
+    errors = list(report.get("errors") or [])
+    if warnings or errors:
+        with st.expander("查看 CSV-Warehouse warning / error", expanded=False):
+            if errors:
+                st.markdown("<div class='holding-warning'>" + "<br>".join(escape(str(item)) for item in errors[:16]) + "</div>", unsafe_allow_html=True)
+            if warnings:
+                st.markdown("<div class='concept-note'>" + "<br>".join(escape(str(item)) for item in warnings[:16]) + "</div>", unsafe_allow_html=True)
+
+
+def render_warehouse_explorer_table(df: pd.DataFrame, title: str, empty_message: str, max_rows: int = 40) -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(str(title))}</div>", unsafe_allow_html=True)
+    if df is None or df.empty:
+        st.markdown(f"<div class='rank-panel'><div class='rank-empty'>{escape(str(empty_message))}</div></div>", unsafe_allow_html=True)
+        return
+    headers = [str(col) for col in df.columns]
+    rows = []
+    for _, row in df.head(max_rows).iterrows():
+        rows.append([row.get(col, "--") if row.get(col, None) is not None else "--" for col in df.columns])
+    _render_simple_table(headers, rows, empty_message)
+    if len(df) > max_rows:
+        st.markdown(
+            f"<div class='concept-note'>仅展示前 {max_rows} 行，共 {len(df)} 行。Explorer 只读查询，不会写入 SQLite 或 CSV。</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_warehouse_explorer_notes(text: str) -> None:
+    st.markdown(
+        f"<div class='concept-note'>{escape(str(text))}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _render_simple_table(headers: list[str], rows: list[list[object]], empty_message: str) -> None:
     if not rows:
         st.markdown(f"<div class='rank-panel'><div class='rank-empty'>{escape(empty_message)}</div></div>", unsafe_allow_html=True)

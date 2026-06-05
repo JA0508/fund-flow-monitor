@@ -77,6 +77,7 @@ from src.local_warehouse import (
     get_default_warehouse_path,
     query_available_dates,
     query_warehouse_summary,
+    safe_close_connection,
     summarize_warehouse_status,
 )
 from src.market_time import get_market_status
@@ -162,8 +163,12 @@ from src.ui_components import (
     render_snapshot_quality_cards,
     render_snapshot_quality_notes,
     render_warehouse_date_table,
+    render_warehouse_explorer_notes,
+    render_warehouse_explorer_summary_cards,
+    render_warehouse_explorer_table,
     render_warehouse_notes,
     render_warehouse_status_cards,
+    render_csv_warehouse_consistency_cards,
     render_status_badge,
     render_status_bar,
     render_observation_brief_cards,
@@ -175,6 +180,16 @@ from src.ui_components import (
 )
 from src.utils import get_china_now
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
+from src.warehouse_explorer import (
+    build_csv_warehouse_consistency_report,
+    build_warehouse_explorer_summary,
+    get_warehouse_captured_time_overview,
+    get_warehouse_date_overview,
+    get_warehouse_sector_sample,
+    get_warehouse_source_type_summary,
+    load_warehouse_if_exists,
+    summarize_csv_warehouse_consistency,
+)
 
 
 st.set_page_config(
@@ -345,6 +360,20 @@ def main() -> None:
             warehouse_audit["error_count"] = 1
             warehouse_audit["errors"] = [str(exc)]
     warehouse_status_text = summarize_warehouse_status(warehouse_summary, warehouse_audit)
+    warehouse_explorer_conn, warehouse_explorer_status = load_warehouse_if_exists(warehouse_path)
+    warehouse_explorer_summary = build_warehouse_explorer_summary(warehouse_explorer_conn)
+    warehouse_source_summary_df = pd.DataFrame()
+    warehouse_date_overview_df = pd.DataFrame()
+    warehouse_captured_time_overview_df = pd.DataFrame()
+    csv_warehouse_consistency_report = build_csv_warehouse_consistency_report(warehouse_explorer_conn)
+    if warehouse_explorer_conn is not None:
+        try:
+            warehouse_source_summary_df = get_warehouse_source_type_summary(warehouse_explorer_conn)
+            warehouse_date_overview_df = get_warehouse_date_overview(warehouse_explorer_conn)
+            warehouse_captured_time_overview_df = get_warehouse_captured_time_overview(warehouse_explorer_conn)
+        finally:
+            safe_close_connection(warehouse_explorer_conn)
+    csv_warehouse_consistency_text = summarize_csv_warehouse_consistency(csv_warehouse_consistency_report)
 
     with st.sidebar:
         st.header("监测设置")
@@ -1135,6 +1164,73 @@ def main() -> None:
             )
         with st.expander("查看 SQLite warehouse 可用日期", expanded=show_debug_details):
             render_warehouse_date_table(warehouse_dates_df)
+        render_warehouse_explorer_summary_cards(warehouse_explorer_summary)
+        render_warehouse_explorer_notes(
+            "Warehouse Explorer 是只读历史查询面板，只查看已有 SQLite 索引中的 source_type、日期、时间点和板块样本。"
+            "页面不会自动重建 warehouse，不会写入 SQLite，也不会访问 AKShare。"
+        )
+        if not warehouse_explorer_status.get("exists"):
+            st.markdown(
+                "<div class='concept-note'>Warehouse Explorer 当前不可用，因为本地 SQLite 尚未创建。"
+                "可手动运行 <code>python tools/rebuild_local_warehouse.py --include-sample</code> "
+                "创建 SAMPLE 查询索引；CSV 路径仍可正常使用。</div>",
+                unsafe_allow_html=True,
+            )
+        with st.expander("查看 Warehouse source_type 汇总", expanded=show_debug_details):
+            render_warehouse_explorer_table(
+                warehouse_source_summary_df,
+                title="Source Type 汇总",
+                empty_message="暂无 warehouse source_type 汇总。",
+            )
+        with st.expander("查看 Warehouse 日期概览", expanded=show_debug_details):
+            render_warehouse_explorer_table(
+                warehouse_date_overview_df,
+                title="日期概览",
+                empty_message="暂无 warehouse 日期概览。",
+            )
+        with st.expander("查看 Warehouse captured_time 概览", expanded=False):
+            render_warehouse_explorer_table(
+                warehouse_captured_time_overview_df,
+                title="Captured Time 概览",
+                empty_message="暂无 warehouse 时间点概览。",
+            )
+        with st.expander("查询 Warehouse 板块样本（只读）", expanded=show_debug_details):
+            explorer_source_options = ["ALL", "LOCAL", "SAMPLE"]
+            explorer_source = st.selectbox("Explorer source_type", explorer_source_options, index=0, key="warehouse_explorer_source")
+            filtered_dates = warehouse_date_overview_df.copy()
+            if explorer_source != "ALL" and not filtered_dates.empty:
+                filtered_dates = filtered_dates[filtered_dates["source_type"].eq(explorer_source)]
+            date_options = ["ALL"] + sorted(filtered_dates.get("data_date", pd.Series(dtype=str)).dropna().astype(str).unique().tolist(), reverse=True)
+            explorer_date = st.selectbox("Explorer data_date", date_options, index=0, key="warehouse_explorer_date")
+            filtered_times = warehouse_captured_time_overview_df.copy()
+            if explorer_source != "ALL" and not filtered_times.empty:
+                filtered_times = filtered_times[filtered_times["source_type"].eq(explorer_source)]
+            if explorer_date != "ALL" and not filtered_times.empty:
+                filtered_times = filtered_times[filtered_times["data_date"].astype(str).eq(explorer_date)]
+            time_options = ["ALL"] + sorted(filtered_times.get("captured_time", pd.Series(dtype=str)).dropna().astype(str).unique().tolist(), reverse=True)
+            explorer_time = st.selectbox("Explorer captured_time", time_options, index=0, key="warehouse_explorer_time")
+            explorer_top_n = st.selectbox("Explorer top_n", [10, 20, 50], index=1, key="warehouse_explorer_top_n")
+            sample_conn = None
+            sector_sample_df = pd.DataFrame()
+            try:
+                sample_conn, _ = load_warehouse_if_exists(warehouse_path)
+                sector_sample_df = get_warehouse_sector_sample(
+                    sample_conn,
+                    source_type=None if explorer_source == "ALL" else explorer_source,
+                    data_date=None if explorer_date == "ALL" else explorer_date,
+                    captured_time=None if explorer_time == "ALL" else explorer_time,
+                    top_n=int(explorer_top_n),
+                )
+            finally:
+                safe_close_connection(sample_conn)
+            render_warehouse_explorer_table(
+                sector_sample_df,
+                title="板块样本",
+                empty_message="暂无符合条件的 warehouse 板块样本。",
+                max_rows=int(explorer_top_n),
+            )
+        render_csv_warehouse_consistency_cards(csv_warehouse_consistency_report)
+        render_warehouse_explorer_notes(csv_warehouse_consistency_text)
         with st.expander("查看历史回放与 SAMPLE 快照目录", expanded=show_debug_details):
             st.markdown("#### 真实缓存目录 data/ticks")
             render_snapshot_catalog_table(snapshot_catalog_df, title="历史回放快照目录")
