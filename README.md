@@ -40,7 +40,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 多日主题趋势：基于多个本地 CSV 日期的最后快照，观察主题资金状态的跨日期变化。
 - 主题库配置化：通过 `config/theme_taxonomy.json` 管理主题定义、核心行业、相关行业和概念关键词。
 - 主题覆盖审计：检查当前快照覆盖率、高资金流未覆盖板块、重复映射和 watchlist / fund_profiles 一致性。
-- 观察简报：整合主题雷达、日内热点、多日趋势、持仓相关池和覆盖审计，并支持 Markdown 下载。
+- 观察简报：整合主题雷达、日内热点、多日趋势、持仓相关池和覆盖审计，支持标准简报 / 作品集演示简报 Markdown 下载。
 - CSV 数据质量面板：展示快照日期、行数、时间点数量、行业/概念行数和质量标签。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
 - 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
@@ -66,13 +66,37 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 5. 查看 `日内热点` 和 `多日趋势`，观察本地 CSV 快照沉淀后的解释层。
 6. 查看 `持仓相关池`，了解 JSON 配置和 SAMPLE CSV 主题暴露模板。
 7. 查看 `观察简报`，下载 Markdown 报告。
-8. 查看 `数据说明`，确认数据状态、主题库治理、CSV 快照质量和截图指南。
+8. 查看或下载 [`SAMPLE Demo Brief`](docs/demo_briefs/sample_observation_brief.md)，理解离线成果物效果。
+9. 查看 `数据说明`，确认数据状态、主题库治理、CSV 快照质量和截图指南。
 
 ## Portfolio Presentation Mode
 
 v1.8 新增 `作品集演示模式`。它只调整页面呈现密度：首屏更突出项目定位，冗长 CSV 明细和调试信息默认折叠，便于 GitHub、Streamlit Cloud 和简历项目展示。
 
 这个模式不会改变任何主题计算、排行榜、日内热点、多日趋势或观察简报结果；不会触发 AKShare；不会写入 CSV；也不会隐藏 SAMPLE / DEMO 的非真实行情提示。
+
+## Demo Brief
+
+v1.9 提供一份由 SAMPLE 合成演示数据生成的静态观察简报：
+
+- 文件路径：[`docs/demo_briefs/sample_observation_brief.md`](docs/demo_briefs/sample_observation_brief.md)
+- 生成命令：`python tools/export_sample_brief.py`
+- 用途：GitHub 作品集预览、面试展示、功能说明和离线阅读。
+
+这份 demo brief 只读取 `sample_data/ticks`，不会访问 AKShare，不会读取或写入 `data/ticks`，不代表真实行情，不构成投资建议，也不预测未来走势。
+
+## Observation Brief Templates
+
+观察简报 tab 支持两种 Markdown 模板：
+
+- `标准简报`：适合 app 内常规下载，内容更克制简洁。
+- `作品集演示简报`：适合 GitHub / Streamlit Cloud 展示，更强调 SAMPLE 可复现、项目边界和主题解释层。
+
+两种模板只改变 Markdown 展示结构，不改变主题雷达、日内热点、多日趋势、持仓相关池或覆盖审计的底层计算。
+
+## Release Checklist
+
+发布检查清单位于 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)，包含本地验证、SAMPLE demo brief、Git 安全、Streamlit Cloud、作品集展示和边界检查。
 
 ## Technical Highlights
 
@@ -82,6 +106,7 @@ v1.8 新增 `作品集演示模式`。它只调整页面呈现密度：首屏更
 - 配置化主题库和覆盖审计，解释主题归并口径和重叠风险。
 - 基金/ETF 主题暴露 CSV 模板，展示可配置的持仓相关池流程，但不读取真实账户。
 - 观察简报 Markdown 导出，统一整合主题雷达、日内热点、多日趋势和数据质量说明。
+- SAMPLE demo brief 离线导出，方便 GitHub 作品集直接预览。
 - 本地 CSV 快照质量治理和手动采集脚本，保持 CSV MVP 的可追溯性。
 
 ## Portfolio Description
@@ -528,6 +553,8 @@ python tools/collect_market_snapshot.py --no-network
 - v1.5：Streamlit Cloud 部署准备、GitHub 作品集展示优化、首次访问体验打磨。
 - v1.6：基金/ETF 主题暴露 CSV 模板导入、配置校验、持仓相关池增强。
 - v1.7：本地数据采集脚本、CSV 快照治理、数据质量面板增强。
-- v1.8+：展示 polish / presentation mode、README screenshots 更新、观察简报模板优化、本地采集节流策略增强、SQLite / DuckDB、FastAPI + React + ECharts 产品化重构。
+- v1.8：展示 polish / presentation mode、README screenshot guide。
+- v1.9：观察简报模板 polish、SAMPLE demo brief 离线导出、release checklist。
+- v2.0+：README 实际截图更新、本地采集节流策略增强、SQLite / DuckDB、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

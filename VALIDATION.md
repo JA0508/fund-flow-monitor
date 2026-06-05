@@ -10,6 +10,35 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v1.9 Observation Brief Release Checks
+
+Run:
+
+```bash
+python tools/export_sample_brief.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `src/brief_templates.py` exists.
+- `tools/export_sample_brief.py` exists.
+- `docs/demo_briefs/README.md` exists.
+- `docs/demo_briefs/sample_observation_brief.md` exists.
+- `docs/RELEASE_CHECKLIST.md` exists.
+- Observation brief tab contains template selection.
+- Standard brief and portfolio demo brief can be generated.
+- SAMPLE portfolio brief explicitly says it is based on synthetic demo data.
+- Demo brief does not contain action-oriented investment wording.
+- Demo brief does not contain local absolute paths.
+- `tools/export_sample_brief.py` does not access network.
+- `tools/export_sample_brief.py` does not read or write `data/ticks`.
+- README links to the demo brief and release checklist point to real files.
+- Page and documentation do not contain prediction or trading-action wording.
+
 ## v1.8 Portfolio Presentation Checks
 
 Run:

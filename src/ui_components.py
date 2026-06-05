@@ -1348,6 +1348,8 @@ def render_brief_download(
     markdown_text: str,
     selected_date: str,
     forbidden_hits: list[str] | None = None,
+    file_name: str | None = None,
+    label: str = "下载 Markdown 简报",
 ) -> None:
     if forbidden_hits:
         st.markdown(
@@ -1357,12 +1359,39 @@ def render_brief_download(
         return
     safe_date = "".join(ch for ch in str(selected_date or "unknown") if ch.isdigit() or ch == "-") or "unknown"
     st.download_button(
-        "下载 Markdown 简报",
+        label,
         data=markdown_text,
-        file_name=f"yangjibao_brief_{safe_date}.md",
+        file_name=file_name or f"yangjibao_brief_{safe_date}.md",
         mime="text/markdown",
         type="secondary",
     )
+
+
+def render_brief_template_meta_cards(metadata: dict, compliance: dict, template_mode: str) -> None:
+    forbidden_hits = compliance.get("forbidden_hits") or []
+    status_class = "brief-pass" if not forbidden_hits and compliance.get("compliance_label") == "合规通过" else "brief-warning"
+    real_label = "真实行情/缓存" if metadata.get("is_real_market_data") else "非真实行情数据"
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>简报模板</div><div class='trust-value'>{escape(str(template_mode))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>生成时间</div><div class='trust-value'>{escape(str(metadata.get('generated_at', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>数据状态</div><div class='trust-value'>{escape(str(metadata.get('view_status', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>数据性质</div><div class='trust-value'>{escape(real_label)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>合规状态</div><div class='trust-value {status_class}'>{escape(str(compliance.get('compliance_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>章节数量</div><div class='trust-value'>{int(compliance.get('section_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(metadata.get('data_notice', '')))}</div>"
+        f"<div class='trust-copy'>{escape(str(compliance.get('compliance_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    if forbidden_hits:
+        st.markdown(
+            "<div class='holding-warning'>新版简报命中动作性表达，已暂不提供下载："
+            f"{escape('，'.join(forbidden_hits))}</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def render_app_footer() -> None:

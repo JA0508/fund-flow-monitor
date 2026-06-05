@@ -11,7 +11,15 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.config import APP_VERSION  # noqa: E402
 from src.concept_flow import get_concept_latest_snapshot, summarize_concept_hotspots  # noqa: E402
+from src.brief_templates import (  # noqa: E402
+    build_brief_compliance_report,
+    build_brief_metadata,
+    get_brief_template_modes,
+    render_brief_markdown_v2,
+    validate_brief_markdown_structure,
+)
 from src.fund_profiles import (  # noqa: E402
     build_fund_summary,
     build_fund_theme_exposure,
@@ -516,7 +524,7 @@ def _verify_presentation_readiness(selected_date: str, data_status: str) -> None
     print("作品集展示 readiness 检查:")
     statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     badges = [build_status_badge_config(status) for status in statuses]
-    intro = build_portfolio_intro_context("v1.8", data_status, selected_date, "作品集演示模式")
+    intro = build_portfolio_intro_context(APP_VERSION, data_status, selected_date, "作品集演示模式")
     checklist = build_screenshot_checklist()
     steps = build_demo_walkthrough_steps()
     text_parts = [
@@ -540,6 +548,59 @@ def _verify_presentation_readiness(selected_date: str, data_status: str) -> None
     print(f"  README broken image count: {len(broken_images)}")
     if broken_images:
         print(f"  README broken images: {broken_images}")
+
+
+def _readme_links_exist(paths: tuple[str, ...]) -> bool:
+    readme = PROJECT_ROOT / "README.md"
+    if not readme.exists():
+        return False
+    text = readme.read_text(encoding="utf-8")
+    for rel_path in paths:
+        if rel_path not in text or not (PROJECT_ROOT / rel_path).exists():
+            return False
+    return True
+
+
+def _verify_brief_template_readiness(observation_brief: dict, selected_date: str) -> None:
+    print("观察简报模板 / demo brief readiness 检查:")
+    metadata = build_brief_metadata(
+        selected_date,
+        "SAMPLE",
+        "严格代表口径",
+        "v1.9",
+        "sample_data/ticks",
+    )
+    markdown = render_brief_markdown_v2(observation_brief, template_mode="作品集演示简报", metadata=metadata)
+    compliance = build_brief_compliance_report(markdown)
+    structure = validate_brief_markdown_structure(markdown)
+    export_script = PROJECT_ROOT / "tools/export_sample_brief.py"
+    spec = importlib.util.spec_from_file_location("export_sample_brief", export_script)
+    export_import_ok = spec is not None and spec.loader is not None
+    if export_import_ok and spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        export_import_ok = hasattr(module, "export_sample_brief") and hasattr(module, "build_parser")
+
+    demo_brief_path = PROJECT_ROOT / "docs/demo_briefs/sample_observation_brief.md"
+    demo_compliance = {"compliance_label": "<missing>", "forbidden_hits": []}
+    if demo_brief_path.exists():
+        demo_text = demo_brief_path.read_text(encoding="utf-8")
+        demo_compliance = build_brief_compliance_report(demo_text)
+    readme_links_valid = _readme_links_exist(
+        (
+            "docs/demo_briefs/sample_observation_brief.md",
+            "docs/RELEASE_CHECKLIST.md",
+        )
+    )
+    print(f"  brief_template_modes: {get_brief_template_modes()}")
+    print(f"  render_brief_markdown_v2 compliance_label: {compliance.get('compliance_label')}")
+    print(f"  render_brief_markdown_v2 structure_valid: {structure.get('is_valid')}")
+    print(f"  export_sample_brief.py import: {export_import_ok}")
+    print(f"  demo brief exists: {demo_brief_path.exists()}")
+    print(f"  demo_brief_compliance_label: {demo_compliance.get('compliance_label')}")
+    print(f"  demo_brief_forbidden_hits: {demo_compliance.get('forbidden_hits')}")
+    print(f"  release_checklist_exists: {(PROJECT_ROOT / 'docs/RELEASE_CHECKLIST.md').exists()}")
+    print(f"  readme_demo_links_valid: {readme_links_valid}")
 
 
 def main() -> int:
@@ -741,6 +802,7 @@ def main() -> int:
     print(f"  executive_summary 前 80 字: {observation_brief.get('executive_summary', '')[:80]}")
     print(f"  key_points 数量: {len(observation_brief.get('key_points', []))}")
     print(f"  forbidden_hits: {forbidden_hits}")
+    _verify_brief_template_readiness(observation_brief, selected_date)
     _verify_presentation_readiness(selected_date, "CACHE")
 
     concept_latest = get_concept_latest_snapshot(ticks)

@@ -7,6 +7,15 @@ import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
 from src.chart import build_flow_chart
+from src.brief_templates import (
+    build_brief_compliance_report,
+    build_brief_metadata,
+    generate_brief_filename,
+    get_brief_template_modes,
+    is_portfolio_brief_mode,
+    render_brief_markdown_v2,
+    validate_brief_markdown_structure,
+)
 from src.concept_flow import (
     CONCEPT_SECTOR_TYPE,
     get_concept_cache_summary,
@@ -122,6 +131,7 @@ from src.ui_components import (
     render_error_box,
     render_brief_download,
     render_brief_overview_cards,
+    render_brief_template_meta_cards,
     render_demo_walkthrough_cards,
     render_first_run_guide,
     render_fund_profile_overview,
@@ -914,6 +924,31 @@ def main() -> None:
             "内容仅解释已保存或已展示的资金流状态，不预测未来走势，不构成投资建议。观察简报不触发 AKShare 抓取，也不会写入 CSV。</div>",
             unsafe_allow_html=True,
         )
+        brief_template_modes = get_brief_template_modes()
+        default_brief_template = "作品集演示简报" if portfolio_mode else "标准简报"
+        brief_template_mode = st.selectbox(
+            "简报模板选择",
+            brief_template_modes,
+            index=brief_template_modes.index(default_brief_template),
+            key="brief_template_mode",
+            help="模板只影响 Markdown 展示结构，不改变主题雷达、日内热点、多日趋势或持仓相关池的计算结果。",
+        )
+        brief_metadata = build_brief_metadata(
+            selected_snapshot_date or header_date,
+            data_status,
+            theme_mode_label or "原始板块",
+            APP_VERSION,
+            source_label,
+        )
+        brief_markdown_v2 = render_brief_markdown_v2(
+            observation_brief,
+            template_mode=brief_template_mode,
+            metadata=brief_metadata,
+        )
+        brief_compliance = build_brief_compliance_report(brief_markdown_v2)
+        brief_structure = validate_brief_markdown_structure(brief_markdown_v2)
+        brief_v2_forbidden_hits = brief_compliance.get("forbidden_hits", [])
+        brief_file_name = generate_brief_filename(selected_snapshot_date or header_date, brief_template_mode)
         if data_status == "EMPTY":
             render_first_run_guide("当前没有可用真实缓存或实时抓取暂不可用。")
             st.markdown(
@@ -926,9 +961,28 @@ def main() -> None:
                 "简报正文会先做动作性表达检查；通过后才提供 Markdown 下载，适合用于项目展示和复盘记录。",
                 tone="success",
             )
-        render_brief_overview_cards(brief_data_context, observation_brief, brief_forbidden_hits)
+        if data_status == "SAMPLE" and is_portfolio_brief_mode(brief_template_mode):
+            render_compact_notice(
+                "SAMPLE 简报声明",
+                "当前作品集演示简报基于仓库内置合成样例数据生成，不代表真实行情。",
+                tone="warning",
+            )
+        render_brief_overview_cards(brief_data_context, observation_brief, brief_v2_forbidden_hits)
+        render_brief_template_meta_cards(brief_metadata, brief_compliance, brief_template_mode)
+        if not brief_structure.get("is_valid"):
+            render_compact_notice(
+                "Markdown 结构检查",
+                "；".join(brief_structure.get("warnings", [])) or "简报结构存在轻微缺失。",
+                tone="warning",
+            )
         render_observation_brief_cards(observation_brief)
-        render_brief_download(brief_markdown, selected_snapshot_date or header_date, brief_forbidden_hits)
+        render_brief_download(
+            brief_markdown_v2,
+            selected_snapshot_date or header_date,
+            brief_v2_forbidden_hits,
+            file_name=brief_file_name,
+            label="下载新版 Markdown 简报",
+        )
 
     with tab_rank:
         render_rank_tables(latest_df)

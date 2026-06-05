@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v1.9
+
+- Polished observation brief templates.
+- 新增 `src/brief_templates.py`，支持标准简报和作品集演示简报。
+- 新增 `tools/export_sample_brief.py`，离线导出 SAMPLE demo brief，不访问网络，不读取或写入 `data/ticks`。
+- 新增 `docs/demo_briefs/sample_observation_brief.md` 静态演示简报。
+- 新增 `docs/RELEASE_CHECKLIST.md` 发布检查清单。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 demo brief readiness 与合规检查。
+
 ## v1.8
 
 - Portfolio presentation mode.

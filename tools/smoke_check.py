@@ -16,6 +16,10 @@ from src.fund_profile_importer import (  # noqa: E402
     validate_fund_profiles_csv,
 )
 from src import insight_brief  # noqa: E402
+from src.brief_templates import (  # noqa: E402
+    get_brief_template_modes,
+    validate_brief_template_text,
+)
 from src.presentation import (  # noqa: E402
     build_status_badge_config,
     get_display_mode_options,
@@ -49,9 +53,11 @@ REQUIRED_FILES = (
     "src/sample_data.py",
     "src/snapshot_quality.py",
     "src/presentation.py",
+    "src/brief_templates.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
+    "tools/export_sample_brief.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
     "config/theme_taxonomy.json",
@@ -59,6 +65,9 @@ REQUIRED_FILES = (
     "sample_data/ticks/sector_flow_2026-01-16.csv",
     "sample_data/fund_profiles/sample_fund_profiles.csv",
     "docs/screenshots/SCREENSHOT_GUIDE.md",
+    "docs/demo_briefs/README.md",
+    "docs/demo_briefs/sample_observation_brief.md",
+    "docs/RELEASE_CHECKLIST.md",
     "README.md",
 )
 
@@ -166,6 +175,8 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
     readme_path = project_root / "README.md"
     readme_text = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
+    demo_brief_path = project_root / "docs/demo_briefs/sample_observation_brief.md"
+    demo_brief_text = demo_brief_path.read_text(encoding="utf-8") if demo_brief_path.exists() else ""
     presentation_text = " ".join(
         get_display_mode_options()
         + [str(item.get("label", "")) for item in status_badges]
@@ -214,12 +225,19 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "readme_has_portfolio_mode": "Portfolio Presentation Mode" in readme_text or "作品集演示模式" in readme_text,
             "presentation_text_forbidden_hits": validate_presentation_text(presentation_text),
         },
+        "brief_templates": {
+            "brief_template_mode_count": len(get_brief_template_modes()),
+            "demo_brief_exists": demo_brief_path.exists(),
+            "demo_brief_has_sample_notice": ("SAMPLE" in demo_brief_text and "合成演示数据" in demo_brief_text),
+            "demo_brief_forbidden_hits": validate_brief_template_text(demo_brief_text),
+            "release_checklist_exists": (project_root / "docs/RELEASE_CHECKLIST.md").exists(),
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.8 本地冒烟检查")
+    print("Fund Flow Monitor v1.9 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -280,6 +298,12 @@ def main() -> int:
     print(f"README has Demo Walkthrough: {presentation['readme_has_demo_walkthrough']}")
     print(f"README has Portfolio Presentation Mode: {presentation['readme_has_portfolio_mode']}")
     print(f"presentation text forbidden hits: {presentation['presentation_text_forbidden_hits']}")
+    brief_templates = report["brief_templates"]
+    print(f"brief template mode count: {brief_templates['brief_template_mode_count']}")
+    print(f"demo brief exists: {brief_templates['demo_brief_exists']}")
+    print(f"demo brief has SAMPLE notice: {brief_templates['demo_brief_has_sample_notice']}")
+    print(f"demo brief forbidden hits: {brief_templates['demo_brief_forbidden_hits']}")
+    print(f"release checklist exists: {brief_templates['release_checklist_exists']}")
 
     ok = (
         py["ok"]
@@ -299,6 +323,11 @@ def main() -> int:
         and presentation["readme_has_demo_walkthrough"]
         and presentation["readme_has_portfolio_mode"]
         and not presentation["presentation_text_forbidden_hits"]
+        and brief_templates["brief_template_mode_count"] == 2
+        and brief_templates["demo_brief_exists"]
+        and brief_templates["demo_brief_has_sample_notice"]
+        and not brief_templates["demo_brief_forbidden_hits"]
+        and brief_templates["release_checklist_exists"]
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1
