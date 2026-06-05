@@ -131,6 +131,16 @@ from src.theme_history import (
     summarize_theme_history,
     summarize_theme_history_quality,
 )
+from src.theme_history_viz import (
+    build_theme_history_visual_notes,
+    build_theme_history_visual_summary,
+    get_theme_history_chart_options,
+    normalize_theme_history_chart_option,
+    prepare_latest_theme_bar_data,
+    prepare_status_timeline_compact,
+    prepare_theme_history_heatmap_data,
+    prepare_theme_history_line_data,
+)
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
 from src.theme_taxonomy import (
     audit_theme_name_consistency,
@@ -185,9 +195,15 @@ from src.ui_components import (
     render_observation_brief_cards,
     render_theme_concept_cards,
     render_theme_coverage_panel,
+    render_latest_theme_bar_chart,
+    render_status_timeline_compact_table,
+    render_theme_history_heatmap,
+    render_theme_history_line_chart,
     render_theme_history_matrix,
     render_theme_history_notes,
     render_theme_history_summary_cards,
+    render_theme_history_visual_notes,
+    render_theme_history_visual_summary_cards,
     render_theme_status_timeline,
     render_theme_taxonomy_panel,
     render_theme_taxonomy_status,
@@ -1054,6 +1070,88 @@ def main() -> None:
                         )
                     matrix_df = build_theme_history_matrix(theme_history_df)
                     timeline_df = build_theme_status_timeline(theme_history_df)
+                    st.markdown("<div class='radar-section-title'>主题历史图表</div>", unsafe_allow_html=True)
+                    if theme_history_df.empty:
+                        st.markdown(
+                            "<div class='rank-panel'><div class='rank-empty'>暂无主题历史数据，暂不展示图表。</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        chart_options = get_theme_history_chart_options()
+                        default_chart = "主题历史热力矩阵" if portfolio_mode else "主题净流入折线图"
+                        chart_col1, chart_col2 = st.columns([1.1, 1.5])
+                        with chart_col1:
+                            chart_option = st.selectbox(
+                                "主题历史图表类型",
+                                chart_options,
+                                index=chart_options.index(default_chart),
+                                key="theme_history_chart_option",
+                            )
+                            visual_top_n = st.selectbox(
+                                "图表 Top N",
+                                [3, 5, 8, 10],
+                                index=1,
+                                key="theme_history_visual_top_n",
+                            )
+                        theme_candidates = (
+                            sorted(theme_history_df["theme_name"].dropna().astype(str).unique().tolist())
+                            if "theme_name" in theme_history_df.columns
+                            else []
+                        )
+                        with chart_col2:
+                            selected_visual_themes = st.multiselect(
+                                "选择主题（可选）",
+                                theme_candidates,
+                                default=[],
+                                help="不选择时按最新日期绝对资金流自动选取 Top N。",
+                                key="theme_history_selected_themes",
+                            )
+                        normalized_chart_option = normalize_theme_history_chart_option(chart_option)
+                        is_sample_only_history = bool(
+                            set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper()) == {"SAMPLE"}
+                        )
+                        visual_summary = build_theme_history_visual_summary(theme_history_df, timeline_df, top_n=int(visual_top_n))
+                        visual_notes = build_theme_history_visual_notes(
+                            source_type=history_source,
+                            theme_mode=history_mode_label,
+                            latest_per_day=history_latest_per_day,
+                            is_sample_only=is_sample_only_history,
+                        )
+                        render_theme_history_visual_summary_cards(visual_summary)
+                        render_theme_history_visual_notes(visual_notes)
+                        if is_sample_only_history:
+                            render_compact_notice(
+                                "SAMPLE 图表说明",
+                                "当前图表基于 SAMPLE 合成演示数据生成，不代表真实行情。",
+                                tone="warning",
+                            )
+                        if history_source == "ALL" and len(set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper())) > 1:
+                            render_compact_notice(
+                                "ALL 来源说明",
+                                "ALL 包含多个 source_type，解释图表时请注意 LOCAL 与 SAMPLE 的数据来源差异。",
+                                tone="info",
+                            )
+                        if normalized_chart_option == "主题净流入折线图":
+                            line_df = prepare_theme_history_line_data(
+                                theme_history_df,
+                                selected_themes=selected_visual_themes,
+                                top_n=int(visual_top_n),
+                            )
+                            render_theme_history_line_chart(line_df)
+                        elif normalized_chart_option == "主题历史热力矩阵":
+                            heatmap_df = prepare_theme_history_heatmap_data(theme_history_df, top_n=int(visual_top_n))
+                            render_theme_history_heatmap(heatmap_df)
+                        elif normalized_chart_option == "最新主题表现柱状图":
+                            latest_bar_df = prepare_latest_theme_bar_data(theme_history_df, top_n=int(visual_top_n))
+                            render_latest_theme_bar_chart(latest_bar_df)
+                        else:
+                            timeline_compact_df = prepare_status_timeline_compact(
+                                timeline_df,
+                                selected_themes=selected_visual_themes,
+                                max_rows=80,
+                            )
+                            with st.expander("查看 compact 主题状态时间线", expanded=show_debug_details):
+                                render_status_timeline_compact_table(timeline_compact_df)
                     with st.expander("查看主题历史矩阵", expanded=show_debug_details):
                         render_theme_history_matrix(matrix_df, "主题历史矩阵")
                     with st.expander("查看主题状态时间线", expanded=show_debug_details):
@@ -1335,6 +1433,8 @@ def main() -> None:
             "- 主题历史聚合基于 warehouse 中已有的历史 sector flow 行，只做只读查询。\n"
             "- CSV 仍是 source of truth；warehouse 只是可重建索引。\n"
             "- 主题历史聚合使用 `config/theme_taxonomy.json` 和当前已有的主题口径：严格代表口径 / 代表口径 / 广度观察。\n"
+            "- 主题历史图表包括净流入折线图、历史热力矩阵、最新主题表现柱状图和 compact 状态时间线。\n"
+            "- 图表仅描述已导入 warehouse 的历史快照状态，不会访问网络，不会写 SQLite 或 CSV。\n"
             "- SAMPLE 主题历史仅用于公开演示，不代表真实行情。\n"
             "- 该功能只描述已保存的历史资金状态，不预测未来走势，不构成投资建议。\n"
             "- 页面不会自动重建 warehouse，也不会写 SQLite 或 CSV。"

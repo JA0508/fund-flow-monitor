@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v2.3
+
+- Theme history visualization polish.
+- 新增 `src/theme_history_viz.py`，将 warehouse-powered theme history 转换为折线图、热力矩阵、最新表现柱状图和 compact 状态时间线的数据。
+- 多日趋势 tab 的 `Warehouse 主题历史观察（只读）` 增加 `主题历史图表` 区域。
+- SAMPLE-only 图表明确标注为合成演示数据，不代表真实行情。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 theme history visualization readiness 检查。
+- 新增 visualization validation tests，继续保持只读、CSV-first 和无投资建议边界。
+
 ## v2.2
 
 - Warehouse-powered theme history aggregation.

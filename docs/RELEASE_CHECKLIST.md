@@ -93,5 +93,7 @@ python tools/rebuild_local_warehouse.py --include-sample --clear
 - 打开 app，进入 `多日趋势` → `Warehouse 主题历史观察（只读）`。
 - 确认 SAMPLE 主题历史明确标注为合成演示数据，不代表真实行情。
 - 确认主题历史摘要、矩阵、状态时间线和质量报告可展示。
+- 确认 `主题历史图表` 区域可展示折线图、热力矩阵、最新主题表现柱状图和 compact 状态时间线。
+- 确认 SAMPLE 图表明确标注为合成演示数据，不代表真实行情。
 - 确认页面不自动重建 warehouse，不写 SQLite，不写 CSV。
 - 确认 `data/warehouse/*.sqlite` 不进入 `git status`。

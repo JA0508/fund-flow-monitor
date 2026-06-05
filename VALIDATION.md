@@ -10,6 +10,31 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.3 Theme History Visualization Checks
+
+Run:
+
+```bash
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/rebuild_local_warehouse.py --include-sample --clear
+```
+
+Required checks:
+
+- `src/theme_history_viz.py` exists.
+- `tests/test_theme_history_viz.py` passes.
+- The `多日趋势` tab contains a `主题历史图表` area inside `Warehouse 主题历史观察（只读）`.
+- No warehouse: the app still runs and does not render empty chart shells.
+- SAMPLE warehouse: line chart, heatmap, latest bar chart and compact status timeline are available.
+- SAMPLE chart copy clearly marks synthetic demo data and not real market data.
+- `chart_option`, `top_n` and optional selected themes controls work without errors.
+- Chart rendering does not replace existing CSV multi-day trend logic.
+- The chart panel does not rebuild warehouse, write SQLite, write CSV or access network.
+- Page and docs contain no trading advice or prediction wording.
+
 ## v2.2 Theme History Checks
 
 Run:

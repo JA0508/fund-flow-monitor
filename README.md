@@ -153,7 +153,7 @@ The data explanation tab shows the current data source, `LIVE / CACHE / HISTORY 
 
 ### Planned Screenshot Slots
 
-The following screenshots are recommended by the guide but are not linked until real files exist: `observation_brief.png`, `holding_pool.png`, `intraday_hotspots.png`, `history_replay.png`, `multi_day_trends.png`, `snapshot_catalog.png`, `sample_mode.png`, `theme_taxonomy.png`, and `theme_coverage.png`.
+The following screenshots are recommended by the guide but are not linked until real files exist: `observation_brief.png`, `holding_pool.png`, `intraday_hotspots.png`, `history_replay.png`, `multi_day_trends.png`, `theme_history_visuals.png`, `snapshot_catalog.png`, `sample_mode.png`, `theme_taxonomy.png`, and `theme_coverage.png`.
 
 ## 4. Architecture
 
@@ -511,6 +511,32 @@ streamlit run app.py
 - 页面只读，不自动重建 warehouse，不访问网络，不写 SQLite，不写 CSV。
 - 主题历史只描述已保存的历史资金状态，不预测未来走势，不构成投资建议。
 
+### Theme History Visualization
+
+v2.3 在 `Warehouse 主题历史观察（只读）` 中增加主题历史图表层，用于把已聚合的主题历史矩阵和状态时间线转换成更适合展示的可视化结果：
+
+- 主题净流入折线图：展示 selected themes 在不同日期的主力净流入变化。
+- 主题历史热力矩阵：按日期和主题展示资金流强弱分布。
+- 最新主题表现柱状图：展示最新日期中绝对资金流较明显的主题。
+- 主题状态时间线：以 compact 表格展示历史状态变化标签。
+
+使用方式：
+
+```bash
+python tools/rebuild_local_warehouse.py --include-sample --clear
+streamlit run app.py
+```
+
+然后进入 `多日趋势` tab，查看 `Warehouse 主题历史观察（只读）` 中的 `主题历史图表`。
+
+图表边界：
+
+- 图表基于已导入 warehouse 的 CSV 快照，CSV 仍是 source of truth。
+- warehouse 只是可重建索引，页面不会自动重建 warehouse。
+- SAMPLE 图表仅用于公开演示，不代表真实行情。
+- 图表只描述历史已发生资金流状态，不预测未来走势，不构成投资建议。
+- 图表区域不访问网络，不触发 AKShare，不写 SQLite，不写 CSV。
+
 ## 19. Watchlist
 
 关注主题来自：
@@ -635,6 +661,7 @@ python tools/rebuild_local_warehouse.py --include-sample --dry-run
 - v2.0：本地 SQLite warehouse、CSV-first 双轨存储、warehouse 重建脚本和基础审计。
 - v2.1：Warehouse Explorer、CSV-SQLite 一致性审计和只读历史查询面板。
 - v2.2：warehouse-powered 主题级历史聚合、多日趋势 tab 增强和主题历史质量报告。
-- v2.3+：主题级历史图表 polish、数据质量规则增强、README 实际截图更新、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
+- v2.3：主题历史可视化 polish、warehouse-powered 折线图 / 热力矩阵 / 最新表现柱状图和 compact 状态时间线。
+- v2.4+：README 实际截图更新、demo brief 主题历史摘要增强、更细的数据质量规则、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

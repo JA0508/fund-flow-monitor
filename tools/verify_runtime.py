@@ -130,6 +130,13 @@ from src.theme_history import (  # noqa: E402
     load_sector_history_from_warehouse,
     validate_theme_history_text,
 )
+from src.theme_history_viz import (  # noqa: E402
+    build_theme_history_visual_summary,
+    prepare_latest_theme_bar_data,
+    prepare_theme_history_heatmap_data,
+    prepare_theme_history_line_data,
+    validate_theme_history_viz_text,
+)
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist  # noqa: E402
 
 DEMO_CHECK_FIELDS = ("source", "sector_type", "mode", "data_mode")
@@ -563,6 +570,11 @@ def _verify_local_warehouse() -> None:
             theme_timeline = build_theme_status_timeline(theme_history)
             theme_quality = build_theme_history_quality_report(sector_history, theme_history)
             theme_history_forbidden_hits = validate_theme_history_text(str(theme_quality.get("quality_label", "")))
+            line_data = prepare_theme_history_line_data(theme_history, top_n=5)
+            heatmap_data = prepare_theme_history_heatmap_data(theme_history, top_n=5)
+            latest_bar_data = prepare_latest_theme_bar_data(theme_history, top_n=5)
+            visual_summary = build_theme_history_visual_summary(theme_history, theme_timeline, top_n=5)
+            theme_history_viz_forbidden_hits = validate_theme_history_viz_text(visual_summary.get("visual_summary_reason", ""))
         finally:
             conn.close()
     default_warehouse_exists = (PROJECT_ROOT / get_default_warehouse_path()).exists()
@@ -590,9 +602,14 @@ def _verify_local_warehouse() -> None:
     print(f"  temp_theme_history_date_count: {theme_history['data_date'].nunique() if not theme_history.empty else 0}")
     print(f"  temp_theme_status_timeline_rows: {len(theme_timeline)}")
     print(f"  temp_theme_history_quality_label: {theme_quality.get('quality_label')}")
+    print(f"  temp_theme_history_line_row_count: {len(line_data)}")
+    print(f"  temp_theme_history_heatmap_shape: {tuple(heatmap_data.shape)}")
+    print(f"  temp_latest_theme_bar_row_count: {len(latest_bar_data)}")
+    print(f"  temp_theme_history_visual_summary_label: {visual_summary.get('visual_summary_label')}")
     print(f"  warehouse_forbidden_hits: {forbidden_hits}")
     print(f"  warehouse_explorer_forbidden_hits: {explorer_forbidden_hits}")
     print(f"  theme_history_forbidden_hits: {theme_history_forbidden_hits}")
+    print(f"  theme_history_viz_forbidden_hits: {theme_history_viz_forbidden_hits}")
     print(f"  default_warehouse_exists: {default_warehouse_exists}")
     print(f"  default_warehouse_status: {default_status.get('status_label')}")
     print(f"  default_warehouse_source_type_count: {default_source_count}")

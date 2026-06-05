@@ -3,6 +3,7 @@ from __future__ import annotations
 from html import escape
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from src.config import APP_CN_NAME, APP_VERSION, DATA_SOURCE
@@ -1300,6 +1301,137 @@ def render_theme_status_timeline(timeline_df: pd.DataFrame, title: str, max_rows
 
 def render_theme_history_notes(text: str) -> None:
     st.markdown(f"<div class='concept-note'>{escape(str(text))}</div>", unsafe_allow_html=True)
+
+
+def render_theme_history_visual_summary_cards(visual_summary: dict) -> None:
+    st.markdown("<div class='radar-section-title'>主题历史图表概览</div>", unsafe_allow_html=True)
+    highlighted = "，".join(str(item) for item in visual_summary.get("highlighted_themes", [])[:6]) or "--"
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>图表状态</div><div class='trust-value'>{escape(str(visual_summary.get('visual_summary_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Source / 日期</div><div class='trust-value'>{int(visual_summary.get('source_type_count', 0) or 0)} / {int(visual_summary.get('date_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>覆盖主题</div><div class='trust-value'>{int(visual_summary.get('theme_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>最新日期</div><div class='trust-value'>{escape(str(visual_summary.get('latest_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>折线 / 热力 / 柱状</div><div class='trust-value'>{int(visual_summary.get('line_theme_count', 0) or 0)} / {int(visual_summary.get('heatmap_theme_count', 0) or 0)} / {int(visual_summary.get('latest_bar_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>高亮主题</div><div class='trust-value'>{escape(highlighted)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(visual_summary.get('visual_summary_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def _theme_history_chart_layout(fig: go.Figure, title: str, y_title: str | None = "主力净流入（亿）") -> go.Figure:
+    fig.update_layout(
+        template="plotly_dark",
+        title={"text": title, "x": 0.02, "xanchor": "left"},
+        paper_bgcolor="#050505",
+        plot_bgcolor="#080808",
+        font={"color": "#d1d5db"},
+        margin={"l": 50, "r": 25, "t": 58, "b": 45},
+        legend={"orientation": "h", "y": -0.22, "x": 0},
+        hovermode="x unified",
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(255,255,255,.08)", zeroline=False)
+    fig.update_yaxes(title=y_title or "", showgrid=True, gridcolor="rgba(255,255,255,.08)", zeroline=True, zerolinecolor="rgba(255,255,255,.30)")
+    return fig
+
+
+def render_theme_history_line_chart(line_df: pd.DataFrame, title: str = "主题净流入历史走势") -> None:
+    if line_df is None or line_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无主题历史折线图数据。</div></div>", unsafe_allow_html=True)
+        return
+    df = line_df.copy()
+    df["main_net_inflow_billion"] = pd.to_numeric(df["main_net_inflow_billion"], errors="coerce")
+    source_count = df["source_type"].dropna().astype(str).nunique() if "source_type" in df.columns else 0
+    if source_count > 1:
+        df["_line_name"] = df["source_type"].astype(str) + " ｜ " + df["theme_name"].astype(str)
+    else:
+        df["_line_name"] = df["theme_name"].astype(str)
+    fig = go.Figure()
+    for name, group in df.sort_values(["_line_name", "data_date"]).groupby("_line_name", sort=False):
+        fig.add_trace(
+            go.Scatter(
+                x=group["data_date"],
+                y=group["main_net_inflow_billion"],
+                mode="lines+markers",
+                name=str(name),
+                customdata=group[["source_type", "captured_time", "theme_status"]].fillna("--").to_numpy(),
+                hovertemplate="日期=%{x}<br>净流入=%{y:.1f}亿<br>来源=%{customdata[0]}<br>时间=%{customdata[1]}<br>状态=%{customdata[2]}<extra></extra>",
+            )
+        )
+    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,.35)")
+    _theme_history_chart_layout(fig, title)
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def render_theme_history_heatmap(heatmap_df: pd.DataFrame, title: str = "主题历史热力矩阵") -> None:
+    if heatmap_df is None or heatmap_df.empty or "data_date" not in heatmap_df.columns or len(heatmap_df.columns) <= 1:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无主题历史热力矩阵数据。</div></div>", unsafe_allow_html=True)
+        return
+    matrix = heatmap_df.copy()
+    date_values = matrix["data_date"].astype(str).tolist()
+    value_cols = [col for col in matrix.columns if col != "data_date"]
+    z = matrix[value_cols].apply(pd.to_numeric, errors="coerce").to_numpy()
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z,
+            x=value_cols,
+            y=date_values,
+            colorscale=[
+                [0.0, "#2ec4b6"],
+                [0.5, "#111827"],
+                [1.0, "#ffb703"],
+            ],
+            zmid=0,
+            colorbar={"title": "亿"},
+            hovertemplate="日期=%{y}<br>主题=%{x}<br>净流入=%{z:.1f}亿<extra></extra>",
+        )
+    )
+    _theme_history_chart_layout(fig, title, y_title="")
+    fig.update_xaxes(tickangle=-25)
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def render_latest_theme_bar_chart(latest_bar_df: pd.DataFrame, title: str = "最新日期主题表现") -> None:
+    if latest_bar_df is None or latest_bar_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无最新主题表现数据。</div></div>", unsafe_allow_html=True)
+        return
+    df = latest_bar_df.copy()
+    df["main_net_inflow_billion"] = pd.to_numeric(df["main_net_inflow_billion"], errors="coerce")
+    df = df.sort_values("main_net_inflow_billion", ascending=True)
+    colors = ["#ffb703" if value >= 0 else "#2ec4b6" for value in df["main_net_inflow_billion"].fillna(0)]
+    fig = go.Figure(
+        data=go.Bar(
+            x=df["main_net_inflow_billion"],
+            y=df["theme_name"],
+            orientation="h",
+            marker_color=colors,
+            customdata=df[["source_type", "data_date", "captured_time", "theme_status", "source_count"]].fillna("--").to_numpy(),
+            hovertemplate="主题=%{y}<br>净流入=%{x:.1f}亿<br>来源=%{customdata[0]}<br>日期=%{customdata[1]} %{customdata[2]}<br>状态=%{customdata[3]}<br>来源数=%{customdata[4]}<extra></extra>",
+        )
+    )
+    fig.add_vline(x=0, line_dash="dash", line_color="rgba(255,255,255,.35)")
+    _theme_history_chart_layout(fig, title, y_title="")
+    fig.update_xaxes(title="主力净流入（亿）")
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def render_status_timeline_compact_table(timeline_compact_df: pd.DataFrame, title: str = "主题状态时间线") -> None:
+    render_warehouse_explorer_table(timeline_compact_df, title=title, empty_message="暂无主题状态时间线数据。", max_rows=80)
+
+
+def render_theme_history_visual_notes(notes: list[str]) -> None:
+    if not notes:
+        return
+    html = "<ul style='margin:0;padding-left:18px;line-height:1.65;'>" + "".join(
+        f"<li>{escape(str(note))}</li>" for note in notes
+    ) + "</ul>"
+    st.markdown(
+        f"<div class='notice-card notice-info'><div class='notice-title'>主题历史图表说明</div><div class='notice-body'>{html}</div></div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _render_simple_table(headers: list[str], rows: list[list[object]], empty_message: str) -> None:

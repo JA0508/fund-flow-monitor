@@ -19,6 +19,7 @@ This guide prepares reproducible screenshots for GitHub, Streamlit Cloud, and po
 | `theme_radar.png` | 主题雷达 | SAMPLE + 作品集演示模式 | Market temperature, watchlist radar, taxonomy status |
 | `intraday_hotspots.png` | 日内热点 | SAMPLE + 作品集演示模式 | Intraday overview and hotspot sections |
 | `multi_day_trends.png` | 多日趋势 | SAMPLE + 作品集演示模式 | Multi-day trend overview and sections |
+| `theme_history_visuals.png` | 多日趋势 | SAMPLE + 作品集演示模式 | Warehouse theme history chart and SAMPLE explanation |
 | `holding_pool.png` | 持仓相关池 | SAMPLE + 作品集演示模式 | Manual theme exposure and holding-related observation cards |
 | `observation_brief.png` | 观察简报 | SAMPLE + 作品集演示模式 | Summary, key observations, disclaimer, Markdown download |
 | `data_quality.png` | 数据说明 | SAMPLE + 作品集演示模式 | Local/SAMPLE quality cards and CSV snapshot quality area |
@@ -27,6 +28,7 @@ This guide prepares reproducible screenshots for GitHub, Streamlit Cloud, and po
 ## 3. Capture Notes
 
 - `theme_radar.png`: include the current theme mode and data status badge.
+- `theme_history_visuals.png`: include the theme history chart area, source_type control, and SAMPLE synthetic-data notice.
 - `observation_brief.png`: keep the disclaimer visible and ensure the Markdown download area is shown.
 - `data_quality.png`: avoid showing private real-cache file paths if they contain local personal information.
 - `sample_mode.png`: make the `SAMPLE` label and synthetic-data explanation visible.

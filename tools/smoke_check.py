@@ -55,6 +55,13 @@ from src.theme_history import (  # noqa: E402
     summarize_theme_history,
     validate_theme_history_text,
 )
+from src.theme_history_viz import (  # noqa: E402
+    build_theme_history_visual_summary,
+    prepare_latest_theme_bar_data,
+    prepare_theme_history_heatmap_data,
+    prepare_theme_history_line_data,
+    validate_theme_history_viz_text,
+)
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
 from tools.rebuild_local_warehouse import rebuild_local_warehouse as run_rebuild_local_warehouse  # noqa: E402
 
@@ -84,6 +91,7 @@ REQUIRED_FILES = (
     "src/local_warehouse.py",
     "src/warehouse_explorer.py",
     "src/theme_history.py",
+    "src/theme_history_viz.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
@@ -240,6 +248,11 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
             theme_history_matrix = build_theme_history_matrix(theme_history)
             theme_history_summary = summarize_theme_history(theme_history)
             theme_history_forbidden_hits = validate_theme_history_text(theme_history_summary.get("summary_reason", ""))
+            line_data = prepare_theme_history_line_data(theme_history, top_n=5)
+            heatmap_data = prepare_theme_history_heatmap_data(theme_history, top_n=5)
+            latest_bar_data = prepare_latest_theme_bar_data(theme_history, top_n=5)
+            visual_summary = build_theme_history_visual_summary(theme_history, top_n=5)
+            visual_forbidden_hits = validate_theme_history_viz_text(visual_summary.get("visual_summary_reason", ""))
         finally:
             conn.close()
     return {
@@ -256,6 +269,12 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
         "temp_theme_history_matrix_shape": tuple(theme_history_matrix.shape),
         "temp_theme_history_summary_label": theme_history_summary.get("summary_label"),
         "theme_history_forbidden_hits": theme_history_forbidden_hits,
+        "theme_history_viz_module_imported": True,
+        "line_data_row_count": int(len(line_data)),
+        "heatmap_shape": tuple(heatmap_data.shape),
+        "latest_bar_row_count": int(len(latest_bar_data)),
+        "visual_summary_label": visual_summary.get("visual_summary_label"),
+        "theme_history_viz_forbidden_hits": visual_forbidden_hits,
         "sample_rebuild_dry_run_label": dry_run.get("summary_label"),
         "sample_rebuild_temp_label": rebuild.get("rebuild_label"),
         "sample_inserted_rows": int(rebuild.get("inserted_rows", 0) or 0),
@@ -344,7 +363,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.2 本地冒烟检查")
+    print("Fund Flow Monitor v2.3 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -416,6 +435,12 @@ def main() -> int:
     print(f"theme history matrix shape: {warehouse['temp_theme_history_matrix_shape']}")
     print(f"theme history summary label: {warehouse['temp_theme_history_summary_label']}")
     print(f"theme history forbidden hits: {warehouse['theme_history_forbidden_hits']}")
+    print(f"theme history viz module imported: {warehouse['theme_history_viz_module_imported']}")
+    print(f"theme history line rows: {warehouse['line_data_row_count']}")
+    print(f"theme history heatmap shape: {warehouse['heatmap_shape']}")
+    print(f"theme history latest bar rows: {warehouse['latest_bar_row_count']}")
+    print(f"theme history visual summary label: {warehouse['visual_summary_label']}")
+    print(f"theme history viz forbidden hits: {warehouse['theme_history_viz_forbidden_hits']}")
     presentation = report["presentation"]
     print(f"display mode count: {presentation['display_mode_count']}")
     print(f"status badge supported count: {presentation['supported_status_count']}")
@@ -454,6 +479,10 @@ def main() -> int:
         and warehouse["temp_theme_history_row_count"] > 0
         and warehouse["temp_theme_history_theme_count"] > 0
         and not warehouse["theme_history_forbidden_hits"]
+        and warehouse["theme_history_viz_module_imported"]
+        and warehouse["line_data_row_count"] > 0
+        and warehouse["latest_bar_row_count"] > 0
+        and not warehouse["theme_history_viz_forbidden_hits"]
         and presentation["display_mode_count"] == 2
         and presentation["supported_status_count"] == 6
         and presentation["screenshot_guide_exists"]

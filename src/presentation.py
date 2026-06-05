@@ -186,6 +186,14 @@ def build_screenshot_checklist() -> list[dict]:
             "notes": "SAMPLE 目录至少包含两个日期。",
         },
         {
+            "screenshot_name": "theme_history_visuals.png",
+            "target_tab": "多日趋势",
+            "recommended_mode": PORTFOLIO_MODE,
+            "recommended_data_source": "SAMPLE",
+            "what_to_capture": "Warehouse 主题历史图表、source_type 控件和 SAMPLE 说明。",
+            "notes": "截图应明确图表来自合成演示数据，不代表真实行情。",
+        },
+        {
             "screenshot_name": "holding_pool.png",
             "target_tab": "持仓相关池",
             "recommended_mode": PORTFOLIO_MODE,
