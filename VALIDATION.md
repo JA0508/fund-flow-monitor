@@ -10,6 +10,42 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.0 Local SQLite Warehouse Checks
+
+Run:
+
+```bash
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/rebuild_local_warehouse.py --include-sample --dry-run
+```
+
+Required checks:
+
+- `src/local_warehouse.py` exists.
+- `tools/rebuild_local_warehouse.py` exists.
+- `data/warehouse/` is ignored by Git.
+- `*.sqlite`, `*.sqlite3`, and `*.db` are ignored by Git.
+- A temporary SQLite warehouse can be initialized.
+- `sample_data/ticks` can be imported into a temporary warehouse.
+- `--dry-run` does not create SQLite files.
+- Default rebuild behavior does not import `data/ticks` unless `--include-local` is explicitly passed.
+- The app still runs without a warehouse file.
+- `数据说明` tab contains `本地 SQLite Warehouse（可重建索引）`.
+- The Streamlit page does not automatically rebuild the warehouse.
+- `tools/verify_runtime.py` does not access network and does not write the default `data/warehouse`.
+- Tests do not access network, do not read real `data/ticks`, and do not write the default warehouse path.
+
+Manual checks:
+
+- Run `python tools/rebuild_local_warehouse.py --include-sample`.
+- Confirm `data/warehouse/fund_flow.sqlite` is created locally but does not appear in `git status`.
+- Confirm the data explanation tab shows warehouse file/row counts and available SAMPLE dates.
+- Confirm CSV remains the primary app data path and no core tab requires SQLite to render.
+- Confirm warehouse text describes a rebuildable local index, not an investment conclusion.
+
 ## v1.9 Observation Brief Release Checks
 
 Run:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -69,6 +70,14 @@ from src.insight_brief import (
     summarize_taxonomy_coverage_for_brief,
     summarize_theme_radar_for_brief,
     validate_brief_text,
+)
+from src.local_warehouse import (
+    audit_warehouse,
+    connect_warehouse,
+    get_default_warehouse_path,
+    query_available_dates,
+    query_warehouse_summary,
+    summarize_warehouse_status,
 )
 from src.market_time import get_market_status
 from src.multi_day_trends import (
@@ -152,6 +161,9 @@ from src.ui_components import (
     render_snapshot_catalog_table,
     render_snapshot_quality_cards,
     render_snapshot_quality_notes,
+    render_warehouse_date_table,
+    render_warehouse_notes,
+    render_warehouse_status_cards,
     render_status_badge,
     render_status_bar,
     render_observation_brief_cards,
@@ -290,6 +302,49 @@ def main() -> None:
     sample_catalog_df = build_sample_snapshot_catalog()
     latest_sample_date = get_latest_sample_date(sample_catalog_df)
     snapshot_quality_report = build_snapshot_quality_report()
+    warehouse_path = get_default_warehouse_path()
+    warehouse_exists = Path(warehouse_path).exists()
+    warehouse_summary = {
+        "warehouse_path": warehouse_path,
+        "snapshot_file_count": 0,
+        "snapshot_row_count": 0,
+        "local_file_count": 0,
+        "sample_file_count": 0,
+        "local_row_count": 0,
+        "sample_row_count": 0,
+        "latest_local_date": None,
+        "latest_sample_date": None,
+        "captured_time_count": 0,
+        "warehouse_label": "warehouse 未创建",
+        "warehouse_reason": "尚未创建本地 SQLite warehouse。CSV 路径仍可正常运行，可按命令手动重建查询索引。",
+    }
+    warehouse_audit = {
+        "audit_label": "未审计",
+        "warning_count": 0,
+        "error_count": 0,
+        "warnings": [],
+        "errors": [],
+        "duplicate_row_count": 0,
+        "empty_sector_name_count": 0,
+        "invalid_numeric_count": 0,
+    }
+    warehouse_dates_df = pd.DataFrame()
+    if warehouse_exists:
+        try:
+            warehouse_conn = connect_warehouse(warehouse_path)
+            try:
+                warehouse_summary = query_warehouse_summary(warehouse_conn)
+                warehouse_audit = audit_warehouse(warehouse_conn)
+                warehouse_dates_df = query_available_dates(warehouse_conn)
+            finally:
+                warehouse_conn.close()
+        except Exception as exc:
+            warehouse_summary["warehouse_label"] = "warehouse 存在问题"
+            warehouse_summary["warehouse_reason"] = f"读取本地 SQLite warehouse 失败：{exc}"
+            warehouse_audit["audit_label"] = "读取失败"
+            warehouse_audit["error_count"] = 1
+            warehouse_audit["errors"] = [str(exc)]
+    warehouse_status_text = summarize_warehouse_status(warehouse_summary, warehouse_audit)
 
     with st.sidebar:
         st.header("监测设置")
@@ -1061,6 +1116,25 @@ def main() -> None:
             "- `sample_data/ticks` 是合成演示数据目录，可提交 GitHub，但不代表真实行情。\n"
             "- 数据质量面板只检查文件、字段、重复记录和基础数值，不做投资判断。"
         )
+        render_warehouse_status_cards(warehouse_summary, warehouse_audit)
+        render_warehouse_notes(warehouse_summary, warehouse_audit)
+        st.markdown(
+            "- CSV 仍是 source of truth；SQLite warehouse 只是可重建查询索引。\n"
+            "- 没有 warehouse 时 app 仍然按 CSV 路径运行。\n"
+            "- 页面不会自动重建 SQLite，也不会写入 SQLite 或 CSV。\n"
+            "- 手动重建 SAMPLE 索引：`python tools/rebuild_local_warehouse.py --include-sample`。\n"
+            "- 手动重建 LOCAL + SAMPLE 索引：`python tools/rebuild_local_warehouse.py --include-local --include-sample --clear`。"
+        )
+        if not warehouse_exists:
+            st.markdown(
+                "<div class='concept-note'>当前未创建本地 SQLite warehouse。可先运行 "
+                "<code>python tools/rebuild_local_warehouse.py --include-sample --dry-run</code> "
+                "检查样例目录，再运行 <code>python tools/rebuild_local_warehouse.py --include-sample</code> "
+                "创建可重建索引。</div>",
+                unsafe_allow_html=True,
+            )
+        with st.expander("查看 SQLite warehouse 可用日期", expanded=show_debug_details):
+            render_warehouse_date_table(warehouse_dates_df)
         with st.expander("查看历史回放与 SAMPLE 快照目录", expanded=show_debug_details):
             st.markdown("#### 真实缓存目录 data/ticks")
             render_snapshot_catalog_table(snapshot_catalog_df, title="历史回放快照目录")

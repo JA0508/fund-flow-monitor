@@ -4,6 +4,7 @@ import sys
 import tomllib
 import importlib.util
 import re
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -54,6 +55,17 @@ from src.insight_brief import (  # noqa: E402
     summarize_taxonomy_coverage_for_brief,
     summarize_theme_radar_for_brief,
     validate_brief_text,
+)
+from src.local_warehouse import (  # noqa: E402
+    audit_warehouse,
+    connect_warehouse,
+    get_default_warehouse_path,
+    initialize_warehouse,
+    query_available_dates,
+    query_warehouse_summary,
+    rebuild_warehouse_from_csv_directory,
+    summarize_warehouse_status,
+    validate_warehouse_text,
 )
 from src.multi_day_trends import (  # noqa: E402
     build_daily_theme_snapshots,
@@ -504,6 +516,36 @@ def _verify_snapshot_quality() -> None:
     print("  verify_runtime 不执行真实采集；如需手动检查可运行 python tools/collect_market_snapshot.py --no-network。")
 
 
+def _verify_local_warehouse() -> None:
+    print("SQLite warehouse readiness 检查:")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        warehouse_path = Path(tmp_dir) / "fund_flow.sqlite"
+        conn = connect_warehouse(str(warehouse_path))
+        try:
+            initialize_warehouse(conn)
+            rebuild = rebuild_warehouse_from_csv_directory(
+                conn,
+                str(PROJECT_ROOT / "sample_data/ticks"),
+                "SAMPLE",
+                clear_source=True,
+            )
+            summary = query_warehouse_summary(conn)
+            dates = query_available_dates(conn)
+            audit = audit_warehouse(conn)
+            forbidden_hits = validate_warehouse_text(summarize_warehouse_status(summary, audit))
+        finally:
+            conn.close()
+    default_warehouse_exists = (PROJECT_ROOT / get_default_warehouse_path()).exists()
+    print(f"  temp_warehouse_rebuild_label: {rebuild.get('rebuild_label')}")
+    print(f"  temp_warehouse_row_count: {summary.get('snapshot_row_count')}")
+    print(f"  temp_warehouse_file_count: {summary.get('snapshot_file_count')}")
+    print(f"  temp_warehouse_available_date_count: {len(dates)}")
+    print(f"  temp_warehouse_audit_label: {audit.get('audit_label')}")
+    print(f"  warehouse_forbidden_hits: {forbidden_hits}")
+    print(f"  default_warehouse_exists: {default_warehouse_exists}")
+    print("  verify_runtime 只写入临时 SQLite，不写默认 data/warehouse。")
+
+
 def _find_broken_readme_images() -> list[str]:
     readme = PROJECT_ROOT / "README.md"
     if not readme.exists():
@@ -702,6 +744,7 @@ def main() -> int:
     _verify_theme_taxonomy(latest, watchlist_themes, fund_exposure)
     _verify_fund_profile_csv(radar, taxonomy)
     _verify_snapshot_quality()
+    _verify_local_warehouse()
     print("fund summary Top 3:")
     if fund_summary.empty:
         print("  <empty>")

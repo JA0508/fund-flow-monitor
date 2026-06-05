@@ -44,6 +44,10 @@ data/cache/
 # =========================
 data/ticks/*.csv
 data/ticks/*.parquet
+data/warehouse/
+*.sqlite
+*.sqlite3
+*.db
 
 # Keep data folders
 !data/ticks/.gitkeep

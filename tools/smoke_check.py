@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -20,6 +22,15 @@ from src.brief_templates import (  # noqa: E402
     get_brief_template_modes,
     validate_brief_template_text,
 )
+from src.local_warehouse import (  # noqa: E402
+    audit_warehouse,
+    connect_warehouse,
+    initialize_warehouse,
+    query_warehouse_summary,
+    rebuild_warehouse_from_csv_directory,
+    summarize_warehouse_status,
+    validate_warehouse_text,
+)
 from src.presentation import (  # noqa: E402
     build_status_badge_config,
     get_display_mode_options,
@@ -30,6 +41,7 @@ from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_dat
 from src.snapshot_quality import build_snapshot_quality_report  # noqa: E402
 from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_theme_taxonomy  # noqa: E402
 from src.watchlist import get_watchlist_themes, load_watchlist  # noqa: E402
+from tools.rebuild_local_warehouse import rebuild_local_warehouse as run_rebuild_local_warehouse  # noqa: E402
 
 
 REQUIRED_IMPORTS = ("streamlit", "pandas", "plotly", "akshare", "numpy")
@@ -54,10 +66,12 @@ REQUIRED_FILES = (
     "src/snapshot_quality.py",
     "src/presentation.py",
     "src/brief_templates.py",
+    "src/local_warehouse.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
     "tools/export_sample_brief.py",
+    "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
     "config/theme_taxonomy.json",
@@ -160,6 +174,53 @@ def summarize_csv(path: Path | None) -> dict:
     }
 
 
+def _git_check_ignore(path: str, project_root: Path = PROJECT_ROOT) -> bool:
+    result = subprocess.run(
+        ["git", "check-ignore", "-q", path],
+        cwd=project_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        warehouse_path = Path(tmp_dir) / "fund_flow.sqlite"
+        dry_run = run_rebuild_local_warehouse(
+            warehouse_path=str(Path(tmp_dir) / "dry_run.sqlite"),
+            sample_dir=str(project_root / "sample_data/ticks"),
+            include_local=False,
+            include_sample=True,
+            dry_run=True,
+            quiet=True,
+        )
+        conn = connect_warehouse(str(warehouse_path))
+        try:
+            initialize_warehouse(conn)
+            rebuild = rebuild_warehouse_from_csv_directory(
+                conn,
+                str(project_root / "sample_data/ticks"),
+                "SAMPLE",
+                clear_source=True,
+            )
+            summary = query_warehouse_summary(conn)
+            audit = audit_warehouse(conn)
+            forbidden_hits = validate_warehouse_text(summarize_warehouse_status(summary, audit))
+        finally:
+            conn.close()
+    return {
+        "warehouse_module_imported": True,
+        "warehouse_schema_initialized": True,
+        "sample_rebuild_dry_run_label": dry_run.get("summary_label"),
+        "sample_rebuild_temp_label": rebuild.get("rebuild_label"),
+        "sample_inserted_rows": int(rebuild.get("inserted_rows", 0) or 0),
+        "warehouse_gitignore_ok": _git_check_ignore("data/warehouse/fund_flow.sqlite", project_root),
+        "warehouse_text_forbidden_hits": forbidden_hits,
+    }
+
+
 def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     latest_csv = find_latest_csv(project_root / "data/ticks")
     catalog = build_snapshot_catalog(str(project_root / "data/ticks"))
@@ -171,6 +232,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         directory=str(project_root / "data/ticks"),
         sample_directory=str(project_root / "sample_data/ticks"),
     )
+    warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
     readme_path = project_root / "README.md"
@@ -217,6 +279,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_warning_count": int(snapshot_quality.get("sample_warning_count", 0) or 0),
             "sample_error_count": int(snapshot_quality.get("sample_error_count", 0) or 0),
         },
+        "warehouse": warehouse_status,
         "presentation": {
             "display_mode_count": len(get_display_mode_options()),
             "supported_status_count": sum(1 for item in status_badges if item.get("status") in presentation_statuses),
@@ -237,7 +300,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v1.9 本地冒烟检查")
+    print("Fund Flow Monitor v2.0 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -291,6 +354,14 @@ def main() -> int:
         f"local {snapshot_quality['local_warning_count']}/{snapshot_quality['local_error_count']} | "
         f"sample {snapshot_quality['sample_warning_count']}/{snapshot_quality['sample_error_count']}"
     )
+    warehouse = report["warehouse"]
+    print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
+    print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
+    print(f"warehouse sample rebuild dry-run label: {warehouse['sample_rebuild_dry_run_label']}")
+    print(f"warehouse sample rebuild temp label: {warehouse['sample_rebuild_temp_label']}")
+    print(f"warehouse sample inserted rows: {warehouse['sample_inserted_rows']}")
+    print(f"warehouse gitignore ok: {warehouse['warehouse_gitignore_ok']}")
+    print(f"warehouse text forbidden hits: {warehouse['warehouse_text_forbidden_hits']}")
     presentation = report["presentation"]
     print(f"display mode count: {presentation['display_mode_count']}")
     print(f"status badge supported count: {presentation['supported_status_count']}")
@@ -317,6 +388,11 @@ def main() -> int:
         and sample_profile["profile_count"] >= 5
         and sample_profile["error_count"] == 0
         and snapshot_quality["sample_file_count"] >= 1
+        and warehouse["warehouse_module_imported"]
+        and warehouse["warehouse_schema_initialized"]
+        and warehouse["sample_inserted_rows"] > 0
+        and warehouse["warehouse_gitignore_ok"]
+        and not warehouse["warehouse_text_forbidden_hits"]
         and presentation["display_mode_count"] == 2
         and presentation["supported_status_count"] == 6
         and presentation["screenshot_guide_exists"]

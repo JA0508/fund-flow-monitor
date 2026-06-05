@@ -7,6 +7,7 @@ python -m pytest -q
 python -m compileall app.py src tests tools
 python tools/smoke_check.py
 python tools/verify_runtime.py
+python tools/rebuild_local_warehouse.py --include-sample --dry-run
 ```
 
 ## 2. SAMPLE Demo Brief 验证
@@ -25,12 +26,17 @@ python tools/export_sample_brief.py
 ```bash
 git status
 git check-ignore -v data/ticks/*.csv
+git check-ignore -v data/warehouse/fund_flow.sqlite
+git check-ignore -v "*.sqlite"
+git check-ignore -v "*.db"
 git check-ignore -v .env
 git check-ignore -v .streamlit/secrets.toml
 git check-ignore -v .venv/
 ```
 
 - 不提交 `data/ticks/*.csv`。
+- 不提交 `data/warehouse/*.sqlite`。
+- 不提交任何 `*.sqlite`、`*.sqlite3` 或 `*.db`。
 - 不提交 `.env`。
 - 不提交 `.streamlit/secrets.toml`。
 - 不提交 `.venv/`、`__pycache__/`、`.pytest_cache/`。
@@ -60,3 +66,17 @@ git check-ignore -v .venv/
 - 不预测未来走势。
 - SAMPLE / DEMO 不代表真实行情。
 - 观察简报只解释已展示或已缓存的资金流状态。
+- SQLite warehouse 只是 CSV 可重建查询索引，不替代 CSV source of truth。
+
+## 7. 可选 SQLite Warehouse 检查
+
+```bash
+python tools/rebuild_local_warehouse.py --include-sample --dry-run
+python tools/rebuild_local_warehouse.py --include-sample
+git status
+```
+
+- `--dry-run` 不应创建 SQLite 文件。
+- `--include-sample` 可以创建 `data/warehouse/fund_flow.sqlite`。
+- 创建后的 SQLite 文件必须被 `.gitignore` 忽略。
+- 重建脚本不访问网络，不触发 AKShare，不写 `data/ticks` 或 `sample_data/ticks`。

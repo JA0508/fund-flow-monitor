@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v2.0
+
+- Local SQLite warehouse foundation.
+- 新增 `src/local_warehouse.py`，提供 SQLite 表初始化、CSV 行标准化、导入、防重、查询和审计。
+- 新增 `tools/rebuild_local_warehouse.py`，从已有 CSV 手动重建本地 warehouse，不访问网络、不触发 AKShare、不写 CSV。
+- 数据说明 tab 增加 `本地 SQLite Warehouse（可重建索引）` 状态和审计面板。
+- `.gitignore` 增加 `data/warehouse/`、`*.sqlite`、`*.sqlite3` 和 `*.db`，避免提交本地数据库文件。
+- `smoke_check.py` 和 `verify_runtime.py` 增加临时 warehouse readiness 检查。
+- 新增 warehouse validation tests，保持 CSV-first 双轨设计。
+
 ## v1.9
 
 - Polished observation brief templates.

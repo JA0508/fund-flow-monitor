@@ -1129,6 +1129,67 @@ def render_snapshot_catalog_table(catalog_df: pd.DataFrame, title: str = "CSV �
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_warehouse_status_cards(summary: dict, audit: dict | None = None) -> None:
+    audit = audit or {}
+    st.markdown("<div class='radar-section-title'>本地 SQLite Warehouse（可重建索引）</div>", unsafe_allow_html=True)
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>Warehouse 状态</div><div class='trust-value'>{escape(str(summary.get('warehouse_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>文件记录</div><div class='trust-value'>{int(summary.get('snapshot_file_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>索引行数</div><div class='trust-value'>{int(summary.get('snapshot_row_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>LOCAL 文件 / 行</div><div class='trust-value'>{int(summary.get('local_file_count', 0) or 0)} / {int(summary.get('local_row_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>SAMPLE 文件 / 行</div><div class='trust-value'>{int(summary.get('sample_file_count', 0) or 0)} / {int(summary.get('sample_row_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>最新 LOCAL 日期</div><div class='trust-value'>{escape(str(summary.get('latest_local_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>最新 SAMPLE 日期</div><div class='trust-value'>{escape(str(summary.get('latest_sample_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Audit</div><div class='trust-value'>{escape(str(audit.get('audit_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Warning / Error</div><div class='trust-value'>{int(audit.get('warning_count', 0) or 0)} / {int(audit.get('error_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>重复 / 空名称</div><div class='trust-value'>{int(audit.get('duplicate_row_count', 0) or 0)} / {int(audit.get('empty_sector_name_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(summary.get('warehouse_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_warehouse_date_table(dates_df: pd.DataFrame, max_rows: int = 30) -> None:
+    st.markdown("<div class='radar-section-title'>Warehouse 可用日期</div>", unsafe_allow_html=True)
+    if dates_df is None or dates_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无 SQLite warehouse 日期索引。</div></div>", unsafe_allow_html=True)
+        return
+    headers = ["来源", "日期", "行数", "时间点", "最新时间"]
+    rows = []
+    for _, row in dates_df.head(max_rows).iterrows():
+        rows.append(
+            [
+                row.get("source_type", "--"),
+                row.get("data_date", "--"),
+                int(row.get("row_count", 0) or 0),
+                int(row.get("captured_time_count", 0) or 0),
+                row.get("latest_captured_time") or "--",
+            ]
+        )
+    _render_simple_table(headers, rows, "暂无 SQLite warehouse 日期索引。")
+
+
+def render_warehouse_notes(summary: dict, audit: dict | None = None) -> None:
+    audit = audit or {}
+    st.markdown(
+        "<div class='concept-note'>CSV 仍是主数据来源；SQLite warehouse 只是本地可重建查询索引。"
+        "没有 warehouse 时 app 仍然按 CSV 路径运行。页面只读取 warehouse 状态，不会自动重建，也不会写入 SQLite。</div>",
+        unsafe_allow_html=True,
+    )
+    warnings = list(audit.get("warnings") or [])
+    errors = list(audit.get("errors") or [])
+    if not warnings and not errors:
+        return
+    with st.expander("查看 warehouse warning / error", expanded=False):
+        if errors:
+            st.markdown("<div class='holding-warning'>" + "<br>".join(escape(str(item)) for item in errors[:12]) + "</div>", unsafe_allow_html=True)
+        if warnings:
+            st.markdown("<div class='concept-note'>" + "<br>".join(escape(str(item)) for item in warnings[:12]) + "</div>", unsafe_allow_html=True)
+
+
 def _render_simple_table(headers: list[str], rows: list[list[object]], empty_message: str) -> None:
     if not rows:
         st.markdown(f"<div class='rank-panel'><div class='rank-empty'>{escape(empty_message)}</div></div>", unsafe_allow_html=True)

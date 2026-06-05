@@ -43,7 +43,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 观察简报：整合主题雷达、日内热点、多日趋势、持仓相关池和覆盖审计，支持标准简报 / 作品集演示简报 Markdown 下载。
 - CSV 数据质量面板：展示快照日期、行数、时间点数量、行业/概念行数和质量标签。
 - 深色金融大屏：黑色背景、弱网格、深色排行榜和紧凑状态条。
-- 本地 CSV 快照：第一版不依赖数据库，便于调试和迁移。
+- 本地 CSV-first 快照：CSV 是主数据来源，SQLite warehouse 只是可重建查询索引，便于调试、迁移和后续历史查询。
 
 ## First-run Experience
 
@@ -108,6 +108,7 @@ v1.9 提供一份由 SAMPLE 合成演示数据生成的静态观察简报：
 - 观察简报 Markdown 导出，统一整合主题雷达、日内热点、多日趋势和数据质量说明。
 - SAMPLE demo brief 离线导出，方便 GitHub 作品集直接预览。
 - 本地 CSV 快照质量治理和手动采集脚本，保持 CSV MVP 的可追溯性。
+- 本地 SQLite warehouse 作为 CSV 可重建查询索引，为后续历史查询打基础。
 
 ## Portfolio Description
 
@@ -161,6 +162,7 @@ flowchart LR
     A["AKShare / Eastmoney"] --> B["src/data_source.py"]
     B --> C["src/transform.py"]
     C --> D["src/storage.py<br/>CSV snapshots"]
+    D --> K["src/local_warehouse.py<br/>SQLite query index"]
     D --> E["src/theme_pool.py"]
     E --> F["src/theme_radar.py"]
     D --> J["src/snapshot_catalog.py"]
@@ -440,7 +442,32 @@ v1.7 在“数据说明”tab 增加 CSV 快照数据质量面板，用于审计
 
 数据质量面板只做文件和字段检查，不做投资判断。`sample_data/ticks` 是合成演示数据，可提交 GitHub；`data/ticks` 是本地真实缓存，继续被 `.gitignore` 忽略。
 
-## 18. Watchlist
+## 18. Local SQLite Warehouse
+
+v2.0 增加本地 SQLite warehouse，用于把已有 CSV 快照重建成一个轻量查询索引。
+
+```bash
+python tools/rebuild_local_warehouse.py --include-sample
+python tools/rebuild_local_warehouse.py --include-local --include-sample --clear
+```
+
+设计边界：
+
+- CSV 仍是 source of truth；SQLite 只是本地可重建查询索引。
+- 默认路径是 `data/warehouse/fund_flow.sqlite`，`data/warehouse/`、`*.sqlite`、`*.sqlite3` 和 `*.db` 都不会提交 GitHub。
+- 没有 warehouse 时 app 仍然按 CSV 路径运行。
+- Streamlit 页面不会自动重建 warehouse，也不会写 SQLite。
+- `tools/rebuild_local_warehouse.py` 不访问网络，不触发 AKShare，不写 CSV，不读取真实账户。
+- 默认只导入 `sample_data/ticks`；只有显式传入 `--include-local` 才导入 `data/ticks`。
+
+和本地采集脚本的区别：
+
+- `tools/collect_market_snapshot.py`：手动抓取当前真实行业资金流快照，写入 `data/ticks`。
+- `tools/rebuild_local_warehouse.py`：从已有 CSV 重建 SQLite 查询索引，不访问网络、不抓取新数据。
+
+数据说明 tab 中的 `本地 SQLite Warehouse（可重建索引）` 区域只读取已有 warehouse 状态：文件数、行数、LOCAL/SAMPLE 行数、可用日期和审计 warning。它不会触发重建，也不会改变页面当前的 CSV-first 数据流。
+
+## 19. Watchlist
 
 关注主题来自：
 
@@ -466,7 +493,7 @@ config/watchlist.json
 
 可以手动增删 `themes` 中的主题名称。配置文件缺失或损坏时，程序会回退到默认关注主题。
 
-## 19. Quick Start
+## 20. Quick Start
 
 ```bash
 git clone <repo-url>
@@ -476,6 +503,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python tools/generate_sample_data.py
 python tools/collect_market_snapshot.py --no-network
+python tools/rebuild_local_warehouse.py --include-sample --dry-run
 streamlit run app.py
 ```
 
@@ -491,9 +519,10 @@ streamlit run app.py
 python tools/probe_akshare.py
 python tools/probe_concept_flow.py
 python tools/collect_market_snapshot.py --dry-run
+python tools/rebuild_local_warehouse.py --include-sample
 ```
 
-## 20. Streamlit Cloud Deployment
+## 21. Streamlit Cloud Deployment
 
 部署到 Streamlit Cloud 时：
 
@@ -502,11 +531,12 @@ python tools/collect_market_snapshot.py --dry-run
 - Theme and headless config: `.streamlit/config.toml`
 - Secrets: 当前项目不需要 secrets；如未来需要，请在 `.streamlit/secrets.toml` 本地配置，仓库只提交 `.streamlit/secrets.example.toml`。
 - Real cache: `data/ticks/*.csv` 不提交到 GitHub。
+- Local warehouse: `data/warehouse/*.sqlite` 不提交到 GitHub。
 - Demo package: `sample_data/ticks/*.csv` 会提交到 GitHub，用于公开演示和离线体验。
 
 如果云端 AKShare 访问不稳定，页面仍可通过 SAMPLE 模式展示完整产品能力。SAMPLE 是合成数据，不代表真实行情。
 
-## 21. Validation
+## 22. Validation
 
 ```bash
 python -m pytest -q
@@ -514,15 +544,17 @@ python -m compileall app.py src tests tools
 python tools/smoke_check.py
 python tools/verify_runtime.py
 python tools/collect_market_snapshot.py --no-network
+python tools/rebuild_local_warehouse.py --include-sample --dry-run
 ```
 
-`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要、sample catalog 和 snapshot quality readiness。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示、SAMPLE 样例链路和 CSV 快照质量治理。`collect_market_snapshot.py --no-network` 不访问 AKShare，只验证手动采集脚本可导入和参数可用。
+`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要、sample catalog、snapshot quality readiness 和临时 SQLite warehouse readiness。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示、SAMPLE 样例链路、CSV 快照质量治理和临时 warehouse 重建。`collect_market_snapshot.py --no-network` 不访问 AKShare，只验证手动采集脚本可导入和参数可用。`rebuild_local_warehouse.py --include-sample --dry-run` 只扫描 SAMPLE CSV，不创建 SQLite。
 
-## 22. Known Limitations
+## 23. Known Limitations
 
 - AKShare / 东方财富免费接口可能受网络、代理、上游字段变化和访问限制影响。
 - 当前暂未处理中国法定节假日，仅按周一至周五和盘中时间段判断市场状态。
 - 当前使用 CSV，不适合长期生产环境。
+- SQLite warehouse 是本地可重建索引，不是云数据库，也不是 CSV 的替代来源。
 - 主题映射仍是轻量规则，不等同于正式行业分类。
 - 后续需要结合基金持仓、ETF 成分、行业分类体系继续校准主题池。
 - 广度观察可能包含上下级板块重叠，只能作为主题热度观察。
@@ -538,8 +570,9 @@ python tools/collect_market_snapshot.py --no-network
 - Streamlit Cloud 上 AKShare 访问可能受网络环境影响；公开展示时可使用 SAMPLE 模式。
 - `tools/collect_market_snapshot.py` 是手动一次性采集工具，不是生产级采集服务，也没有节假日、失败重试、限流队列或数据库治理。
 - CSV 快照质量检查是基础字段审计，不替代正式数据质量平台。
+- 当前 app 仍以 CSV 读取链路为主，warehouse 暂不驱动核心页面查询。
 
-## 23. Roadmap
+## 24. Roadmap
 
 - v0.6：项目交付打磨，页面 tabs、README 作品集化、数据可信面板、文档整理。
 - v0.7：低频概念资金流接入，概念热点观察和主题概念摘要。
@@ -555,6 +588,7 @@ python tools/collect_market_snapshot.py --no-network
 - v1.7：本地数据采集脚本、CSV 快照治理、数据质量面板增强。
 - v1.8：展示 polish / presentation mode、README screenshot guide。
 - v1.9：观察简报模板 polish、SAMPLE demo brief 离线导出、release checklist。
-- v2.0+：README 实际截图更新、本地采集节流策略增强、SQLite / DuckDB、FastAPI + React + ECharts 产品化重构。
+- v2.0：本地 SQLite warehouse、CSV-first 双轨存储、warehouse 重建脚本和基础审计。
+- v2.1+：使用 SQLite warehouse 支撑更多历史查询、数据质量规则增强、README 实际截图更新、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。
