@@ -10,6 +10,32 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.5 Public Portfolio Release Checks
+
+Run:
+
+```bash
+python tools/release_check.py
+python tools/export_sample_brief.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `src/release_readiness.py` exists.
+- `tools/release_check.py` exists.
+- `tests/test_release_readiness.py` passes.
+- README contains a public portfolio walkthrough, SAMPLE boundary notes and release check commands.
+- README links point to existing files and do not reference missing screenshots.
+- `docs/demo_briefs/sample_observation_brief.md` remains readable and clearly marked as SAMPLE.
+- `docs/screenshots/SCREENSHOT_GUIDE.md` contains the recommended screenshot set.
+- `docs/RELEASE_CHECKLIST.md` includes `release_check.py`.
+- `tools/release_check.py` does not access network and does not write `data/ticks` or `data/warehouse`.
+- Page and docs contain no trading advice or prediction wording.
+
 ## v2.4 Theme History Brief Checks
 
 Run:

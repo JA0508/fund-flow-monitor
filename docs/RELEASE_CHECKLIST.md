@@ -1,101 +1,76 @@
 # Release Checklist
 
-## 1. 本地验证
+Use this checklist before publishing the repository, updating a portfolio link, or deploying to Streamlit Cloud.
+
+## 1. Automated Checks
 
 ```bash
-python -m pytest -q
-python -m compileall app.py src tests tools
+python tools/release_check.py
 python tools/smoke_check.py
 python tools/verify_runtime.py
-python tools/rebuild_local_warehouse.py --include-sample --dry-run
+python -m pytest -q
+python -m compileall app.py src tests tools
 ```
 
-## 2. SAMPLE Demo Brief 验证
+- `release_check.py` should report no errors.
+- Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
+- Warnings should be reviewed manually before release.
+- Tests and compile checks must pass.
+
+## 2. Data Safety Checks
 
 ```bash
-python tools/export_sample_brief.py
-```
-
-- 检查 `docs/demo_briefs/sample_observation_brief.md` 存在。
-- 确认简报包含 `主题历史观察摘要`。
-- 确认简报包含 SAMPLE / 合成演示数据说明。
-- 确认简报不包含买卖建议或预测语气。
-- 确认简报不包含本地绝对路径或真实 `data/ticks` 私有缓存内容。
-- 确认 `tools/export_sample_brief.py` 不读取 `data/ticks`，不写默认 `data/warehouse`。
-
-## 3. Git 安全检查
-
-```bash
-git status
+git status --short
 git check-ignore -v data/ticks/*.csv
 git check-ignore -v data/warehouse/fund_flow.sqlite
 git check-ignore -v "*.sqlite"
 git check-ignore -v "*.db"
 git check-ignore -v .env
-git check-ignore -v .streamlit/secrets.toml
 git check-ignore -v .venv/
+git check-ignore -v .streamlit/secrets.toml
 ```
 
-- 不提交 `data/ticks/*.csv`。
-- 不提交 `data/warehouse/*.sqlite`。
-- 不提交任何 `*.sqlite`、`*.sqlite3` 或 `*.db`。
-- 不提交 `.env`。
-- 不提交 `.streamlit/secrets.toml`。
-- 不提交 `.venv/`、`__pycache__/`、`.pytest_cache/`。
+- Do not commit real `data/ticks/*.csv` snapshots.
+- Do not commit `data/warehouse/*.sqlite`, `*.sqlite3`, or `*.db`.
+- Do not commit `.env`, `.streamlit/secrets.toml`, `.venv/`, `__pycache__/`, or `.pytest_cache/`.
+- `sample_data/ticks/*.csv` and demo brief files are public portfolio assets and should remain trackable.
 
-## 4. Streamlit Cloud 检查
-
-- `app.py` 位于仓库根目录。
-- `requirements.txt` 位于仓库根目录。
-- `.streamlit/config.toml` 已提交。
-- `sample_data/ticks` 已提交。
-- SAMPLE 模式可用。
-- README 部署和首次访问说明清楚。
-
-## 5. 作品集展示检查
-
-- 开启作品集演示模式。
-- 使用 SAMPLE 数据来源。
-- 检查观察简报 tab。
-- 检查截图指南 `docs/screenshots/SCREENSHOT_GUIDE.md`。
-- 检查 README 无损坏图片链接。
-- 检查 demo brief 链接可用。
-
-## 6. 边界检查
-
-- 不做交易。
-- 不做买卖建议。
-- 不预测未来走势。
-- SAMPLE / DEMO 不代表真实行情。
-- 观察简报只解释已展示或已缓存的资金流状态。
-- SQLite warehouse 只是 CSV 可重建查询索引，不替代 CSV source of truth。
-
-## 7. 可选 SQLite Warehouse 检查
+## 3. Demo Checks
 
 ```bash
-python tools/rebuild_local_warehouse.py --include-sample --dry-run
-python tools/rebuild_local_warehouse.py --include-sample
-git status
-```
-
-- `--dry-run` 不应创建 SQLite 文件。
-- `--include-sample` 可以创建 `data/warehouse/fund_flow.sqlite`。
-- 创建后的 SQLite 文件必须被 `.gitignore` 忽略。
-- 重建脚本不访问网络，不触发 AKShare，不写 `data/ticks` 或 `sample_data/ticks`。
-- 可选打开数据说明 tab，检查 `Warehouse Explorer（只读）` 是否展示 SAMPLE warehouse。
-- 确认 Explorer 只读查询，不自动重建 warehouse，不写 SQLite，不访问网络。
-- 确认 `git status` 不出现 `data/warehouse/*.sqlite`、`*.db` 或真实 CSV。
-
-## 8. 可选 Theme History 检查
-
-```bash
+python tools/export_sample_brief.py
 python tools/rebuild_local_warehouse.py --include-sample --clear
+streamlit run app.py
 ```
 
-- 打开 app，进入 `多日趋势` → `Warehouse 主题历史观察（只读）`。
-- 确认 SAMPLE 主题历史明确标注为合成演示数据，不代表真实行情。
-- 确认主题历史摘要、矩阵、状态时间线和质量报告可展示。
-- 确认 `主题历史图表` 区域可展示折线图、热力矩阵、最新主题表现柱状图和 compact 状态时间线。
-- 确认 SAMPLE 图表明确标注为合成演示数据，不代表真实行情。
-- 确认页面不自动重建 warehouse，不写 SQLite，不写 CSV。
-- 确认 `data/warehouse/*.sqlite` 不进入 `git status`。
+- SAMPLE demo brief should contain `主题历史观察摘要`.
+- SAMPLE demo brief should clearly say SAMPLE / synthetic demo data / not real market data.
+- The SAMPLE warehouse should be rebuildable from `sample_data/ticks`.
+- The app should work without real local `data/ticks` cache.
+
+## 4. Manual UI Checks
+
+- SAMPLE status is visible and not presented as real market data.
+- Theme radar displays normally.
+- Theme history chart displays normally after SAMPLE warehouse rebuild.
+- Warehouse Explorer displays SAMPLE data and read-only consistency information.
+- Observation brief can be generated and downloaded.
+- No local path, secret, account data, or real private cache content is visible.
+- Page copy only describes historical observed states and does not imply future prediction.
+
+## 5. Final GitHub Checks
+
+- README links point to existing files.
+- README does not include missing screenshot references.
+- `docs/demo_briefs/sample_observation_brief.md` is readable in GitHub Markdown preview.
+- `docs/screenshots/SCREENSHOT_GUIDE.md` is actionable.
+- `docs/RELEASE_CHECKLIST.md` matches the current release workflow.
+- `git status --short` does not show real CSV snapshots, SQLite databases, secrets, virtualenv files, or cache folders.
+
+## 6. Boundary Checks
+
+- The project is a Streamlit + CSV MVP, not a production trading system.
+- CSV remains the source of truth; SQLite is a rebuildable local query index.
+- SAMPLE and DEMO do not represent real market quotes.
+- The project does not connect to broker accounts or read personal holdings.
+- The project does not provide trading actions, fund recommendations, or future predictions.

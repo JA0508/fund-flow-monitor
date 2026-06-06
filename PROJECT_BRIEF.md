@@ -141,6 +141,12 @@ v2.3 在主题历史聚合基础上增加可视化 polish：多日趋势 tab 中
 
 v2.4 将 warehouse-powered 主题历史轻量接入观察简报和 SAMPLE demo brief。观察简报可选包含主题历史观察摘要；静态 demo brief 默认使用 sample_data 和临时 warehouse 生成该 section，用于展示项目如何把历史 sector flow 转译为基金主题观察。该能力仍只描述已导入历史快照中的状态，不预测未来走势，不做投资建议，不读取真实账户，也不读取或写入真实 `data/ticks`。
 
+## Public Portfolio Release
+
+v2.5 聚焦公开发布质量，不新增业务分析功能。项目新增 release readiness audit，用于检查 README、docs、demo brief、截图指南、gitignore、Markdown 链接、本地路径、敏感词和动作性表达风险。
+
+README、SAMPLE demo brief、screenshot guide 和 release checklist 现在形成一条可复现作品集路径：新用户可以使用 SAMPLE 数据、作品集演示模式、主题历史图表和观察简报理解项目能力。该发布路径仍然保持边界：SAMPLE 不代表真实行情，项目不预测未来走势，不做基金推荐，不提供交易功能。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

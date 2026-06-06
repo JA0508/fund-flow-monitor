@@ -44,6 +44,11 @@ from src.presentation import (  # noqa: E402
     get_display_mode_options,
     validate_presentation_text,
 )
+from src.release_readiness import (  # noqa: E402
+    build_release_readiness_report,
+    render_release_readiness_markdown,
+    validate_release_readiness_text,
+)
 from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_date  # noqa: E402
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
 from src.snapshot_quality import build_snapshot_quality_report  # noqa: E402
@@ -99,10 +104,12 @@ REQUIRED_FILES = (
     "src/theme_history.py",
     "src/theme_history_viz.py",
     "src/theme_history_brief.py",
+    "src/release_readiness.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
     "tools/export_sample_brief.py",
+    "tools/release_check.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -322,6 +329,8 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     readme_text = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
     demo_brief_path = project_root / "docs/demo_briefs/sample_observation_brief.md"
     demo_brief_text = demo_brief_path.read_text(encoding="utf-8") if demo_brief_path.exists() else ""
+    release_readiness = build_release_readiness_report(project_root)
+    release_readiness_markdown = render_release_readiness_markdown(release_readiness)
     presentation_text = " ".join(
         get_display_mode_options()
         + [str(item.get("label", "")) for item in status_badges]
@@ -379,12 +388,20 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "demo_brief_forbidden_hits": validate_brief_template_text(demo_brief_text),
             "release_checklist_exists": (project_root / "docs/RELEASE_CHECKLIST.md").exists(),
         },
+        "release_readiness": {
+            "release_readiness_module_imported": True,
+            "release_check_script_exists": (project_root / "tools/release_check.py").exists(),
+            "release_readiness_label": release_readiness.get("readiness_label"),
+            "release_readiness_warning_count": int(release_readiness.get("warning_count", 0) or 0),
+            "release_readiness_error_count": int(release_readiness.get("error_count", 0) or 0),
+            "release_readiness_forbidden_hits": validate_release_readiness_text(release_readiness_markdown),
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.4 本地冒烟检查")
+    print("Fund Flow Monitor v2.5 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -480,6 +497,12 @@ def main() -> int:
     print(f"demo brief has theme history section: {brief_templates['demo_brief_has_theme_history_section']}")
     print(f"demo brief forbidden hits: {brief_templates['demo_brief_forbidden_hits']}")
     print(f"release checklist exists: {brief_templates['release_checklist_exists']}")
+    release_readiness = report["release_readiness"]
+    print(f"release readiness module imported: {release_readiness['release_readiness_module_imported']}")
+    print(f"release_check.py exists: {release_readiness['release_check_script_exists']}")
+    print(f"release readiness label: {release_readiness['release_readiness_label']}")
+    print(f"release readiness warnings/errors: {release_readiness['release_readiness_warning_count']} / {release_readiness['release_readiness_error_count']}")
+    print(f"release readiness forbidden hits: {release_readiness['release_readiness_forbidden_hits']}")
 
     ok = (
         py["ok"]
@@ -525,6 +548,10 @@ def main() -> int:
         and brief_templates["demo_brief_has_theme_history_section"]
         and not brief_templates["demo_brief_forbidden_hits"]
         and brief_templates["release_checklist_exists"]
+        and release_readiness["release_readiness_module_imported"]
+        and release_readiness["release_check_script_exists"]
+        and release_readiness["release_readiness_error_count"] == 0
+        and not release_readiness["release_readiness_forbidden_hits"]
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

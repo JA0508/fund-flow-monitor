@@ -107,6 +107,13 @@ from src.presentation import (  # noqa: E402
     get_display_mode_options,
     validate_presentation_text,
 )
+from src.release_readiness import (  # noqa: E402
+    build_release_readiness_report,
+    check_gitignore_safety,
+    check_sample_notice_coverage,
+    render_release_readiness_markdown,
+    validate_release_readiness_text,
+)
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
 from src.theme_coverage import (  # noqa: E402
@@ -761,6 +768,25 @@ def _verify_brief_template_readiness(observation_brief: dict, selected_date: str
     print(f"  readme_demo_links_valid: {readme_links_valid}")
 
 
+def _verify_release_readiness() -> None:
+    print("Release readiness 检查:")
+    report = build_release_readiness_report(PROJECT_ROOT)
+    sample_notice = check_sample_notice_coverage(PROJECT_ROOT)
+    gitignore = check_gitignore_safety(PROJECT_ROOT)
+    rendered = render_release_readiness_markdown(report)
+    forbidden_hits = validate_release_readiness_text(rendered)
+    print(f"  release_readiness_label: {report.get('readiness_label')}")
+    print(f"  release_readiness_warning_count: {report.get('warning_count')}")
+    print(f"  release_readiness_error_count: {report.get('error_count')}")
+    print(f"  sample_notice_coverage_label: {sample_notice.get('coverage_label')}")
+    print(f"  gitignore_safety_label: {gitignore.get('gitignore_label')}")
+    print(f"  release_readiness_forbidden_hits: {forbidden_hits}")
+    print(f"  README exists: {(PROJECT_ROOT / 'README.md').exists()}")
+    print(f"  demo brief exists: {(PROJECT_ROOT / 'docs/demo_briefs/sample_observation_brief.md').exists()}")
+    print(f"  screenshot guide exists: {(PROJECT_ROOT / 'docs/screenshots/SCREENSHOT_GUIDE.md').exists()}")
+    print("  release readiness 检查不访问网络，不写默认 data/warehouse。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -963,6 +989,7 @@ def main() -> int:
     print(f"  forbidden_hits: {forbidden_hits}")
     _verify_brief_template_readiness(observation_brief, selected_date)
     _verify_presentation_readiness(selected_date, "CACHE")
+    _verify_release_readiness()
 
     concept_latest = get_concept_latest_snapshot(ticks)
     if concept_latest.empty:

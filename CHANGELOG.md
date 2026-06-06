@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v2.5
+
+- Public portfolio README polish.
+- 新增 `src/release_readiness.py`，用于发布前扫描公开资产、SAMPLE 说明、gitignore、Markdown 链接、本地路径、敏感词和动作性表达。
+- 新增 `tools/release_check.py`，默认只打印 release readiness 结果，可选写入 `docs/release_readiness_report.md`。
+- README 增强 public portfolio quick path、reproducible demo commands 和 release checks。
+- `docs/screenshots/SCREENSHOT_GUIDE.md`、`docs/demo_briefs/README.md` 和 `docs/RELEASE_CHECKLIST.md` 增强为更可执行的发布材料。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 release readiness 检查。
+
 ## v2.4
 
 - Theme history brief section.

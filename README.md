@@ -4,6 +4,19 @@ A Streamlit-based A-share fund-flow dashboard with theme radar, intraday hotspot
 
 > 本项目用于学习研究、可视化展示和基金主题观察。它不是基金净值工具，不是股票交易系统，不提供买卖建议，也不预测未来走势。
 
+## Public Portfolio Quick Path
+
+如果你是第一次打开这个项目，推荐直接按作品集演示路径理解它：
+
+1. 使用 `SAMPLE 演示样例数据`，这是仓库内置合成 CSV，不代表真实行情。
+2. 开启 `作品集演示模式`，保留关键状态提示，同时减少调试噪音。
+3. 先看 `主题雷达`，理解行业/概念资金流如何转译为基金主题状态。
+4. 再看 `多日趋势` 中的 warehouse theme history 图表，理解历史快照如何形成主题级观察。
+5. 查看 `持仓相关池`，理解基金/ETF 主题暴露模板如何与主题雷达合并。
+6. 下载 `观察简报`，或直接阅读 [`SAMPLE Demo Brief`](docs/demo_briefs/sample_observation_brief.md)。
+
+公开展示边界始终保持不变：SAMPLE / DEMO 不代表真实行情；项目不接真实账户，不读取真实个人持仓，不提供交易功能，不预测未来走势。
+
 ## 1. Project Overview
 
 Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit、AKShare、Plotly 和 pandas** 构建的 A 股主题资金流监测 MVP。项目使用 AKShare 获取东方财富行业/概念板块主力资金流数据，将盘中快照保存为本地 CSV，并通过“基金观察池”把原始行业板块归并为更适合基金投资观察的主题，例如半导体/芯片链、AI算力/TMT、新能源链、红利防御、医药和证券金融。
@@ -100,6 +113,34 @@ v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准
 
 发布检查清单位于 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)，包含本地验证、SAMPLE demo brief、Git 安全、Streamlit Cloud、作品集展示和边界检查。
 
+## Reproducible Demo Commands
+
+下面几条命令可以在无真实缓存、无网络依赖的情况下复现作品集演示主路径：
+
+```bash
+python tools/export_sample_brief.py
+python tools/rebuild_local_warehouse.py --include-sample --clear
+streamlit run app.py
+```
+
+`export_sample_brief.py` 只读取 `sample_data/ticks`，并使用临时 warehouse 生成静态 demo brief；`rebuild_local_warehouse.py --include-sample --clear` 只把 SAMPLE 合成 CSV 导入本地可重建索引。两者都不会把 SAMPLE 写入 `data/ticks`。
+
+## Release Checks
+
+发布前建议运行：
+
+```bash
+python tools/release_check.py
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+```
+
+`release_check.py` 会扫描 public assets、SAMPLE 说明覆盖、`.gitignore` 保护、Markdown 相对链接、本地路径、敏感词和动作性表达。默认只打印结果，不写文件；如需保存报告，可运行 `python tools/release_check.py --write-report docs/release_readiness_report.md`。
+
+当前静态发布审计报告见 [`docs/release_readiness_report.md`](docs/release_readiness_report.md)。
+
 ## Technical Highlights
 
 - Streamlit + Plotly 深色金融大屏，支持本地运行和 Streamlit Cloud 演示。
@@ -127,35 +168,58 @@ v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准
 
 ## 3. Screenshots
 
+以下截图均使用 `SAMPLE` 合成演示数据和 `作品集演示模式` 生成。SAMPLE 数据只用于公开展示和功能复现，不代表真实行情；页面内容不构成投资建议，也不预测未来走势。
+
 截图指南见 [`docs/screenshots/SCREENSHOT_GUIDE.md`](docs/screenshots/SCREENSHOT_GUIDE.md)。README 只引用仓库中已经存在的截图，避免 GitHub 页面出现损坏图片链接。
 
-### Real-time Fund Flow Curve
+### Home / Real-time Fund Flow Curve
 
-The real-time curve tab visualizes intraday main capital net inflow by selected fund themes or raw sectors. It keeps the dark financial dashboard style, shows the current data state, and marks endpoint labels on the right side of the chart.
+The home view shows the portfolio presentation mode, SAMPLE data status, core project boundary notes, and the main intraday fund-flow curve.
 
-![Real-time Fund Flow Curve](docs/screenshots/curve.png)
+![Home / Real-time Fund Flow Curve](docs/screenshots/curve.png)
 
 ### Fund Theme Radar
 
-The theme radar tab summarizes current market temperature, watchlist theme status, and core-vs-breadth divergence. This is the key product layer that turns raw sector flow data into fund-oriented observation signals.
+The theme radar tab translates raw sector fund-flow data into fund-oriented themes, showing market temperature, watchlist theme cards, and core-vs-breadth divergence.
 
 ![Fund Theme Radar](docs/screenshots/theme_radar.png)
 
+### Intraday Hotspots
+
+The intraday hotspots tab summarizes same-day theme changes from multiple captured-time snapshots, including inflow/recovery themes and pressure/weakening themes.
+
+![Intraday Hotspots](docs/screenshots/intraday_hotspots.png)
+
+### Multi-day Theme Trends
+
+The multi-day trends tab shows cross-date theme status based on local CSV snapshots and warehouse-powered theme history observation. It describes historical states only and does not predict future movement.
+
+![Multi-day Theme Trends](docs/screenshots/multi_day_trends.png)
+
+### Holding-related Pool
+
+The holding-related pool tab demonstrates how a local JSON configuration or SAMPLE CSV template maps fund/ETF theme exposure to current theme fund-flow status. It does not read real accounts or real holdings.
+
+![Holding-related Pool](docs/screenshots/holding_pool.png)
+
+### Observation Brief
+
+The observation brief tab generates a Markdown report with data status, key observations, optional warehouse theme history summary, sample limitations, and disclaimer.
+
+![Observation Brief](docs/screenshots/observation_brief.png)
+
 ### Fund Flow Ranking
 
-The ranking tab separates net inflow and net outflow lists. Inflow ranking only shows positive values, while outflow ranking only shows negative values, avoiding mixed-sign ranking confusion.
+The ranking tab separates net inflow and net outflow lists, avoiding mixed-sign ranking confusion while preserving theme mode and data status context.
 
 ![Fund Flow Ranking](docs/screenshots/ranking.png)
 
-### Data Trust Panel
+### Data Trust / Screenshot Guide Panel
 
-The data explanation tab shows the current data source, `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY` state, latest cache time, CSV snapshot count, theme mode explanation, watchlist usage, and disclaimer.
+The data explanation tab documents data status, SAMPLE boundaries, CSV/warehouse governance, and screenshot guidance for public portfolio presentation.
 
-![Data Trust Panel](docs/screenshots/data_info.png)
+![Data Trust / Screenshot Guide Panel](docs/screenshots/data_info.png)
 
-### Planned Screenshot Slots
-
-The following screenshots are recommended by the guide but are not linked until real files exist: `observation_brief.png`, `holding_pool.png`, `intraday_hotspots.png`, `history_replay.png`, `multi_day_trends.png`, `theme_history_visuals.png`, `snapshot_catalog.png`, `sample_mode.png`, `theme_taxonomy.png`, and `theme_coverage.png`.
 
 ## 4. Architecture
 
