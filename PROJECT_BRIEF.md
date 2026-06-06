@@ -139,6 +139,8 @@ v2.2 增加 warehouse-powered 主题级历史聚合。系统从 warehouse 只读
 
 v2.3 在主题历史聚合基础上增加可视化 polish：多日趋势 tab 中的 Warehouse 主题历史观察区域新增主题净流入折线图、主题历史热力矩阵、最新主题表现柱状图和 compact 状态时间线。图表只展示已导入 warehouse 的历史快照观察结果，不访问网络、不写 SQLite、不写 CSV；SAMPLE 图表明确标注为合成演示数据，不代表真实行情。
 
+v2.4 将 warehouse-powered 主题历史轻量接入观察简报和 SAMPLE demo brief。观察简报可选包含主题历史观察摘要；静态 demo brief 默认使用 sample_data 和临时 warehouse 生成该 section，用于展示项目如何把历史 sector flow 转译为基金主题观察。该能力仍只描述已导入历史快照中的状态，不预测未来走势，不做投资建议，不读取真实账户，也不读取或写入真实 `data/ticks`。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

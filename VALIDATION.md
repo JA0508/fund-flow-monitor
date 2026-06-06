@@ -10,6 +10,30 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.4 Theme History Brief Checks
+
+Run:
+
+```bash
+python tools/export_sample_brief.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `src/theme_history_brief.py` exists.
+- `tests/test_theme_history_brief.py` passes.
+- The `观察简报` tab contains a `包含 Warehouse 主题历史摘要` switch.
+- No warehouse: observation brief still renders and does not rebuild warehouse.
+- SAMPLE warehouse: observation brief can include a SAMPLE theme history section.
+- SAMPLE theme history section clearly marks synthetic demo data and not real market data.
+- `tools/export_sample_brief.py` includes theme history by default, does not read `data/ticks`, and does not write default `data/warehouse`.
+- `docs/demo_briefs/sample_observation_brief.md` contains `主题历史观察摘要`.
+- Demo brief contains no local absolute paths, trading advice or prediction wording.
+
 ## v2.3 Theme History Visualization Checks
 
 Run:

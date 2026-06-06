@@ -18,6 +18,7 @@ from src.brief_templates import (  # noqa: E402
     build_brief_compliance_report,
     build_brief_metadata,
     get_brief_template_modes,
+    render_brief_markdown_with_extra_sections,
     render_brief_markdown_v2,
     validate_brief_markdown_structure,
 )
@@ -129,6 +130,12 @@ from src.theme_history import (  # noqa: E402
     build_theme_status_timeline,
     load_sector_history_from_warehouse,
     validate_theme_history_text,
+)
+from src.theme_history_brief import (  # noqa: E402
+    build_theme_history_brief_compliance_report,
+    build_theme_history_brief_context,
+    render_theme_history_brief_section,
+    validate_theme_history_brief_text,
 )
 from src.theme_history_viz import (  # noqa: E402
     build_theme_history_visual_summary,
@@ -575,6 +582,32 @@ def _verify_local_warehouse() -> None:
             latest_bar_data = prepare_latest_theme_bar_data(theme_history, top_n=5)
             visual_summary = build_theme_history_visual_summary(theme_history, theme_timeline, top_n=5)
             theme_history_viz_forbidden_hits = validate_theme_history_viz_text(visual_summary.get("visual_summary_reason", ""))
+            theme_history_summary = {
+                "history_available": not theme_history.empty,
+                "date_count": int(theme_history["data_date"].nunique()) if not theme_history.empty else 0,
+                "theme_count": int(theme_history["theme_name"].nunique()) if not theme_history.empty else 0,
+                "latest_date": str(theme_history["data_date"].max()) if not theme_history.empty else None,
+                "strongest_latest_themes": latest_bar_data.sort_values("main_net_inflow_billion", ascending=False)["theme_name"].head(5).tolist()
+                if not latest_bar_data.empty
+                else [],
+                "pressured_latest_themes": latest_bar_data.sort_values("main_net_inflow_billion", ascending=True)["theme_name"].head(5).tolist()
+                if not latest_bar_data.empty
+                else [],
+                "summary_label": "仅 SAMPLE 主题历史可用",
+                "summary_reason": "当前 warehouse 中仅包含 SAMPLE 合成演示数据，可用于展示主题历史聚合流程，不代表真实行情。",
+                "warnings": [],
+                "errors": [],
+            }
+            theme_history_brief_context = build_theme_history_brief_context(
+                theme_history_summary,
+                theme_quality,
+                visual_summary,
+                source_type="SAMPLE",
+                theme_mode="代表口径",
+            )
+            theme_history_brief_section = render_theme_history_brief_section(theme_history_brief_context)
+            theme_history_brief_compliance = build_theme_history_brief_compliance_report(theme_history_brief_section)
+            theme_history_brief_forbidden_hits = validate_theme_history_brief_text(theme_history_brief_section)
         finally:
             conn.close()
     default_warehouse_exists = (PROJECT_ROOT / get_default_warehouse_path()).exists()
@@ -606,10 +639,14 @@ def _verify_local_warehouse() -> None:
     print(f"  temp_theme_history_heatmap_shape: {tuple(heatmap_data.shape)}")
     print(f"  temp_latest_theme_bar_row_count: {len(latest_bar_data)}")
     print(f"  temp_theme_history_visual_summary_label: {visual_summary.get('visual_summary_label')}")
+    print(f"  temp_theme_history_brief_available: {theme_history_brief_context.get('history_brief_available')}")
+    print(f"  temp_theme_history_section_length: {len(theme_history_brief_section)}")
+    print(f"  temp_theme_history_brief_compliance_label: {theme_history_brief_compliance.get('compliance_label')}")
     print(f"  warehouse_forbidden_hits: {forbidden_hits}")
     print(f"  warehouse_explorer_forbidden_hits: {explorer_forbidden_hits}")
     print(f"  theme_history_forbidden_hits: {theme_history_forbidden_hits}")
     print(f"  theme_history_viz_forbidden_hits: {theme_history_viz_forbidden_hits}")
+    print(f"  theme_history_brief_forbidden_hits: {theme_history_brief_forbidden_hits}")
     print(f"  default_warehouse_exists: {default_warehouse_exists}")
     print(f"  default_warehouse_status: {default_status.get('status_label')}")
     print(f"  default_warehouse_source_type_count: {default_source_count}")
@@ -682,7 +719,13 @@ def _verify_brief_template_readiness(observation_brief: dict, selected_date: str
         "v1.9",
         "sample_data/ticks",
     )
-    markdown = render_brief_markdown_v2(observation_brief, template_mode="作品集演示简报", metadata=metadata)
+    sample_extra_section = "## 主题历史观察摘要\n\n- SAMPLE 合成演示数据仅用于展示主题历史聚合流程。\n- CSV 仍是 source of truth；不预测未来走势，不构成投资建议。"
+    markdown = render_brief_markdown_with_extra_sections(
+        observation_brief,
+        template_mode="作品集演示简报",
+        metadata=metadata,
+        extra_sections=[sample_extra_section],
+    )
     compliance = build_brief_compliance_report(markdown)
     structure = validate_brief_markdown_structure(markdown)
     export_script = PROJECT_ROOT / "tools/export_sample_brief.py"
@@ -695,9 +738,11 @@ def _verify_brief_template_readiness(observation_brief: dict, selected_date: str
 
     demo_brief_path = PROJECT_ROOT / "docs/demo_briefs/sample_observation_brief.md"
     demo_compliance = {"compliance_label": "<missing>", "forbidden_hits": []}
+    demo_has_theme_history = False
     if demo_brief_path.exists():
         demo_text = demo_brief_path.read_text(encoding="utf-8")
         demo_compliance = build_brief_compliance_report(demo_text)
+        demo_has_theme_history = "主题历史观察摘要" in demo_text
     readme_links_valid = _readme_links_exist(
         (
             "docs/demo_briefs/sample_observation_brief.md",
@@ -709,6 +754,7 @@ def _verify_brief_template_readiness(observation_brief: dict, selected_date: str
     print(f"  render_brief_markdown_v2 structure_valid: {structure.get('is_valid')}")
     print(f"  export_sample_brief.py import: {export_import_ok}")
     print(f"  demo brief exists: {demo_brief_path.exists()}")
+    print(f"  demo_brief_has_theme_history_section: {demo_has_theme_history}")
     print(f"  demo_brief_compliance_label: {demo_compliance.get('compliance_label')}")
     print(f"  demo_brief_forbidden_hits: {demo_compliance.get('forbidden_hits')}")
     print(f"  release_checklist_exists: {(PROJECT_ROOT / 'docs/RELEASE_CHECKLIST.md').exists()}")

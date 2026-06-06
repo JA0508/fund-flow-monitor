@@ -55,6 +55,12 @@ from src.theme_history import (  # noqa: E402
     summarize_theme_history,
     validate_theme_history_text,
 )
+from src.theme_history_brief import (  # noqa: E402
+    build_theme_history_brief_compliance_report,
+    build_theme_history_brief_context,
+    render_theme_history_brief_section,
+    validate_theme_history_brief_text,
+)
 from src.theme_history_viz import (  # noqa: E402
     build_theme_history_visual_summary,
     prepare_latest_theme_bar_data,
@@ -92,6 +98,7 @@ REQUIRED_FILES = (
     "src/warehouse_explorer.py",
     "src/theme_history.py",
     "src/theme_history_viz.py",
+    "src/theme_history_brief.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
@@ -253,6 +260,15 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
             latest_bar_data = prepare_latest_theme_bar_data(theme_history, top_n=5)
             visual_summary = build_theme_history_visual_summary(theme_history, top_n=5)
             visual_forbidden_hits = validate_theme_history_viz_text(visual_summary.get("visual_summary_reason", ""))
+            theme_history_brief_context = build_theme_history_brief_context(
+                theme_history_summary,
+                visual_summary=visual_summary,
+                source_type="SAMPLE",
+                theme_mode="代表口径",
+            )
+            theme_history_brief_section = render_theme_history_brief_section(theme_history_brief_context)
+            theme_history_brief_compliance = build_theme_history_brief_compliance_report(theme_history_brief_section)
+            theme_history_brief_forbidden_hits = validate_theme_history_brief_text(theme_history_brief_section)
         finally:
             conn.close()
     return {
@@ -275,6 +291,10 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
         "latest_bar_row_count": int(len(latest_bar_data)),
         "visual_summary_label": visual_summary.get("visual_summary_label"),
         "theme_history_viz_forbidden_hits": visual_forbidden_hits,
+        "theme_history_brief_module_imported": True,
+        "theme_history_brief_available": bool(theme_history_brief_context.get("history_brief_available")),
+        "theme_history_brief_compliance_label": theme_history_brief_compliance.get("compliance_label"),
+        "theme_history_brief_forbidden_hits": theme_history_brief_forbidden_hits,
         "sample_rebuild_dry_run_label": dry_run.get("summary_label"),
         "sample_rebuild_temp_label": rebuild.get("rebuild_label"),
         "sample_inserted_rows": int(rebuild.get("inserted_rows", 0) or 0),
@@ -355,6 +375,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "brief_template_mode_count": len(get_brief_template_modes()),
             "demo_brief_exists": demo_brief_path.exists(),
             "demo_brief_has_sample_notice": ("SAMPLE" in demo_brief_text and "合成演示数据" in demo_brief_text),
+            "demo_brief_has_theme_history_section": "主题历史观察摘要" in demo_brief_text,
             "demo_brief_forbidden_hits": validate_brief_template_text(demo_brief_text),
             "release_checklist_exists": (project_root / "docs/RELEASE_CHECKLIST.md").exists(),
         },
@@ -363,7 +384,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.3 本地冒烟检查")
+    print("Fund Flow Monitor v2.4 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -441,6 +462,10 @@ def main() -> int:
     print(f"theme history latest bar rows: {warehouse['latest_bar_row_count']}")
     print(f"theme history visual summary label: {warehouse['visual_summary_label']}")
     print(f"theme history viz forbidden hits: {warehouse['theme_history_viz_forbidden_hits']}")
+    print(f"theme history brief module imported: {warehouse['theme_history_brief_module_imported']}")
+    print(f"theme history brief available: {warehouse['theme_history_brief_available']}")
+    print(f"theme history brief compliance label: {warehouse['theme_history_brief_compliance_label']}")
+    print(f"theme history brief forbidden hits: {warehouse['theme_history_brief_forbidden_hits']}")
     presentation = report["presentation"]
     print(f"display mode count: {presentation['display_mode_count']}")
     print(f"status badge supported count: {presentation['supported_status_count']}")
@@ -452,6 +477,7 @@ def main() -> int:
     print(f"brief template mode count: {brief_templates['brief_template_mode_count']}")
     print(f"demo brief exists: {brief_templates['demo_brief_exists']}")
     print(f"demo brief has SAMPLE notice: {brief_templates['demo_brief_has_sample_notice']}")
+    print(f"demo brief has theme history section: {brief_templates['demo_brief_has_theme_history_section']}")
     print(f"demo brief forbidden hits: {brief_templates['demo_brief_forbidden_hits']}")
     print(f"release checklist exists: {brief_templates['release_checklist_exists']}")
 
@@ -483,6 +509,10 @@ def main() -> int:
         and warehouse["line_data_row_count"] > 0
         and warehouse["latest_bar_row_count"] > 0
         and not warehouse["theme_history_viz_forbidden_hits"]
+        and warehouse["theme_history_brief_module_imported"]
+        and warehouse["theme_history_brief_available"]
+        and warehouse["theme_history_brief_compliance_label"] == "合规通过"
+        and not warehouse["theme_history_brief_forbidden_hits"]
         and presentation["display_mode_count"] == 2
         and presentation["supported_status_count"] == 6
         and presentation["screenshot_guide_exists"]
@@ -492,6 +522,7 @@ def main() -> int:
         and brief_templates["brief_template_mode_count"] == 2
         and brief_templates["demo_brief_exists"]
         and brief_templates["demo_brief_has_sample_notice"]
+        and brief_templates["demo_brief_has_theme_history_section"]
         and not brief_templates["demo_brief_forbidden_hits"]
         and brief_templates["release_checklist_exists"]
     )

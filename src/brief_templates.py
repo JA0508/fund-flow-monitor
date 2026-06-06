@@ -222,6 +222,41 @@ def render_brief_markdown_v2(
     return "\n".join(lines).strip() + "\n"
 
 
+def render_brief_markdown_with_extra_sections(
+    brief: dict,
+    template_mode: str | None = None,
+    metadata: dict | None = None,
+    extra_sections: list[str] | None = None,
+) -> str:
+    """Render the existing v2 brief and insert optional markdown sections.
+
+    Extra sections are inserted before the sample/limitation section when possible.
+    The base rendering remains delegated to render_brief_markdown_v2 for backward
+    compatibility with existing tests and downloads.
+    """
+    markdown = render_brief_markdown_v2(brief, template_mode=template_mode, metadata=metadata)
+    sections = [str(section).strip() for section in (extra_sections or []) if str(section).strip()]
+    if not sections:
+        return markdown
+    insert_block = "\n\n".join(sections)
+    theme_marker = "## 三、主题与持仓相关观察"
+    if theme_marker in markdown:
+        start = markdown.index(theme_marker)
+        next_heading = re.search(r"\n##\s+", markdown[start + len(theme_marker) :])
+        if next_heading:
+            insert_pos = start + len(theme_marker) + next_heading.start()
+            return (markdown[:insert_pos].rstrip() + "\n\n" + insert_block + "\n\n" + markdown[insert_pos:].lstrip()).strip() + "\n"
+    marker = "## 五、样本与限制"
+    if marker in markdown:
+        before, after = markdown.split(marker, 1)
+        return (before.rstrip() + "\n\n" + insert_block + "\n\n" + marker + after).strip() + "\n"
+    disclaimer = "## 六、免责声明"
+    if disclaimer in markdown:
+        before, after = markdown.split(disclaimer, 1)
+        return (before.rstrip() + "\n\n" + insert_block + "\n\n" + disclaimer + after).strip() + "\n"
+    return (markdown.rstrip() + "\n\n" + insert_block).strip() + "\n"
+
+
 def validate_brief_template_text(text: str) -> list[str]:
     hits = []
     for pattern in FORBIDDEN_BRIEF_TEMPLATE_PATTERNS:

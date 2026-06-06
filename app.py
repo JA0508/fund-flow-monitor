@@ -14,6 +14,7 @@ from src.brief_templates import (
     generate_brief_filename,
     get_brief_template_modes,
     is_portfolio_brief_mode,
+    render_brief_markdown_with_extra_sections,
     render_brief_markdown_v2,
     validate_brief_markdown_structure,
 )
@@ -130,6 +131,12 @@ from src.theme_history import (
     normalize_theme_history_mode,
     summarize_theme_history,
     summarize_theme_history_quality,
+)
+from src.theme_history_brief import (
+    build_theme_history_brief_compliance_report,
+    build_theme_history_brief_context,
+    build_theme_history_brief_points,
+    render_theme_history_brief_section,
 )
 from src.theme_history_viz import (
     build_theme_history_visual_notes,
@@ -1214,6 +1221,12 @@ def main() -> None:
             key="brief_template_mode",
             help="模板只影响 Markdown 展示结构，不改变主题雷达、日内热点、多日趋势或持仓相关池的计算结果。",
         )
+        include_theme_history_brief = st.checkbox(
+            "包含 Warehouse 主题历史摘要",
+            value=portfolio_mode,
+            key="brief_include_theme_history",
+            help="只读读取本地 warehouse 中已有主题历史；不会自动重建 warehouse，也不会写 SQLite 或 CSV。",
+        )
         brief_metadata = build_brief_metadata(
             selected_snapshot_date or header_date,
             data_status,
@@ -1221,14 +1234,81 @@ def main() -> None:
             APP_VERSION,
             source_label,
         )
-        brief_markdown_v2 = render_brief_markdown_v2(
+        extra_brief_sections: list[str] = []
+        theme_history_brief_section = ""
+        theme_history_brief_compliance = {
+            "forbidden_hits": [],
+            "compliance_label": "未启用",
+            "compliance_reason": "未启用 Warehouse 主题历史摘要。",
+        }
+        theme_history_brief_context = {}
+        if include_theme_history_brief:
+            brief_history_conn = None
+            try:
+                brief_history_conn, brief_history_status = load_warehouse_if_exists(warehouse_path)
+                if brief_history_conn is None:
+                    render_compact_notice(
+                        "主题历史摘要暂不可用",
+                        "当前未创建本地 warehouse，观察简报仍可正常生成。可运行 python tools/rebuild_local_warehouse.py --include-sample --clear 后加入主题历史摘要。",
+                        tone="info",
+                    )
+                    theme_history_brief_context = build_theme_history_brief_context(
+                        None,
+                        source_type="SAMPLE" if data_status == "SAMPLE" else "ALL",
+                        theme_mode="代表口径",
+                    )
+                else:
+                    brief_sources = get_warehouse_available_source_types(brief_history_conn)
+                    if data_status == "SAMPLE" and "SAMPLE" in brief_sources:
+                        brief_history_source = "SAMPLE"
+                    elif len(brief_sources) > 1:
+                        brief_history_source = "ALL"
+                    elif brief_sources:
+                        brief_history_source = brief_sources[0]
+                    else:
+                        brief_history_source = "ALL"
+                    brief_history_mode = normalize_theme_history_mode("代表口径")
+                    brief_sector_history = load_sector_history_from_warehouse(
+                        brief_history_conn,
+                        source_type=brief_history_source,
+                        latest_per_day=True,
+                    )
+                    brief_theme_history = build_theme_history_from_sector_history(
+                        brief_sector_history,
+                        taxonomy,
+                        theme_mode=brief_history_mode,
+                    )
+                    brief_history_summary = summarize_theme_history(brief_theme_history, top_n=5)
+                    brief_history_quality = build_theme_history_quality_report(brief_sector_history, brief_theme_history)
+                    brief_history_visual = build_theme_history_visual_summary(brief_theme_history, top_n=5)
+                    theme_history_brief_context = build_theme_history_brief_context(
+                        brief_history_summary,
+                        brief_history_quality,
+                        brief_history_visual,
+                        source_type=brief_history_source,
+                        theme_mode=brief_history_mode,
+                        latest_per_day=True,
+                    )
+                    theme_history_brief_section = render_theme_history_brief_section(theme_history_brief_context)
+                    theme_history_brief_compliance = build_theme_history_brief_compliance_report(theme_history_brief_section)
+                    extra_brief_sections.append(theme_history_brief_section)
+            except Exception as exc:
+                render_compact_notice("主题历史摘要读取失败", f"读取 warehouse 主题历史摘要失败：{exc}", tone="warning")
+                theme_history_brief_context = build_theme_history_brief_context(None, source_type="ALL", theme_mode="代表口径")
+            finally:
+                safe_close_connection(brief_history_conn)
+
+        brief_markdown_v2 = render_brief_markdown_with_extra_sections(
             observation_brief,
             template_mode=brief_template_mode,
             metadata=brief_metadata,
+            extra_sections=extra_brief_sections,
         )
         brief_compliance = build_brief_compliance_report(brief_markdown_v2)
         brief_structure = validate_brief_markdown_structure(brief_markdown_v2)
-        brief_v2_forbidden_hits = brief_compliance.get("forbidden_hits", [])
+        brief_v2_forbidden_hits = list(brief_compliance.get("forbidden_hits", [])) + list(
+            theme_history_brief_compliance.get("forbidden_hits", [])
+        )
         brief_file_name = generate_brief_filename(selected_snapshot_date or header_date, brief_template_mode)
         if data_status == "EMPTY":
             render_first_run_guide("当前没有可用真实缓存或实时抓取暂不可用。")
@@ -1250,6 +1330,21 @@ def main() -> None:
             )
         render_brief_overview_cards(brief_data_context, observation_brief, brief_v2_forbidden_hits)
         render_brief_template_meta_cards(brief_metadata, brief_compliance, brief_template_mode)
+        if include_theme_history_brief:
+            render_compact_notice(
+                "Warehouse 主题历史摘要",
+                theme_history_brief_context.get("data_notice")
+                or "主题历史摘要只读读取已存在 warehouse；不会自动重建，也不会写 SQLite 或 CSV。",
+                tone="warning" if "SAMPLE" in str(theme_history_brief_context.get("data_notice", "")) else "info",
+            )
+            if theme_history_brief_context.get("history_brief_available"):
+                st.markdown("#### 主题历史摘要预览")
+                for point in build_theme_history_brief_points(theme_history_brief_context):
+                    st.markdown(f"- {point}")
+            st.caption(
+                f"主题历史摘要合规：{theme_history_brief_compliance.get('compliance_label', '--')} ｜ "
+                f"{theme_history_brief_compliance.get('compliance_reason', '')}"
+            )
         if not brief_structure.get("is_valid"):
             render_compact_notice(
                 "Markdown 结构检查",

@@ -17,9 +17,11 @@ python tools/export_sample_brief.py
 ```
 
 - 检查 `docs/demo_briefs/sample_observation_brief.md` 存在。
+- 确认简报包含 `主题历史观察摘要`。
 - 确认简报包含 SAMPLE / 合成演示数据说明。
 - 确认简报不包含买卖建议或预测语气。
 - 确认简报不包含本地绝对路径或真实 `data/ticks` 私有缓存内容。
+- 确认 `tools/export_sample_brief.py` 不读取 `data/ticks`，不写默认 `data/warehouse`。
 
 ## 3. Git 安全检查
 

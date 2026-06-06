@@ -56,10 +56,24 @@ def test_export_sample_brief_importable():
 
 def test_export_sample_brief_parser():
     parser = export_sample_brief.build_parser()
-    args = parser.parse_args(["--output", "x.md", "--template", "portfolio", "--sample-dir", "sample_data/ticks", "--quiet"])
+    args = parser.parse_args(
+        [
+            "--output",
+            "x.md",
+            "--template",
+            "portfolio",
+            "--sample-dir",
+            "sample_data/ticks",
+            "--theme-mode",
+            "代表口径",
+            "--quiet",
+        ]
+    )
     assert args.output == "x.md"
     assert args.template == "portfolio"
     assert args.sample_dir == "sample_data/ticks"
+    assert args.include_theme_history is True
+    assert args.theme_mode == "代表口径"
     assert args.quiet is True
 
 
@@ -67,6 +81,9 @@ def test_export_sample_brief_writes_tmp_output_without_data_ticks(tmp_path):
     sample_dir = tmp_path / "sample_data" / "ticks"
     _write_sample_csvs(sample_dir)
     output = tmp_path / "briefs" / "sample_observation_brief.md"
+    default_warehouse = Path("data/warehouse/fund_flow.sqlite")
+    before_exists = default_warehouse.exists()
+    before_mtime = default_warehouse.stat().st_mtime if before_exists else None
     result = export_sample_brief.export_sample_brief(
         output=output,
         template="portfolio",
@@ -81,7 +98,33 @@ def test_export_sample_brief_writes_tmp_output_without_data_ticks(tmp_path):
     assert "合成演示数据" in text
     assert "不构成投资建议" in text
     assert "不预测未来走势" in text
+    assert "主题历史观察摘要" in text
+    assert "/Users/" not in text
+    assert "Desktop/vibe coding" not in text
     assert validate_brief_template_text(text) == []
+    assert not (tmp_path / "data" / "warehouse").exists()
+    if before_exists:
+        assert default_warehouse.exists()
+        assert default_warehouse.stat().st_mtime == before_mtime
+    else:
+        assert not default_warehouse.exists()
+
+
+def test_export_sample_brief_can_disable_theme_history(tmp_path):
+    sample_dir = tmp_path / "sample_data" / "ticks"
+    _write_sample_csvs(sample_dir)
+    output = tmp_path / "briefs" / "sample_observation_brief.md"
+    result = export_sample_brief.export_sample_brief(
+        output=output,
+        template="portfolio",
+        sample_dir=sample_dir,
+        include_theme_history=False,
+        quiet=True,
+    )
+    assert result["ok"] is True
+    text = output.read_text(encoding="utf-8")
+    assert "主题历史观察摘要" not in text
+    assert "SAMPLE" in text
 
 
 def test_export_sample_brief_missing_sample_dir_returns_cli_error(tmp_path):

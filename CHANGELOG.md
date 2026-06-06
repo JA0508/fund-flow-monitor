@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v2.4
+
+- Theme history brief section.
+- 新增 `src/theme_history_brief.py`，将 warehouse-powered theme history 转换为观察简报可用的中文摘要和 Markdown section。
+- 观察简报 tab 增加 `包含 Warehouse 主题历史摘要` 开关；无 warehouse 时简报仍可正常生成。
+- `tools/export_sample_brief.py` 默认使用 SAMPLE 数据和临时 warehouse 生成主题历史观察摘要，不读取 `data/ticks`，不写默认 `data/warehouse`。
+- 静态 SAMPLE demo brief 增加主题历史观察摘要，继续明确 SAMPLE 合成演示数据不代表真实行情。
+- `smoke_check.py` 和 `verify_runtime.py` 增加 theme history brief readiness 和 demo brief section 检查。
+
 ## v2.3
 
 - Theme history visualization polish.

@@ -77,13 +77,13 @@ v1.8 新增 `作品集演示模式`。它只调整页面呈现密度：首屏更
 
 ## Demo Brief
 
-v1.9 提供一份由 SAMPLE 合成演示数据生成的静态观察简报：
+v1.9 提供一份由 SAMPLE 合成演示数据生成的静态观察简报；v2.4 进一步把 SAMPLE 主题历史观察摘要接入这份离线成果物：
 
 - 文件路径：[`docs/demo_briefs/sample_observation_brief.md`](docs/demo_briefs/sample_observation_brief.md)
 - 生成命令：`python tools/export_sample_brief.py`
 - 用途：GitHub 作品集预览、面试展示、功能说明和离线阅读。
 
-这份 demo brief 只读取 `sample_data/ticks`，不会访问 AKShare，不会读取或写入 `data/ticks`，不代表真实行情，不构成投资建议，也不预测未来走势。
+这份 demo brief 只读取 `sample_data/ticks`，并使用临时 warehouse 构建 SAMPLE 主题历史摘要；不会访问 AKShare，不会读取或写入 `data/ticks`，不会写默认 `data/warehouse`。它不代表真实行情，不构成投资建议，也不预测未来走势。
 
 ## Observation Brief Templates
 
@@ -93,6 +93,8 @@ v1.9 提供一份由 SAMPLE 合成演示数据生成的静态观察简报：
 - `作品集演示简报`：适合 GitHub / Streamlit Cloud 展示，更强调 SAMPLE 可复现、项目边界和主题解释层。
 
 两种模板只改变 Markdown 展示结构，不改变主题雷达、日内热点、多日趋势、持仓相关池或覆盖审计的底层计算。
+
+v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准简报默认保持简洁；作品集演示模式默认开启该摘要。没有 warehouse 时简报仍可生成，页面只显示手动重建提示，不会自动写 SQLite。
 
 ## Release Checklist
 
@@ -106,7 +108,7 @@ v1.9 提供一份由 SAMPLE 合成演示数据生成的静态观察简报：
 - 配置化主题库和覆盖审计，解释主题归并口径和重叠风险。
 - 基金/ETF 主题暴露 CSV 模板，展示可配置的持仓相关池流程，但不读取真实账户。
 - 观察简报 Markdown 导出，统一整合主题雷达、日内热点、多日趋势和数据质量说明。
-- SAMPLE demo brief 离线导出，方便 GitHub 作品集直接预览。
+- SAMPLE demo brief 离线导出，包含主题历史观察摘要，方便 GitHub 作品集直接预览。
 - 本地 CSV 快照质量治理和手动采集脚本，保持 CSV MVP 的可追溯性。
 - 本地 SQLite warehouse 作为 CSV 可重建查询索引，为后续历史查询打基础。
 
@@ -537,6 +539,16 @@ streamlit run app.py
 - 图表只描述历史已发生资金流状态，不预测未来走势，不构成投资建议。
 - 图表区域不访问网络，不触发 AKShare，不写 SQLite，不写 CSV。
 
+### Theme History in Observation Brief
+
+v2.4 将 warehouse-powered 主题历史轻量接入观察简报：
+
+- 观察简报 tab 可以选择是否包含 `Warehouse 主题历史摘要`。
+- 作品集演示简报更适合包含主题历史 section，用于展示项目如何把历史 sector flow 聚合成基金主题观察。
+- SAMPLE demo brief 默认包含主题历史观察摘要，且明确标注为合成演示数据。
+- `tools/export_sample_brief.py` 使用临时 warehouse 生成 SAMPLE 主题历史摘要，不读取 `data/ticks`，不写默认 `data/warehouse`。
+- 主题历史摘要只描述已导入历史快照中的状态，不预测未来走势，不构成投资建议。
+
 ## 19. Watchlist
 
 关注主题来自：
@@ -662,6 +674,7 @@ python tools/rebuild_local_warehouse.py --include-sample --dry-run
 - v2.1：Warehouse Explorer、CSV-SQLite 一致性审计和只读历史查询面板。
 - v2.2：warehouse-powered 主题级历史聚合、多日趋势 tab 增强和主题历史质量报告。
 - v2.3：主题历史可视化 polish、warehouse-powered 折线图 / 热力矩阵 / 最新表现柱状图和 compact 状态时间线。
-- v2.4+：README 实际截图更新、demo brief 主题历史摘要增强、更细的数据质量规则、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
+- v2.4：主题历史接入观察简报、SAMPLE demo brief 主题历史摘要和 brief 合规增强。
+- v2.5+：README 实际截图更新、demo brief 图表截图引用、更细的数据质量规则、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。
