@@ -107,6 +107,11 @@ from src.presentation import (
     normalize_display_mode,
     should_show_debug_details,
 )
+from src.runtime_profile import (
+    build_runtime_profile_notice,
+    build_runtime_profile_sidebar_defaults,
+    get_runtime_profile,
+)
 from src.sample_data import (
     SAMPLE_DIR,
     build_sample_snapshot_catalog,
@@ -348,6 +353,10 @@ def _load_cache_ticks(trade_date: str, sector_type: str) -> pd.DataFrame:
 def main() -> None:
     inject_global_css()
 
+    project_root = Path(__file__).resolve().parent
+    runtime_profile = get_runtime_profile(project_root)
+    runtime_sidebar_defaults = build_runtime_profile_sidebar_defaults(runtime_profile)
+
     now = get_china_now()
     trade_date = now.strftime("%Y-%m-%d")
     market_status = get_market_status(now)
@@ -417,10 +426,18 @@ def main() -> None:
 
     with st.sidebar:
         st.header("监测设置")
+        if runtime_sidebar_defaults.get("show_runtime_notice"):
+            render_compact_notice(
+                "Public Demo Runtime",
+                build_runtime_profile_notice(runtime_profile),
+                tone="warning" if runtime_profile.get("public_demo_enabled") else "info",
+            )
         presentation_mode_label = st.selectbox(
             "展示模式",
             get_display_mode_options(),
-            index=0,
+            index=get_display_mode_options().index(
+                runtime_sidebar_defaults.get("presentation_default", "标准模式")
+            ),
             key="presentation_mode",
         )
         presentation_mode_label = normalize_display_mode(presentation_mode_label)
@@ -431,10 +448,12 @@ def main() -> None:
         data_source_mode = st.selectbox(
             "数据来源模式",
             ("真实数据 / 本地缓存", "演示样例数据"),
-            index=0,
+            index=1 if runtime_sidebar_defaults.get("data_source_default") == "SAMPLE" else 0,
             key="data_source_mode",
         )
         sample_mode = data_source_mode == "演示样例数据"
+        if runtime_profile.get("public_demo_enabled") and not sample_mode:
+            st.caption("Public demo profile 已开启；你仍可手动切换真实数据 / 本地缓存模式，本页面不会把 SAMPLE 伪装成真实行情。")
         if not sample_mode and snapshot_catalog_df.empty:
             st.warning(
                 "当前没有本地真实缓存。公开部署或首次运行时，建议切换到 SAMPLE 演示样例数据体验完整功能。",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import subprocess
 import sys
 import tempfile
@@ -48,6 +49,11 @@ from src.release_readiness import (  # noqa: E402
     build_release_readiness_report,
     render_release_readiness_markdown,
     validate_release_readiness_text,
+)
+from src.runtime_profile import (  # noqa: E402
+    detect_public_demo_profile,
+    get_runtime_profile,
+    validate_runtime_profile_text,
 )
 from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_date  # noqa: E402
 from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
@@ -105,11 +111,13 @@ REQUIRED_FILES = (
     "src/theme_history_viz.py",
     "src/theme_history_brief.py",
     "src/release_readiness.py",
+    "src/runtime_profile.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
     "tools/export_sample_brief.py",
     "tools/release_check.py",
+    "tools/cloud_preflight.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -331,6 +339,16 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     demo_brief_text = demo_brief_path.read_text(encoding="utf-8") if demo_brief_path.exists() else ""
     release_readiness = build_release_readiness_report(project_root)
     release_readiness_markdown = render_release_readiness_markdown(release_readiness)
+    runtime_detection = detect_public_demo_profile()
+    old_public_demo_env = os.environ.get("FUND_FLOW_PUBLIC_DEMO")
+    os.environ["FUND_FLOW_PUBLIC_DEMO"] = "1"
+    try:
+        public_demo_profile = get_runtime_profile(project_root)
+    finally:
+        if old_public_demo_env is None:
+            os.environ.pop("FUND_FLOW_PUBLIC_DEMO", None)
+        else:
+            os.environ["FUND_FLOW_PUBLIC_DEMO"] = old_public_demo_env
     presentation_text = " ".join(
         get_display_mode_options()
         + [str(item.get("label", "")) for item in status_badges]
@@ -396,12 +414,24 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "release_readiness_error_count": int(release_readiness.get("error_count", 0) or 0),
             "release_readiness_forbidden_hits": validate_release_readiness_text(release_readiness_markdown),
         },
+        "runtime_profile": {
+            "runtime_profile_module_imported": True,
+            "public_demo_profile_supported": bool(public_demo_profile.get("public_demo_enabled")),
+            "public_demo_default_source": public_demo_profile.get("default_data_source_mode"),
+            "runtime_profile_label": runtime_detection.get("profile_label"),
+            "runtime_profile_forbidden_hits": validate_runtime_profile_text(
+                public_demo_profile.get("runtime_reason", "")
+                + " "
+                + public_demo_profile.get("default_presentation_mode", "")
+            ),
+            "cloud_preflight_script_exists": (project_root / "tools/cloud_preflight.py").exists(),
+        },
     }
 
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.5 本地冒烟检查")
+    print("Fund Flow Monitor v2.6 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -503,6 +533,12 @@ def main() -> int:
     print(f"release readiness label: {release_readiness['release_readiness_label']}")
     print(f"release readiness warnings/errors: {release_readiness['release_readiness_warning_count']} / {release_readiness['release_readiness_error_count']}")
     print(f"release readiness forbidden hits: {release_readiness['release_readiness_forbidden_hits']}")
+    runtime_profile = report["runtime_profile"]
+    print(f"runtime profile module imported: {runtime_profile['runtime_profile_module_imported']}")
+    print(f"public demo profile supported: {runtime_profile['public_demo_profile_supported']}")
+    print(f"public demo default source: {runtime_profile['public_demo_default_source']}")
+    print(f"runtime profile forbidden hits: {runtime_profile['runtime_profile_forbidden_hits']}")
+    print(f"cloud_preflight.py exists: {runtime_profile['cloud_preflight_script_exists']}")
 
     ok = (
         py["ok"]
@@ -552,6 +588,11 @@ def main() -> int:
         and release_readiness["release_check_script_exists"]
         and release_readiness["release_readiness_error_count"] == 0
         and not release_readiness["release_readiness_forbidden_hits"]
+        and runtime_profile["runtime_profile_module_imported"]
+        and runtime_profile["public_demo_profile_supported"]
+        and runtime_profile["public_demo_default_source"] == "SAMPLE"
+        and not runtime_profile["runtime_profile_forbidden_hits"]
+        and runtime_profile["cloud_preflight_script_exists"]
     )
     print(f"检查结果: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

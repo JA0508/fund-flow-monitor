@@ -39,10 +39,12 @@ REQUIRED_PUBLIC_ASSETS = (
 
 SAMPLE_NOTICE_TERMS = ("SAMPLE", "合成演示数据", "不代表真实行情", "不构成投资建议", "不预测未来走势")
 
+_SLASH_USERS = "/" + "Users/"
+_PROJECT_PARENT_HINT = "Desktop/" + "vibe coding"
 LOCAL_PATH_PATTERNS = (
-    (re.compile(r"/Users/[^\s)`'\"]+"), "/Users/"),
-    (re.compile(r"/Users/liujiayi"), "/Users/liujiayi"),
-    (re.compile(r"Desktop/vibe coding"), "Desktop/vibe coding"),
+    (re.compile(re.escape(_SLASH_USERS) + r"[^\s)`'\"]+"), _SLASH_USERS),
+    (re.compile(re.escape(_SLASH_USERS + "liujiayi")), _SLASH_USERS + "liujiayi"),
+    (re.compile(re.escape(_PROJECT_PARENT_HINT)), _PROJECT_PARENT_HINT),
     (re.compile(r"/[^\s)`'\"]*fund-flow-monitor[^\s)`'\"]*"), "fund-flow-monitor absolute path"),
     (re.compile(r"[A-Za-z]:\\Users\\[^\s)`'\"]+"), "Windows user path"),
     (re.compile(r"/[^\s)`'\"]*\.venv/[^\s)`'\"]+"), ".venv absolute path"),

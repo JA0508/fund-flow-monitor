@@ -12,6 +12,11 @@ from src.release_readiness import (  # noqa: E402
     render_release_readiness_markdown,
     validate_release_readiness_text,
 )
+try:
+    from src.runtime_profile import get_runtime_profile, validate_runtime_profile_text  # noqa: E402
+except Exception:  # pragma: no cover - defensive CLI fallback
+    get_runtime_profile = None
+    validate_runtime_profile_text = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,6 +41,21 @@ def _resolve_report_path(path_text: str) -> Path:
 
 def run_release_check(write_report: str = "", strict: bool = False, quiet: bool = False) -> dict:
     report = build_release_readiness_report(PROJECT_ROOT)
+    runtime_profile = {}
+    runtime_forbidden_hits: list[str] = []
+    if get_runtime_profile is None:
+        report.setdefault("warnings", []).append("runtime_profile.py 不可用，建议运行 python tools/cloud_preflight.py 进一步检查。")
+    else:
+        try:
+            runtime_profile = get_runtime_profile(PROJECT_ROOT)
+            if validate_runtime_profile_text is not None:
+                runtime_forbidden_hits = validate_runtime_profile_text(runtime_profile.get("runtime_reason", ""))
+        except Exception as exc:  # pragma: no cover - defensive CLI fallback
+            report.setdefault("warnings", []).append(f"runtime profile 检查失败：{exc}")
+    report["runtime_profile_label"] = runtime_profile.get("runtime_label", "未检查")
+    report["public_demo_hint"] = "公开演示可设置 FUND_FLOW_PUBLIC_DEMO=1，默认进入 SAMPLE 和作品集演示模式。"
+    report["cloud_preflight_hint"] = "运行 python tools/cloud_preflight.py 可检查 Streamlit Cloud / public demo 首次访问准备度。"
+    report["runtime_profile_forbidden_hits"] = runtime_forbidden_hits
     markdown = render_release_readiness_markdown(report)
     report_forbidden_hits = validate_release_readiness_text(markdown)
     report["rendered_report_forbidden_hits"] = report_forbidden_hits
@@ -60,6 +80,10 @@ def run_release_check(write_report: str = "", strict: bool = False, quiet: bool 
         print(f"  local_path_hits: {report.get('local_path_hits', [])}")
         print(f"  forbidden_phrase_hits: {report.get('forbidden_phrase_hits', [])}")
         print(f"  rendered_report_forbidden_hits: {report_forbidden_hits}")
+        print(f"  runtime_profile_label: {report.get('runtime_profile_label')}")
+        print(f"  public_demo_hint: {report.get('public_demo_hint')}")
+        print(f"  cloud_preflight_hint: {report.get('cloud_preflight_hint')}")
+        print(f"  runtime_profile_forbidden_hits: {runtime_forbidden_hits}")
         print("  next_manual_checks:")
         print("    - SAMPLE + 作品集演示模式浏览核心页面。")
         print("    - 检查 demo brief 和观察简报下载内容。")

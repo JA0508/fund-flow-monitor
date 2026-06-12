@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tomllib
 import importlib.util
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -113,6 +114,10 @@ from src.release_readiness import (  # noqa: E402
     check_sample_notice_coverage,
     render_release_readiness_markdown,
     validate_release_readiness_text,
+)
+from src.runtime_profile import (  # noqa: E402
+    get_runtime_profile,
+    validate_runtime_profile_text,
 )
 from src.storage import find_latest_tick_file, load_latest_ticks  # noqa: E402
 from src.theme_concepts import build_theme_concept_summary  # noqa: E402
@@ -787,6 +792,35 @@ def _verify_release_readiness() -> None:
     print("  release readiness 检查不访问网络，不写默认 data/warehouse。")
 
 
+def _verify_runtime_profile() -> None:
+    print("Runtime profile 检查:")
+    current_profile = get_runtime_profile(PROJECT_ROOT)
+    old_public_demo_env = os.environ.get("FUND_FLOW_PUBLIC_DEMO")
+    os.environ["FUND_FLOW_PUBLIC_DEMO"] = "1"
+    try:
+        public_demo_profile = get_runtime_profile(PROJECT_ROOT)
+    finally:
+        if old_public_demo_env is None:
+            os.environ.pop("FUND_FLOW_PUBLIC_DEMO", None)
+        else:
+            os.environ["FUND_FLOW_PUBLIC_DEMO"] = old_public_demo_env
+    forbidden_hits = validate_runtime_profile_text(
+        current_profile.get("runtime_reason", "")
+        + " "
+        + public_demo_profile.get("runtime_reason", "")
+        + " "
+        + public_demo_profile.get("default_presentation_mode", "")
+    )
+    print(f"  runtime_profile_label: {current_profile.get('runtime_label')}")
+    print(f"  public_demo_enabled: {public_demo_profile.get('public_demo_enabled')}")
+    print(f"  public_demo_default_source: {public_demo_profile.get('default_data_source_mode')}")
+    print(f"  public_demo_presentation_default: {public_demo_profile.get('default_presentation_mode')}")
+    print(f"  runtime_profile_warning_count: {len(public_demo_profile.get('warnings', []))}")
+    print(f"  runtime_profile_error_count: {len(public_demo_profile.get('errors', []))}")
+    print(f"  runtime_profile_forbidden_hits: {forbidden_hits}")
+    print("  runtime profile 检查不访问网络，不写默认 data/warehouse。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -990,6 +1024,7 @@ def main() -> int:
     _verify_brief_template_readiness(observation_brief, selected_date)
     _verify_presentation_readiness(selected_date, "CACHE")
     _verify_release_readiness()
+    _verify_runtime_profile()
 
     concept_latest = get_concept_latest_snapshot(ticks)
     if concept_latest.empty:

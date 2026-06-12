@@ -5,6 +5,7 @@ Use this checklist before publishing the repository, updating a portfolio link, 
 ## 1. Automated Checks
 
 ```bash
+python tools/cloud_preflight.py
 python tools/release_check.py
 python tools/smoke_check.py
 python tools/verify_runtime.py
@@ -16,6 +17,22 @@ python -m compileall app.py src tests tools
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
 - Warnings should be reviewed manually before release.
 - Tests and compile checks must pass.
+
+## 1.1 Public Demo Runtime Checks
+
+```bash
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 streamlit run app.py
+```
+
+- Public demo profile should default to `SAMPLE 演示样例数据`.
+- Public demo profile should default to `作品集演示模式`.
+- SAMPLE / 合成演示数据说明 should be visible on first visit.
+- No warehouse: the app should still run and show manual rebuild guidance.
+- Opening the page should not write `data/ticks`.
+- Opening the page should not create or write `data/warehouse/fund_flow.sqlite`.
+- Users should still be able to manually switch data source and presentation mode.
+- Page copy should not contain trading actions, fund recommendations, or future prediction wording.
 
 ## 2. Data Safety Checks
 

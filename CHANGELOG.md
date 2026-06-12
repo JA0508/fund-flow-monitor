@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v2.6
+
+- Public demo runtime profile.
+- 新增 `src/runtime_profile.py`，支持通过 `FUND_FLOW_PUBLIC_DEMO=1` 显式启用公开演示安全默认值。
+- 新增 `tools/cloud_preflight.py`，检查 Streamlit Cloud / public demo 首次访问所需资产、runtime 默认值、README 链接和安全文案。
+- app 在 public demo profile 下默认使用 SAMPLE 演示样例数据和作品集演示模式。
+- `release_check.py`、`smoke_check.py` 和 `verify_runtime.py` 增加 runtime profile readiness 检查。
+- README、VALIDATION、RELEASE_CHECKLIST、ROADMAP 和 PROJECT_BRIEF 增强 Streamlit Cloud demo 指引。
+
 ## v2.5
 
 - Public portfolio README polish.

@@ -147,6 +147,12 @@ v2.5 聚焦公开发布质量，不新增业务分析功能。项目新增 relea
 
 README、SAMPLE demo brief、screenshot guide 和 release checklist 现在形成一条可复现作品集路径：新用户可以使用 SAMPLE 数据、作品集演示模式、主题历史图表和观察简报理解项目能力。该发布路径仍然保持边界：SAMPLE 不代表真实行情，项目不预测未来走势，不做基金推荐，不提供交易功能。
 
+## Public Demo Runtime
+
+v2.6 聚焦 Streamlit Cloud 和公开展示环境的首次访问体验。项目新增 public demo runtime profile，可通过 `FUND_FLOW_PUBLIC_DEMO=1` 显式开启。开启后，页面默认使用 SAMPLE 合成演示数据和作品集演示模式，避免公开环境缺少真实缓存、AKShare 不稳定或 warehouse 未创建时出现不友好的空状态。
+
+public demo profile 只是安全默认值，不是新数据源。CSV-first、SAMPLE 可复现、SQLite 可重建索引的边界不变；本地用户仍可手动选择真实数据 / 本地缓存模式。该模式不写 `data/ticks`，不自动创建 `data/warehouse`，不接真实账户，不读取真实持仓，不预测未来走势，不提供交易功能。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

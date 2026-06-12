@@ -88,6 +88,37 @@ v1.8 新增 `作品集演示模式`。它只调整页面呈现密度：首屏更
 
 这个模式不会改变任何主题计算、排行榜、日内热点、多日趋势或观察简报结果；不会触发 AKShare；不会写入 CSV；也不会隐藏 SAMPLE / DEMO 的非真实行情提示。
 
+## Public Demo Runtime Profile
+
+v2.6 支持显式开启 public demo profile，用于 Streamlit Cloud、GitHub 作品集和面试演示的首次访问体验：
+
+```bash
+FUND_FLOW_PUBLIC_DEMO=1 streamlit run app.py
+```
+
+开启后，app 的初始默认值会优先使用 `SAMPLE 演示样例数据` 和 `作品集演示模式`。这只是公开展示安全默认值，不是新数据源，也不会覆盖用户手动选择；本地用户仍可自行切换真实数据 / 本地缓存模式。
+
+public demo profile 的边界：
+
+- SAMPLE 是仓库内置合成演示数据，不代表真实行情。
+- 默认不触发真实行情抓取，不自动写 `data/ticks`。
+- 不自动创建或写入 `data/warehouse/fund_flow.sqlite`。
+- 不接真实账户，不读取真实个人持仓。
+- 不提供交易功能，不预测未来走势。
+
+## Cloud Preflight
+
+部署或公开分享前可以运行：
+
+```bash
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+```
+
+`cloud_preflight.py` 会检查 SAMPLE 数据、截图资产、demo brief、Streamlit 配置、runtime profile、README 相对链接、`.gitignore` 安全边界和动作性表达风险。它不访问网络，不写 `data/ticks`，不写 `data/warehouse`，也不会创建 SQLite。
+
+如需部署到 Streamlit Cloud，可在部署环境变量中设置 `FUND_FLOW_PUBLIC_DEMO=1`。真实云端 URL 发布后再回填到 README，当前 README 不写占位链接。
+
 ## Demo Brief
 
 v1.9 提供一份由 SAMPLE 合成演示数据生成的静态观察简报；v2.4 进一步把 SAMPLE 主题历史观察摘要接入这份离线成果物：
@@ -130,6 +161,7 @@ streamlit run app.py
 发布前建议运行：
 
 ```bash
+python tools/cloud_preflight.py
 python tools/release_check.py
 python tools/smoke_check.py
 python tools/verify_runtime.py
@@ -739,6 +771,6 @@ python tools/rebuild_local_warehouse.py --include-sample --dry-run
 - v2.2：warehouse-powered 主题级历史聚合、多日趋势 tab 增强和主题历史质量报告。
 - v2.3：主题历史可视化 polish、warehouse-powered 折线图 / 热力矩阵 / 最新表现柱状图和 compact 状态时间线。
 - v2.4：主题历史接入观察简报、SAMPLE demo brief 主题历史摘要和 brief 合规增强。
-- v2.5+：README 实际截图更新、demo brief 图表截图引用、更细的数据质量规则、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
+- v2.7+：部署完成后回填真实 Streamlit Cloud URL、demo brief 图表截图引用、更细的数据质量规则、DuckDB 可选分析后端、FastAPI + React + ECharts 产品化重构。
 
 本项目始终以可信的数据状态和可解释的主题观察为优先，不包含交易、预测或自动化决策能力。

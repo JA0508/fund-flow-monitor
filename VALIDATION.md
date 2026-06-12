@@ -10,6 +10,38 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.6 Public Demo Runtime Checks
+
+Run:
+
+```bash
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/release_check.py
+python tools/export_sample_brief.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `src/runtime_profile.py` exists.
+- `tools/cloud_preflight.py` exists.
+- `tests/test_runtime_profile.py` passes.
+- `tests/test_cloud_preflight.py` passes.
+- `FUND_FLOW_PUBLIC_DEMO=1` makes runtime profile default to `SAMPLE`.
+- Public demo profile defaults to `作品集演示模式`.
+- Public demo profile does not auto-write `data/ticks`.
+- Public demo profile does not auto-write `data/warehouse`.
+- No warehouse: app still runs and shows manual rebuild guidance.
+- `cloud_preflight.py` does not access network.
+- `cloud_preflight.py` does not write `data/ticks` or `data/warehouse`.
+- README contains `Public Demo Runtime Profile` and `Cloud Preflight`.
+- `docs/RELEASE_CHECKLIST.md` contains public demo runtime checks.
+- Page and docs keep SAMPLE clearly marked as synthetic demo data and not real market data.
+
 ## v2.5 Public Portfolio Release Checks
 
 Run:
