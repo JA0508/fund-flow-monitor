@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v2.7
+
+- Public deployment first-visit SAMPLE fallback.
+- `runtime_profile.py` now defaults to SAMPLE + portfolio presentation when no local real cache is available but `sample_data/ticks` exists.
+- Streamlit Cloud visitors no longer land on an EMPTY first screen when the repository includes reproducible SAMPLE data.
+- Manual switch back to real/cache mode remains available and still shows EMPTY if no cache exists.
+- README, VALIDATION, PROJECT_BRIEF and release checklist updated for the v2.7 public demo default behavior.
+
 ## v2.6
 
 - Public demo runtime profile.

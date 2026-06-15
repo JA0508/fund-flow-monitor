@@ -431,7 +431,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.6 本地冒烟检查")
+    print("Fund Flow Monitor v2.7 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")

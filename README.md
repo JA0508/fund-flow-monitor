@@ -60,10 +60,11 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 
 ## First-run Experience
 
-新用户 clone 仓库或打开 Streamlit Cloud 时，通常没有本地真实 `data/ticks/*.csv`。v1.5 的默认体验是：
+新用户 clone 仓库或打开 Streamlit Cloud 时，通常没有本地真实 `data/ticks/*.csv`。当前默认体验是：
 
 - 真实数据模式继续保持可信状态，不把缓存、历史、样例或模拟数据伪装为实时行情。
-- 如果 AKShare 暂不可用或真实缓存为空，页面会提示切换到 `SAMPLE 演示样例数据`。
+- 如果没有本地真实缓存但 `sample_data/ticks` 可用，首访默认进入 `SAMPLE 演示样例数据` 和 `作品集演示模式`，避免公开部署停留在 `EMPTY` 首屏。
+- 用户仍可手动切换到真实数据 / 本地缓存模式；若真实缓存不存在，会显示 `EMPTY` 和可读提示。
 - SAMPLE 模式读取仓库内置合成 CSV：`sample_data/ticks/*.csv`。
 - SAMPLE 模式可以展示实时曲线、主题雷达、日内热点、多日趋势、持仓相关池、观察简报、排行榜和数据说明。
 - SAMPLE 模式不触发 AKShare，不读取真实缓存，也不会写入 `data/ticks`。
@@ -90,19 +91,20 @@ v1.8 新增 `作品集演示模式`。它只调整页面呈现密度：首屏更
 
 ## Public Demo Runtime Profile
 
-v2.6 支持显式开启 public demo profile，用于 Streamlit Cloud、GitHub 作品集和面试演示的首次访问体验：
+v2.6 支持显式开启 public demo profile；v2.7 进一步加固 Streamlit Cloud 首次访问体验：即使没有设置环境变量，只要云端没有本地真实缓存且仓库内 `sample_data/ticks` 可用，app 也会默认使用 `SAMPLE 演示样例数据`，避免新访客落到 `EMPTY` 页面。
 
 ```bash
 FUND_FLOW_PUBLIC_DEMO=1 streamlit run app.py
 ```
 
-开启后，app 的初始默认值会优先使用 `SAMPLE 演示样例数据` 和 `作品集演示模式`。这只是公开展示安全默认值，不是新数据源，也不会覆盖用户手动选择；本地用户仍可自行切换真实数据 / 本地缓存模式。
+显式开启 `FUND_FLOW_PUBLIC_DEMO=1` 后，app 的初始默认值会优先使用 `SAMPLE 演示样例数据` 和 `作品集演示模式`。未显式开启时，如果存在本地真实缓存，本地默认仍保持真实数据 / 本地缓存；如果没有本地真实缓存但 SAMPLE 可用，则使用 SAMPLE 首访演示默认值。这只是公开展示安全默认值，不是新数据源，也不会覆盖用户手动选择。
 
 public demo profile 的边界：
 
 - SAMPLE 是仓库内置合成演示数据，不代表真实行情。
 - 默认不触发真实行情抓取，不自动写 `data/ticks`。
 - 不自动创建或写入 `data/warehouse/fund_flow.sqlite`。
+- 手动切换到真实数据 / 本地缓存模式仍然可用；没有缓存时会显示 `EMPTY`，不会生成假数据。
 - 不接真实账户，不读取真实个人持仓。
 - 不提供交易功能，不预测未来走势。
 
@@ -711,6 +713,8 @@ python tools/rebuild_local_warehouse.py --include-sample
 - Real cache: `data/ticks/*.csv` 不提交到 GitHub。
 - Local warehouse: `data/warehouse/*.sqlite` 不提交到 GitHub。
 - Demo package: `sample_data/ticks/*.csv` 会提交到 GitHub，用于公开演示和离线体验。
+
+Streamlit Cloud 首访通常没有本地真实缓存。v2.7 后，如果云端没有 `data/ticks` 但有 `sample_data/ticks`，页面默认进入 SAMPLE 演示数据和作品集演示模式；用户仍可手动切换真实数据 / 本地缓存模式，若没有缓存会显示 `EMPTY` 提示。
 
 如果云端 AKShare 访问不稳定，页面仍可通过 SAMPLE 模式展示完整产品能力。SAMPLE 是合成数据，不代表真实行情。
 

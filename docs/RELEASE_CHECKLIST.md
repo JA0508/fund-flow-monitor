@@ -27,6 +27,7 @@ FUND_FLOW_PUBLIC_DEMO=1 streamlit run app.py
 
 - Public demo profile should default to `SAMPLE 演示样例数据`.
 - Public demo profile should default to `作品集演示模式`.
+- Without `FUND_FLOW_PUBLIC_DEMO`, a public/cloud first visit with no `data/ticks` but available `sample_data/ticks` should still default to SAMPLE.
 - SAMPLE / 合成演示数据说明 should be visible on first visit.
 - No warehouse: the app should still run and show manual rebuild guidance.
 - Opening the page should not write `data/ticks`.

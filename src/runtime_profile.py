@@ -8,6 +8,13 @@ from pathlib import Path
 TRUE_VALUES = {"1", "true", "yes", "y", "on"}
 FALSE_VALUES = {"0", "false", "no", "n", "off"}
 PUBLIC_DEMO_ENV_FLAGS = ("FUND_FLOW_PUBLIC_DEMO", "STREAMLIT_PUBLIC_DEMO")
+CLOUD_HINT_ENV_FLAGS = (
+    "STREAMLIT_SERVER_PORT",
+    "STREAMLIT_SHARING_MODE",
+    "STREAMLIT_APP_ID",
+    "STREAMLIT_CLOUD",
+    "HOSTNAME",
+)
 FORBIDDEN_PHRASES = (
     "买入",
     "卖出",
@@ -50,15 +57,15 @@ def detect_public_demo_profile() -> dict:
     enabled_by = [name for name, enabled in env_flags.items() if enabled]
     public_demo_enabled = bool(enabled_by)
     cloud_hints = [
-        name
-        for name in ("STREAMLIT_SERVER_PORT", "STREAMLIT_SHARING_MODE", "HOSTNAME")
-        if os.environ.get(name)
+        name for name in CLOUD_HINT_ENV_FLAGS if os.environ.get(name)
     ]
     warnings: list[str] = []
     if cloud_hints and not public_demo_enabled:
         warnings.append("检测到可能的云端运行环境变量；如用于公开演示，可显式设置 FUND_FLOW_PUBLIC_DEMO=1。")
     return {
         "public_demo_enabled": public_demo_enabled,
+        "cloud_runtime_detected": bool(cloud_hints),
+        "cloud_hints": cloud_hints,
         "detection_method": ",".join(enabled_by) if enabled_by else "not_enabled",
         "env_flags": env_flags,
         "profile_label": "公开演示安全配置" if public_demo_enabled else "本地默认运行配置",
@@ -80,6 +87,7 @@ def get_runtime_profile(project_root: str | Path = ".") -> dict:
     root = Path(project_root)
     demo_detection = detect_public_demo_profile()
     public_demo_enabled = bool(demo_detection.get("public_demo_enabled"))
+    cloud_runtime_detected = bool(demo_detection.get("cloud_runtime_detected"))
     sample_data_available = _has_csv(root / "sample_data/ticks")
     local_data_available = _has_csv(root / "data/ticks")
     warehouse_available = (root / "data/warehouse/fund_flow.sqlite").exists()
@@ -87,6 +95,8 @@ def get_runtime_profile(project_root: str | Path = ".") -> dict:
     secrets_example_available = (root / ".streamlit/secrets.example.toml").exists()
     warnings = list(demo_detection.get("warnings", []))
     errors: list[str] = []
+
+    sample_first_visit_fallback = (not public_demo_enabled) and (not local_data_available) and sample_data_available
 
     if public_demo_enabled and sample_data_available:
         default_data_source_mode = "SAMPLE"
@@ -101,6 +111,19 @@ def get_runtime_profile(project_root: str | Path = ".") -> dict:
         runtime_label = "公开演示配置缺少 SAMPLE"
         runtime_reason = "public demo profile 已开启，但 sample_data/ticks 中没有可用 CSV。"
         errors.append("公开演示模式需要 sample_data/ticks 中至少包含一个 CSV 文件。")
+    elif sample_first_visit_fallback:
+        default_data_source_mode = "SAMPLE"
+        default_presentation_mode = "作品集演示模式"
+        safe_write_mode = "sample_first_visit"
+        runtime_label = "SAMPLE 首访演示配置可用"
+        runtime_reason = (
+            "当前未发现本地真实缓存，默认使用 SAMPLE 合成演示数据，避免公开部署或首次访问停留在 EMPTY。"
+        )
+        if cloud_runtime_detected:
+            runtime_reason = (
+                "检测到可能的云端运行环境且未发现本地真实缓存，默认使用 SAMPLE 合成演示数据，"
+                "避免公开部署首次访问停留在 EMPTY。"
+            )
     else:
         default_data_source_mode = "LOCAL"
         default_presentation_mode = "标准模式"
@@ -110,6 +133,9 @@ def get_runtime_profile(project_root: str | Path = ".") -> dict:
 
     return {
         "public_demo_enabled": public_demo_enabled,
+        "cloud_runtime_detected": cloud_runtime_detected,
+        "cloud_hints": demo_detection.get("cloud_hints", []),
+        "sample_first_visit_fallback": sample_first_visit_fallback,
         "detection_method": demo_detection.get("detection_method"),
         "env_flags": demo_detection.get("env_flags", {}),
         "sample_data_available": sample_data_available,
@@ -139,19 +165,26 @@ def build_runtime_profile_notice(profile: dict) -> str:
             "当前已开启公开演示安全配置，但未找到 SAMPLE 合成演示数据。"
             "系统不会生成假数据；请先确认 sample_data/ticks 已提交并可读取。"
         )
+    if profile.get("sample_first_visit_fallback"):
+        return (
+            "当前未发现本地真实缓存，已默认使用 SAMPLE 合成演示数据作为首次访问演示。"
+            "SAMPLE 不代表真实行情；你仍可手动切换真实数据 / 本地缓存模式，若没有缓存会显示 EMPTY 提示。"
+            "页面不会把样例数据伪装成真实行情，也不提供交易建议或预测。"
+        )
     return "当前为本地默认运行配置。公开演示可通过 FUND_FLOW_PUBLIC_DEMO=1 启用 SAMPLE 优先的安全默认值。"
 
 
 def build_runtime_profile_sidebar_defaults(profile: dict) -> dict:
     public_demo_enabled = bool(profile.get("public_demo_enabled"))
+    sample_first_visit_fallback = bool(profile.get("sample_first_visit_fallback"))
     sample_ready = bool(profile.get("sample_data_available"))
     return {
-        "data_source_default": "SAMPLE" if public_demo_enabled and sample_ready else "LOCAL",
-        "presentation_default": "作品集演示模式" if public_demo_enabled else "标准模式",
-        "enable_live_fetch_default": False if public_demo_enabled else True,
+        "data_source_default": "SAMPLE" if (public_demo_enabled or sample_first_visit_fallback) and sample_ready else "LOCAL",
+        "presentation_default": "作品集演示模式" if public_demo_enabled or sample_first_visit_fallback else "标准模式",
+        "enable_live_fetch_default": False if public_demo_enabled or sample_first_visit_fallback else True,
         "enable_sample_default": bool(sample_ready),
-        "show_runtime_notice": public_demo_enabled,
-        "disable_auto_write": public_demo_enabled,
+        "show_runtime_notice": public_demo_enabled or sample_first_visit_fallback,
+        "disable_auto_write": public_demo_enabled or sample_first_visit_fallback,
     }
 
 

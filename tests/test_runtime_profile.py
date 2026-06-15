@@ -58,6 +58,56 @@ def test_get_runtime_profile_detects_sample_data(monkeypatch, tmp_path):
     assert profile["sample_data_available"] is True
 
 
+def test_first_visit_without_local_cache_defaults_to_sample(monkeypatch, tmp_path):
+    sample_dir = tmp_path / "sample_data/ticks"
+    sample_dir.mkdir(parents=True)
+    (sample_dir / "sector_flow_2026-01-01.csv").write_text(
+        "sector_name,main_net_inflow_billion,captured_time\nAI,1,09:30:00\n"
+    )
+    monkeypatch.delenv("FUND_FLOW_PUBLIC_DEMO", raising=False)
+    monkeypatch.delenv("STREAMLIT_PUBLIC_DEMO", raising=False)
+
+    profile = get_runtime_profile(tmp_path)
+
+    assert profile["local_data_available"] is False
+    assert profile["sample_first_visit_fallback"] is True
+    assert profile["default_data_source_mode"] == "SAMPLE"
+    assert profile["default_presentation_mode"] == "作品集演示模式"
+
+
+def test_local_cache_keeps_local_default(monkeypatch, tmp_path):
+    sample_dir = tmp_path / "sample_data/ticks"
+    local_dir = tmp_path / "data/ticks"
+    sample_dir.mkdir(parents=True)
+    local_dir.mkdir(parents=True)
+    (sample_dir / "sector_flow_2026-01-01.csv").write_text("a\n1\n")
+    (local_dir / "sector_flow_2026-06-01.csv").write_text("a\n1\n")
+    monkeypatch.delenv("FUND_FLOW_PUBLIC_DEMO", raising=False)
+    monkeypatch.delenv("STREAMLIT_PUBLIC_DEMO", raising=False)
+
+    profile = get_runtime_profile(tmp_path)
+
+    assert profile["sample_first_visit_fallback"] is False
+    assert profile["default_data_source_mode"] == "LOCAL"
+    assert profile["default_presentation_mode"] == "标准模式"
+
+
+def test_first_visit_sidebar_defaults_show_notice(monkeypatch, tmp_path):
+    sample_dir = tmp_path / "sample_data/ticks"
+    sample_dir.mkdir(parents=True)
+    (sample_dir / "sector_flow_2026-01-01.csv").write_text("a\n1\n")
+    monkeypatch.delenv("FUND_FLOW_PUBLIC_DEMO", raising=False)
+
+    profile = get_runtime_profile(tmp_path)
+    defaults = build_runtime_profile_sidebar_defaults(profile)
+    notice = build_runtime_profile_notice(profile)
+
+    assert defaults["data_source_default"] == "SAMPLE"
+    assert defaults["show_runtime_notice"] is True
+    assert "SAMPLE" in notice
+    assert "不代表真实行情" in notice
+
+
 def test_public_demo_defaults_to_sample(monkeypatch, tmp_path):
     sample_dir = tmp_path / "sample_data/ticks"
     sample_dir.mkdir(parents=True)

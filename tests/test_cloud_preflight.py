@@ -69,6 +69,14 @@ def test_cloud_preflight_minimal_assets(tmp_path, monkeypatch):
     assert report["public_demo_default_source"] == "SAMPLE"
 
 
+def test_cloud_preflight_first_visit_without_local_cache_uses_sample(tmp_path, monkeypatch):
+    _create_minimal_public_demo_project(tmp_path)
+    monkeypatch.delenv("FUND_FLOW_PUBLIC_DEMO", raising=False)
+    report = build_cloud_preflight_report(tmp_path, public_demo_env=False)
+    assert report["sample_data_available"] is True
+    assert report["public_demo_default_source"] == "SAMPLE"
+
+
 def test_cloud_preflight_strict_exit_code_for_errors(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     report = build_cloud_preflight_report(tmp_path)

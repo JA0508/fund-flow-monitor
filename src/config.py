@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-APP_VERSION = "v2.6"
+APP_VERSION = "v2.7"
 APP_NAME = "Fund Flow Monitor"
 APP_CN_NAME = "养基宝主题资金流雷达"
 REFRESH_INTERVAL_SECONDS = 30

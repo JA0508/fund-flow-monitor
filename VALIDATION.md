@@ -10,6 +10,30 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.7 Public Deployment First-visit Checks
+
+Run:
+
+```bash
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `src/runtime_profile.py` keeps local/cache default when real `data/ticks` CSV exists.
+- If real cache is absent but `sample_data/ticks` exists, runtime defaults to `SAMPLE`.
+- First-visit SAMPLE fallback defaults to `作品集演示模式`.
+- Sidebar notice explains SAMPLE is synthetic demo data and not real market data.
+- Users can still manually switch to real/cache mode.
+- Real/cache mode with no cache still shows `EMPTY` / warning behavior.
+- SAMPLE mode does not trigger AKShare and does not write `data/ticks`.
+- Page and docs contain no trading advice or prediction wording.
+
 ## v2.6 Public Demo Runtime Checks
 
 Run:
