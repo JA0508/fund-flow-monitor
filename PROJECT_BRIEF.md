@@ -155,6 +155,12 @@ public demo profile 只是安全默认值，不是新数据源。CSV-first、SAM
 
 v2.7 进一步加固 Streamlit Cloud 首访体验：即使部署环境没有显式设置 `FUND_FLOW_PUBLIC_DEMO=1`，只要没有本地真实缓存且仓库内存在 `sample_data/ticks`，侧边栏也会默认选择 SAMPLE 和作品集演示模式。用户仍可手动切回真实数据 / 本地缓存模式；如果云端没有真实缓存，该模式继续显示 `EMPTY` 和可读提示，不会生成假数据。
 
+## Public Portfolio Presentation Polish
+
+v2.8 聚焦外部评审和公开作品集展示的第一屏理解成本。app 首页增加 compact demo guide，用简短卡片说明实时曲线、主题雷达、日内热点、多日趋势、持仓相关池和观察简报分别应该怎么看。
+
+这一轮不新增数据接口、不改变主题雷达/主题历史/观察简报计算，不写 CSV，不写 SQLite。README 和项目简报同步强化公开 demo 阅读路径、SAMPLE 边界、CSV-first 架构和非目标说明，帮助 GitHub 访客、Streamlit Cloud 访客、面试官或作品集评审快速理解项目价值。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

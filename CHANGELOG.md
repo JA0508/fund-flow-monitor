@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v2.8
+
+- Public portfolio release presentation polish.
+- 首页增加 compact demo guide，让外部访问者在首屏理解实时曲线、主题雷达、日内热点、多日趋势、持仓相关池和观察简报的阅读顺序。
+- README 增强 “What to look at in the demo” 说明，继续强调 SAMPLE 是合成演示数据、不代表真实行情。
+- PROJECT_BRIEF、VALIDATION、ROADMAP 和 release checklist 更新 v2.8 发布说明与手动检查重点。
+- 保持 v2.7 Streamlit Cloud 首访 SAMPLE fallback，不改变数据计算、不写 CSV、不写 SQLite。
+
 ## v2.7
 
 - Public deployment first-visit SAMPLE fallback.

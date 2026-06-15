@@ -17,6 +17,16 @@ A Streamlit-based A-share fund-flow dashboard with theme radar, intraday hotspot
 
 公开展示边界始终保持不变：SAMPLE / DEMO 不代表真实行情；项目不接真实账户，不读取真实个人持仓，不提供交易功能，不预测未来走势。
 
+## What to Look at in the Demo
+
+- **第一眼先看状态**：顶部和侧边栏会标明当前是 `SAMPLE`、`CACHE`、`HISTORY` 还是其他状态；公开演示通常默认 `SAMPLE`。
+- **看主题解释层**：`主题雷达` 展示项目如何把原始行业/概念资金流转译成基金主题状态。
+- **看时间维度**：`日内热点` 展示同日快照变化，`多日趋势` 展示 CSV / warehouse 历史快照形成的主题观察。
+- **看基金用户视角**：`持仓相关池` 使用手动主题暴露模板演示基金/ETF 关注主题如何接入雷达。
+- **看成果物**：`观察简报` 和 [`SAMPLE Demo Brief`](docs/demo_briefs/sample_observation_brief.md) 展示可下载、可离线阅读的 Markdown 输出。
+
+这些内容都只用于观察、学习、可视化和作品集展示，不代表真实行情，也不构成投资建议。
+
 ## 1. Project Overview
 
 Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit、AKShare、Plotly 和 pandas** 构建的 A 股主题资金流监测 MVP。项目使用 AKShare 获取东方财富行业/概念板块主力资金流数据，将盘中快照保存为本地 CSV，并通过“基金观察池”把原始行业板块归并为更适合基金投资观察的主题，例如半导体/芯片链、AI算力/TMT、新能源链、红利防御、医药和证券金融。
@@ -68,6 +78,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - SAMPLE 模式读取仓库内置合成 CSV：`sample_data/ticks/*.csv`。
 - SAMPLE 模式可以展示实时曲线、主题雷达、日内热点、多日趋势、持仓相关池、观察简报、排行榜和数据说明。
 - SAMPLE 模式不触发 AKShare，不读取真实缓存，也不会写入 `data/ticks`。
+- v2.8 在首页增加 compact demo guide，让新访客不用先读完整 README 也能理解各 tab 的阅读顺序。
 
 ## Demo Walkthrough
 

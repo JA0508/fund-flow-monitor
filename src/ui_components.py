@@ -67,6 +67,13 @@ def inject_global_css() -> None:
         .walkthrough-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 11px 13px; min-height: 112px; margin-bottom: 8px; }
         .walkthrough-step { color: #f0c65a; font-size: 14px; font-weight: 850; margin-bottom: 5px; }
         .walkthrough-body { color: #aab2c0; font-size: 12.5px; line-height: 1.55; }
+        .demo-guide { border: 1px solid rgba(96,165,250,.18); background: rgba(37,99,235,.055); border-radius: 8px; padding: 10px 12px; margin: 6px 0 10px; }
+        .demo-guide-title { color: #e5e7eb; font-size: 14px; font-weight: 850; margin-bottom: 7px; }
+        .demo-guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .demo-guide-item { background: rgba(8,8,8,.76); border: 1px solid rgba(255,255,255,.07); border-radius: 8px; padding: 8px 9px; min-height: 72px; }
+        .demo-guide-label { color: #f0c65a; font-size: 12.5px; font-weight: 850; margin-bottom: 3px; }
+        .demo-guide-copy { color: #aab2c0; font-size: 12px; line-height: 1.45; }
+        .demo-guide-foot { color: #8b949e; font-size: 12px; line-height: 1.5; margin-top: 8px; }
         .onboarding-card { border: 1px solid rgba(240,198,90,.28); background: linear-gradient(135deg, rgba(240,198,90,.10), rgba(11,15,20,.92)); color: #d1d5db; padding: 13px 15px; border-radius: 8px; margin: 8px 0 12px; }
         .onboarding-title { color: #f0c65a; font-weight: 850; font-size: 15px; margin-bottom: 6px; }
         .onboarding-list { margin: 4px 0 0 18px; padding: 0; line-height: 1.65; }
@@ -132,7 +139,7 @@ def inject_global_css() -> None:
         .stTabs [data-baseweb="tab"] { background: #080808; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 8px 8px 0 0; color: #aab2c0; padding: 8px 14px; }
         .stTabs [aria-selected="true"] { color: #f0c65a !important; background: #0b0f14 !important; }
         pre, code { background: #0b0f14 !important; color: #d1d5db !important; border-color: rgba(255,255,255,.08) !important; }
-        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } .hotspot-overview { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } .hotspot-overview { grid-template-columns: 1fr 1fr; } .demo-guide-grid { grid-template-columns: 1fr; } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -203,6 +210,37 @@ def render_demo_walkthrough_cards(steps: list[dict]) -> None:
         )
         with cols[idx % 3]:
             st.markdown(html, unsafe_allow_html=True)
+
+
+def render_public_demo_guide(data_status: str, source_label: str, compact: bool = False) -> None:
+    if compact and str(data_status).upper() not in {"SAMPLE", "DEMO", "EMPTY"}:
+        return
+    status = escape(str(data_status or "--").upper())
+    source = escape(str(source_label or "--"))
+    items = [
+        ("实时曲线", "查看当前快照的资金流时间序列，并先确认数据状态。"),
+        ("主题雷达", "把行业/概念资金流转译成基金主题状态。"),
+        ("日内热点", "观察同一日期内不同时间点的主题变化。"),
+        ("多日趋势", "查看 CSV / warehouse 历史快照形成的主题观察。"),
+        ("持仓相关池", "用手动主题暴露模板连接关注基金与主题雷达。"),
+        ("观察简报", "导出 Markdown，把主要观察、口径和边界放在一起。"),
+    ]
+    cells = "".join(
+        "<div class='demo-guide-item'>"
+        f"<div class='demo-guide-label'>{escape(label)}</div>"
+        f"<div class='demo-guide-copy'>{escape(copy)}</div>"
+        "</div>"
+        for label, copy in items
+    )
+    html = (
+        "<div class='demo-guide'>"
+        "<div class='demo-guide-title'>如何阅读这个公开演示</div>"
+        f"<div class='demo-guide-grid'>{cells}</div>"
+        f"<div class='demo-guide-foot'>当前数据状态：<b>{status}</b> ｜ 数据来源：{source}。"
+        "SAMPLE / DEMO 仅用于可复现展示，不代表真实行情；页面只描述已展示数据，不构成投资建议，也不预测未来走势。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_screenshot_checklist(checklist: list[dict]) -> None:

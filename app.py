@@ -191,6 +191,7 @@ from src.ui_components import (
     render_multi_day_trend_table,
     render_rank_tables,
     render_portfolio_intro_card,
+    render_public_demo_guide,
     render_screenshot_checklist,
     render_snapshot_catalog_table,
     render_snapshot_quality_cards,
@@ -894,6 +895,7 @@ def main() -> None:
 
     render_header(header_date, latest_time)
     render_portfolio_intro_card(portfolio_intro_context, compact=not portfolio_mode)
+    render_public_demo_guide(data_status, source_label, compact=not portfolio_mode)
     tab_curve, tab_radar, tab_intraday, tab_multi_day, tab_holdings, tab_brief, tab_rank, tab_data = st.tabs(
         ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "观察简报", "排行榜", "数据说明")
     )

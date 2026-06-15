@@ -68,6 +68,7 @@ streamlit run app.py
 
 ## 4. Manual UI Checks
 
+- First screen clearly explains what the app is, which data mode is active, and how to read the main tabs.
 - SAMPLE status is visible and not presented as real market data.
 - Theme radar displays normally.
 - Theme history chart displays normally after SAMPLE warehouse rebuild.

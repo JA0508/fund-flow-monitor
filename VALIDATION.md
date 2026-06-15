@@ -10,6 +10,30 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.8 Public Portfolio Presentation Checks
+
+Run:
+
+```bash
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/release_check.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- First screen contains a compact demo guide explaining the main tabs.
+- Public/SAMPLE mode remains clearly marked as synthetic demo data and not real market data.
+- v2.7 first-visit SAMPLE fallback remains intact.
+- README contains a short “What to look at in the demo” path.
+- PROJECT_BRIEF describes v2.8 as presentation polish, not a new data feature.
+- Page and docs do not introduce trading actions, fund recommendations, or future prediction wording.
+- No real `data/ticks`, SQLite, secrets, or virtualenv files appear in git status.
+
 ## v2.7 Public Deployment First-visit Checks
 
 Run:
