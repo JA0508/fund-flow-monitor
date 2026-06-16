@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v2.9
+
+- Public release final audit.
+- 新增 `docs/PUBLIC_RELEASE_AUDIT.md`，集中记录公开发布状态、验证矩阵、数据边界、GitHub 可见性检查、Streamlit Cloud 手动检查和 go/no-go 标准。
+- `release_check.py` 增加 app version / CHANGELOG 一致性与 tracked forbidden files 检查，避免真实 CSV、SQLite、secrets 或虚拟环境文件进入公开发布。
+- 新增 portfolio / interview / resume 文档包，为 GitHub 作品集、面试讲解和简历描述提供一致口径。
+- 保持 v2.8 首屏导览和 v2.7 SAMPLE-first public demo 行为，不改变数据计算、不写 CSV、不写 SQLite。
+
 ## v2.8
 
 - Public portfolio release presentation polish.

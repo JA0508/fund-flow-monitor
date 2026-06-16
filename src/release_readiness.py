@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 from typing import Iterable
 
@@ -13,6 +14,12 @@ PUBLIC_FILES = (
     "PROJECT_BRIEF.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/screenshots/SCREENSHOT_GUIDE.md",
+    "docs/PUBLIC_REPO_SETTINGS.md",
+    "docs/PUBLIC_RELEASE_AUDIT.md",
+    "docs/PORTFOLIO_PRESENTATION.md",
+    "docs/INTERVIEW_TALKING_POINTS.md",
+    "docs/RESUME_SNIPPETS.md",
+    "docs/assets/README.md",
     "docs/demo_briefs/README.md",
     "docs/demo_briefs/sample_observation_brief.md",
     "app.py",
@@ -35,6 +42,12 @@ REQUIRED_PUBLIC_ASSETS = (
     "docs/demo_briefs/sample_observation_brief.md",
     "docs/screenshots/SCREENSHOT_GUIDE.md",
     "docs/RELEASE_CHECKLIST.md",
+    "docs/PUBLIC_REPO_SETTINGS.md",
+    "docs/PUBLIC_RELEASE_AUDIT.md",
+    "docs/PORTFOLIO_PRESENTATION.md",
+    "docs/INTERVIEW_TALKING_POINTS.md",
+    "docs/RESUME_SNIPPETS.md",
+    "LICENSE",
 )
 
 SAMPLE_NOTICE_TERMS = ("SAMPLE", "合成演示数据", "不代表真实行情", "不构成投资建议", "不预测未来走势")
@@ -45,7 +58,7 @@ LOCAL_PATH_PATTERNS = (
     (re.compile(re.escape(_SLASH_USERS) + r"[^\s)`'\"]+"), _SLASH_USERS),
     (re.compile(re.escape(_SLASH_USERS + "liujiayi")), _SLASH_USERS + "liujiayi"),
     (re.compile(re.escape(_PROJECT_PARENT_HINT)), _PROJECT_PARENT_HINT),
-    (re.compile(r"/[^\s)`'\"]*fund-flow-monitor[^\s)`'\"]*"), "fund-flow-monitor absolute path"),
+    (re.compile(r"/(?:Users|private|tmp|var|Volumes|home)/[^\s)`'\"]*fund-flow-monitor[^\s)`'\"]*"), "fund-flow-monitor absolute path"),
     (re.compile(r"[A-Za-z]:\\Users\\[^\s)`'\"]+"), "Windows user path"),
     (re.compile(r"/[^\s)`'\"]*\.venv/[^\s)`'\"]+"), ".venv absolute path"),
     (re.compile(r"/[^\s)`'\"]*site-packages/[^\s)`'\"]+"), "site-packages absolute path"),
@@ -151,6 +164,26 @@ REQUIRED_GITIGNORE_PATTERNS = (
 )
 
 TEXT_SUFFIXES = {".md", ".py", ".json", ".toml", ".txt", ".csv"}
+
+TRACKED_FORBIDDEN_PATTERNS = (
+    re.compile(r"^\.env$"),
+    re.compile(r"^\.venv/"),
+    re.compile(r"^venv/"),
+    re.compile(r"^env/"),
+    re.compile(r"^\.streamlit/secrets\.toml$"),
+    re.compile(r"^data/ticks/.+\.csv$"),
+    re.compile(r"^data/warehouse/"),
+    re.compile(r".*\.(sqlite|sqlite3|db)$"),
+)
+
+TRACKED_ALLOWED_PATHS = {
+    ".env.example",
+    "data/ticks/.gitkeep",
+}
+
+TRACKED_ALLOWED_PREFIXES = (
+    "sample_data/ticks/",
+)
 
 
 def _root(project_root: str | Path = ".") -> Path:
@@ -365,6 +398,95 @@ def check_gitignore_safety(project_root: str | Path = ".") -> dict:
     }
 
 
+def _parse_app_version(project_root: Path) -> str:
+    config_text = _read_text(project_root / "src/config.py")
+    match = re.search(r"APP_VERSION\s*=\s*[\"']([^\"']+)[\"']", config_text)
+    return match.group(1).strip() if match else ""
+
+
+def check_version_consistency(project_root: str | Path = ".") -> dict:
+    root = _root(project_root)
+    app_version = _parse_app_version(root)
+    changelog_text = _read_text(root / "CHANGELOG.md")
+    changelog_version_ok = bool(app_version and f"## {app_version}" in changelog_text)
+    errors: list[str] = []
+    warnings: list[str] = []
+    if not app_version:
+        errors.append("无法从 src/config.py 读取 APP_VERSION。")
+    elif not changelog_version_ok:
+        errors.append(f"CHANGELOG.md 缺少 {app_version} 发布记录。")
+    label = "版本记录一致" if not errors else "版本记录需修复"
+    return {
+        "version_label": label,
+        "app_version": app_version,
+        "changelog_version_ok": changelog_version_ok,
+        "warning_count": len(warnings),
+        "error_count": len(errors),
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
+def _is_forbidden_tracked_path(path: str) -> bool:
+    if path in TRACKED_ALLOWED_PATHS:
+        return False
+    if any(path.startswith(prefix) for prefix in TRACKED_ALLOWED_PREFIXES):
+        return False
+    return any(pattern.search(path) for pattern in TRACKED_FORBIDDEN_PATTERNS)
+
+
+def check_tracked_file_safety(project_root: str | Path = ".") -> dict:
+    root = _root(project_root)
+    warnings: list[str] = []
+    errors: list[str] = []
+    tracked_files: list[str] = []
+    try:
+        result = subprocess.run(
+            ["git", "ls-files"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception as exc:  # pragma: no cover - defensive fallback for non-git environments
+        warnings.append(f"无法运行 git ls-files：{exc}")
+        return {
+            "tracked_file_label": "无法检查 tracked files",
+            "tracked_forbidden_files": [],
+            "git_available": False,
+            "warning_count": len(warnings),
+            "error_count": len(errors),
+            "warnings": warnings,
+            "errors": errors,
+        }
+    if result.returncode != 0:
+        warnings.append("当前目录可能不是 git 仓库，跳过 tracked files 检查。")
+        return {
+            "tracked_file_label": "无法检查 tracked files",
+            "tracked_forbidden_files": [],
+            "git_available": False,
+            "warning_count": len(warnings),
+            "error_count": len(errors),
+            "warnings": warnings,
+            "errors": errors,
+        }
+    tracked_files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    forbidden_files = [path for path in tracked_files if _is_forbidden_tracked_path(path)]
+    if forbidden_files:
+        errors.extend(f"禁止提交的文件已被 git tracked：{path}" for path in forbidden_files)
+    label = "tracked files 安全" if not forbidden_files else "tracked files 需修复"
+    return {
+        "tracked_file_label": label,
+        "tracked_forbidden_files": forbidden_files,
+        "git_available": True,
+        "warning_count": len(warnings),
+        "error_count": len(errors),
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
 def _scan_project_text(project_root: Path, targets: dict) -> tuple[list[dict], list[dict], list[dict]]:
     local_hits: list[dict] = []
     sensitive_hits: list[dict] = []
@@ -417,6 +539,8 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
     public_assets = check_required_public_assets(root)
     sample_notice_coverage = check_sample_notice_coverage(root)
     gitignore_safety = check_gitignore_safety(root)
+    version_consistency = check_version_consistency(root)
+    tracked_file_safety = check_tracked_file_safety(root)
     markdown_link_report = _build_markdown_link_report(root, targets)
     local_path_hits, sensitive_hits, forbidden_phrase_hits = _scan_project_text(root, targets)
 
@@ -424,7 +548,11 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
     errors: list[str] = []
     errors.extend(public_assets.get("errors", []))
     errors.extend(gitignore_safety.get("errors", []))
+    errors.extend(version_consistency.get("errors", []))
+    errors.extend(tracked_file_safety.get("errors", []))
     warnings.extend(sample_notice_coverage.get("warnings", []))
+    warnings.extend(version_consistency.get("warnings", []))
+    warnings.extend(tracked_file_safety.get("warnings", []))
     if targets.get("missing_files"):
         errors.extend(f"缺少审计目标文件：{path}" for path in targets["missing_files"])
     if targets.get("missing_dirs"):
@@ -457,6 +585,11 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
         "public_assets": public_assets,
         "sample_notice_coverage": sample_notice_coverage,
         "gitignore_safety": gitignore_safety,
+        "version_consistency": version_consistency,
+        "tracked_file_safety": tracked_file_safety,
+        "app_version": version_consistency.get("app_version", ""),
+        "changelog_version_ok": version_consistency.get("changelog_version_ok", False),
+        "tracked_forbidden_files": tracked_file_safety.get("tracked_forbidden_files", []),
         "markdown_link_report": markdown_link_report,
         "local_path_hits": local_path_hits,
         "sensitive_hits": sensitive_hits,
@@ -475,6 +608,8 @@ def render_release_readiness_markdown(report: dict) -> str:
     public_assets = report.get("public_assets", {})
     sample_notice = report.get("sample_notice_coverage", {})
     gitignore = report.get("gitignore_safety", {})
+    version = report.get("version_consistency", {})
+    tracked = report.get("tracked_file_safety", {})
     links = report.get("markdown_link_report", {})
     lines = [
         "# Release Readiness Report",
@@ -502,6 +637,12 @@ def render_release_readiness_markdown(report: dict) -> str:
         f"- 状态：{gitignore.get('gitignore_label', '--')}",
         f"- 已覆盖规则数量：{len(gitignore.get('required_patterns_found', []))}",
         f"- 缺失规则数量：{len(gitignore.get('required_patterns_missing', []))}",
+        "",
+        "## Version / Tracked Files",
+        "",
+        f"- APP_VERSION：{version.get('app_version', '--')}",
+        f"- CHANGELOG 对应版本：{version.get('changelog_version_ok', False)}",
+        f"- tracked forbidden files：{len(tracked.get('tracked_forbidden_files', []))}",
         "",
         "## Markdown Links",
         "",

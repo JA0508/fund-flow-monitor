@@ -2,6 +2,8 @@
 
 A Streamlit-based A-share fund-flow dashboard with theme radar, intraday hotspots, multi-day trends, holding-related pools, taxonomy audit, observation brief export, and reproducible SAMPLE mode.
 
+Live demo: [https://fund-flow-monitor-ja0508.streamlit.app/](https://fund-flow-monitor-ja0508.streamlit.app/)
+
 > 本项目用于学习研究、可视化展示和基金主题观察。它不是基金净值工具，不是股票交易系统，不提供买卖建议，也不预测未来走势。
 
 ## Public Portfolio Quick Path
@@ -157,6 +159,10 @@ v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准
 
 发布检查清单位于 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)，包含本地验证、SAMPLE demo brief、Git 安全、Streamlit Cloud、作品集展示和边界检查。
 
+公开 GitHub 前的仓库 About 信息建议见 [`docs/PUBLIC_REPO_SETTINGS.md`](docs/PUBLIC_REPO_SETTINGS.md)，包括 repo description、topics、Website URL 和 license 检查。
+
+公开发布最终审计见 [`docs/PUBLIC_RELEASE_AUDIT.md`](docs/PUBLIC_RELEASE_AUDIT.md)。作品集讲解材料见 [`docs/PORTFOLIO_PRESENTATION.md`](docs/PORTFOLIO_PRESENTATION.md)、[`docs/INTERVIEW_TALKING_POINTS.md`](docs/INTERVIEW_TALKING_POINTS.md) 和 [`docs/RESUME_SNIPPETS.md`](docs/RESUME_SNIPPETS.md)。
+
 ## Reproducible Demo Commands
 
 下面几条命令可以在无真实缓存、无网络依赖的情况下复现作品集演示主路径：
@@ -185,6 +191,10 @@ python -m compileall app.py src tests tools
 `release_check.py` 会扫描 public assets、SAMPLE 说明覆盖、`.gitignore` 保护、Markdown 相对链接、本地路径、敏感词和动作性表达。默认只打印结果，不写文件；如需保存报告，可运行 `python tools/release_check.py --write-report docs/release_readiness_report.md`。
 
 当前静态发布审计报告见 [`docs/release_readiness_report.md`](docs/release_readiness_report.md)。
+
+## License
+
+This project is released under the [MIT License](LICENSE).
 
 ## Technical Highlights
 
@@ -216,6 +226,8 @@ python -m compileall app.py src tests tools
 以下截图均使用 `SAMPLE` 合成演示数据和 `作品集演示模式` 生成。SAMPLE 数据只用于公开展示和功能复现，不代表真实行情；页面内容不构成投资建议，也不预测未来走势。
 
 截图指南见 [`docs/screenshots/SCREENSHOT_GUIDE.md`](docs/screenshots/SCREENSHOT_GUIDE.md)。README 只引用仓库中已经存在的截图，避免 GitHub 页面出现损坏图片链接。
+
+后续如果需要补充 diagram 或截图变体，可放在 [`docs/assets/`](docs/assets/)，并在文件存在后再链接。
 
 ### Home / Real-time Fund Flow Curve
 

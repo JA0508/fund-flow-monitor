@@ -4,9 +4,11 @@ from pathlib import Path
 
 from src.release_readiness import (
     build_release_readiness_report,
+    check_tracked_file_safety,
     check_gitignore_safety,
     check_required_public_assets,
     check_sample_notice_coverage,
+    check_version_consistency,
     get_release_audit_targets,
     render_release_readiness_markdown,
     scan_markdown_links,
@@ -29,6 +31,11 @@ def test_scan_text_for_local_paths_detects_users_path():
 
 def test_scan_text_for_local_paths_plain_text_empty():
     assert scan_text_for_local_paths("SAMPLE 合成演示数据，不代表真实行情。") == []
+
+
+def test_scan_text_for_local_paths_allows_streamlit_url():
+    text = "https://fund-flow-monitor-ja0508.streamlit.app/"
+    assert scan_text_for_local_paths(text) == []
 
 
 def test_scan_text_for_sensitive_terms_detects_api_key_and_password():
@@ -76,6 +83,31 @@ def test_check_gitignore_safety_detects_missing_sqlite_ignore(tmp_path: Path):
     result = check_gitignore_safety(tmp_path)
     assert "*.sqlite" in result["required_patterns_missing"]
     assert result["error_count"] > 0
+
+
+def test_check_version_consistency_detects_missing_changelog_version(tmp_path: Path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/config.py").write_text('APP_VERSION = "v9.9"\n', encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text("# CHANGELOG\n\n## v1.0\n", encoding="utf-8")
+    result = check_version_consistency(tmp_path)
+    assert result["app_version"] == "v9.9"
+    assert result["changelog_version_ok"] is False
+    assert result["error_count"] > 0
+
+
+def test_check_version_consistency_passes_when_changelog_has_version(tmp_path: Path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/config.py").write_text('APP_VERSION = "v9.9"\n', encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text("# CHANGELOG\n\n## v9.9\n", encoding="utf-8")
+    result = check_version_consistency(tmp_path)
+    assert result["changelog_version_ok"] is True
+    assert result["error_count"] == 0
+
+
+def test_check_tracked_file_safety_non_git_tmp_path_does_not_crash(tmp_path: Path):
+    result = check_tracked_file_safety(tmp_path)
+    assert "tracked_forbidden_files" in result
+    assert result["error_count"] == 0
 
 
 def test_build_release_readiness_report_returns_label(tmp_path: Path):

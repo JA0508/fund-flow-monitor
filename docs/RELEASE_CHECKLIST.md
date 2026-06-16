@@ -14,6 +14,8 @@ python -m compileall app.py src tests tools
 ```
 
 - `release_check.py` should report no errors.
+- `release_check.py` should confirm APP_VERSION has a matching CHANGELOG entry.
+- `release_check.py` should report no tracked forbidden files.
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
 - Warnings should be reviewed manually before release.
 - Tests and compile checks must pass.
@@ -79,6 +81,14 @@ streamlit run app.py
 
 ## 5. Final GitHub Checks
 
+- GitHub repo description is filled:
+  `A Streamlit dashboard for A-share sector/theme fund-flow observation, with reproducible sample-data demo mode.`
+- GitHub topics are set: `streamlit`, `plotly`, `pandas`, `akshare`, `finance-dashboard`, `data-visualization`, `portfolio-project`.
+- GitHub About website URL is filled only after the real Streamlit Cloud URL is available.
+- Public repo settings checklist exists: `docs/PUBLIC_REPO_SETTINGS.md`.
+- Public release audit exists: `docs/PUBLIC_RELEASE_AUDIT.md`.
+- Portfolio support docs exist: `docs/PORTFOLIO_PRESENTATION.md`, `docs/INTERVIEW_TALKING_POINTS.md`, and `docs/RESUME_SNIPPETS.md`.
+- `LICENSE` exists and matches the intended public sharing policy.
 - README links point to existing files.
 - README does not include missing screenshot references.
 - `docs/demo_briefs/sample_observation_brief.md` is readable in GitHub Markdown preview.

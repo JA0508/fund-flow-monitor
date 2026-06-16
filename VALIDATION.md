@@ -10,6 +10,33 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v2.9 Public Release Final Audit Checks
+
+Run:
+
+```bash
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/release_check.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+git status --short
+git ls-files | grep -E "(.env|.venv|secrets.toml|data/ticks|.sqlite|.db)" || true
+```
+
+Required checks:
+
+- `APP_VERSION` is `v2.9`.
+- `CHANGELOG.md` contains a `v2.9` entry.
+- `docs/PUBLIC_RELEASE_AUDIT.md` exists and contains go/no-go criteria.
+- `docs/PORTFOLIO_PRESENTATION.md`, `docs/INTERVIEW_TALKING_POINTS.md`, and `docs/RESUME_SNIPPETS.md` exist.
+- `release_check.py` reports no tracked forbidden files.
+- `release_check.py` confirms APP_VERSION / CHANGELOG consistency.
+- Public demo and SAMPLE boundaries remain clear.
+- No real CSV, SQLite, secrets, virtualenv, or cache files are staged or tracked.
+
 ## v2.8 Public Portfolio Presentation Checks
 
 Run:
