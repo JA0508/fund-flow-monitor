@@ -1,5 +1,7 @@
 # Fund Flow Monitor / 养基宝主题资金流雷达
 
+![CI](https://github.com/JA0508/fund-flow-monitor/actions/workflows/ci.yml/badge.svg?branch=main)
+
 A Streamlit-based A-share fund-flow dashboard with theme radar, intraday hotspots, multi-day trends, holding-related pools, taxonomy audit, observation brief export, and reproducible SAMPLE mode.
 
 Live demo: [https://fund-flow-monitor-ja0508.streamlit.app/](https://fund-flow-monitor-ja0508.streamlit.app/)
@@ -163,7 +165,7 @@ v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准
 
 公开发布最终审计见 [`docs/PUBLIC_RELEASE_AUDIT.md`](docs/PUBLIC_RELEASE_AUDIT.md)。作品集讲解材料见 [`docs/PORTFOLIO_PRESENTATION.md`](docs/PORTFOLIO_PRESENTATION.md)、[`docs/INTERVIEW_TALKING_POINTS.md`](docs/INTERVIEW_TALKING_POINTS.md) 和 [`docs/RESUME_SNIPPETS.md`](docs/RESUME_SNIPPETS.md)。
 
-工程架构说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数据流与数据状态说明见 [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md)。
+工程架构说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数据流与数据状态说明见 [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md)，本地运行、CI 和 Streamlit Cloud 运维说明见 [`docs/OPERATIONS.md`](docs/OPERATIONS.md)。
 
 ## Reproducible Demo Commands
 
@@ -182,6 +184,7 @@ streamlit run app.py
 发布前建议运行：
 
 ```bash
+python tools/quality_gate.py
 python tools/cloud_preflight.py
 python tools/release_check.py
 python tools/smoke_check.py
@@ -190,7 +193,7 @@ python -m pytest -q
 python -m compileall app.py src tests tools
 ```
 
-`release_check.py` 会扫描 public assets、SAMPLE 说明覆盖、`.gitignore` 保护、Markdown 相对链接、本地路径、敏感词和动作性表达。默认只打印结果，不写文件；如需保存报告，可运行 `python tools/release_check.py --write-report docs/release_readiness_report.md`。
+`quality_gate.py` 是本地 pre-push 聚合检查，会顺序运行 pytest、compileall、release readiness、cloud preflight、public demo preflight、smoke check 和 runtime verification。`release_check.py` 会扫描 public assets、SAMPLE 说明覆盖、`.gitignore` 保护、Markdown 相对链接、本地路径、敏感词和动作性表达。默认只打印结果，不写文件；如需保存报告，可运行 `python tools/release_check.py --write-report docs/release_readiness_report.md`。
 
 当前静态发布审计报告见 [`docs/release_readiness_report.md`](docs/release_readiness_report.md)。
 

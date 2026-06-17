@@ -10,6 +10,34 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.1 CI and Operational Quality Hardening Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/release_check.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.1`.
+- `CHANGELOG.md` contains a `v3.1` entry.
+- `.github/workflows/ci.yml` uses clean-runner commands, not `.venv/bin/python`.
+- CI installs `requirements.txt` and runs pytest, compileall, release_check, cloud_preflight and public demo preflight.
+- `tools/quality_gate.py` exists and can run the local pre-push quality gate.
+- `tests/test_quality_gate.py` passes.
+- `docs/OPERATIONS.md` exists and explains local run, quality gate, CI, Streamlit Cloud, SAMPLE public mode, troubleshooting and forbidden files.
+- Data contracts remain lightweight and do not force SAMPLE markers on non-SAMPLE local/cache data.
+- Public demo behavior remains SAMPLE-first when no local cache is available.
+- No real CSV, SQLite, secrets, virtualenv, `.DS_Store` or cache files are staged or tracked.
+
 ## v3.0 Engineering Architecture Hardening Checks
 
 Run:

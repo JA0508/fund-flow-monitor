@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v3.1
+
+- CI and operational quality hardening.
+- 新增 `tools/quality_gate.py`，提供本地 pre-push 聚合检查，覆盖 pytest、compileall、release readiness、cloud preflight、public demo preflight、smoke check 和 runtime verification。
+- 新增 `docs/OPERATIONS.md`，说明本地运行、质量门禁、GitHub Actions、Streamlit Cloud、public SAMPLE mode、常见故障排查和禁止提交文件。
+- README 增加 CI badge、operations 文档入口和质量门禁命令。
+- `release_check.py`、`cloud_preflight.py` 和 `smoke_check.py` 将 operations / quality gate 纳入公开发布资产检查。
+- 保持 v3.0 数据契约、public demo runtime 和 Streamlit UI 行为不变，不新增产品功能。
+
 ## v3.0
 
 - Engineering architecture hardening.

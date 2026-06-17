@@ -125,6 +125,7 @@ REQUIRED_FILES = (
     "tools/export_sample_brief.py",
     "tools/release_check.py",
     "tools/cloud_preflight.py",
+    "tools/quality_gate.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -138,6 +139,7 @@ REQUIRED_FILES = (
     "docs/RELEASE_CHECKLIST.md",
     "docs/ARCHITECTURE.md",
     "docs/DATA_FLOW.md",
+    "docs/OPERATIONS.md",
     "README.md",
 )
 

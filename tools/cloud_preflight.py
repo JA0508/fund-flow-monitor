@@ -29,8 +29,10 @@ REQUIRED_ASSETS = (
     "docs/demo_briefs/sample_observation_brief.md",
     "docs/ARCHITECTURE.md",
     "docs/DATA_FLOW.md",
+    "docs/OPERATIONS.md",
     "README.md",
     "tools/release_check.py",
+    "tools/quality_gate.py",
     "src/runtime_profile.py",
     "src/data_contracts.py",
 )

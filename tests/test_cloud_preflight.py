@@ -21,19 +21,22 @@ def _create_minimal_public_demo_project(root: Path) -> None:
     (root / ".streamlit/config.toml").write_text("[theme]\nbase='dark'\n")
     (root / ".streamlit/secrets.example.toml").write_text("# example only\n")
     (root / "sample_data/ticks/sector_flow_2026-01-01.csv").write_text(
-        "sector_name,main_net_inflow_billion,captured_time\nAI,1,09:30:00\n"
+        "captured_time,sector_type,sector_name,main_net_inflow_billion,source,data_mode\n"
+        "09:30:00,行业资金流,AI,1,SAMPLE,SAMPLE\n"
     )
     (root / "docs/demo_briefs/sample_observation_brief.md").write_text(
         "SAMPLE 合成演示数据，不代表真实行情，不构成投资建议，不预测未来走势。\n"
     )
     (root / "docs/ARCHITECTURE.md").write_text("SAMPLE 合成演示数据架构说明。\n")
     (root / "docs/DATA_FLOW.md").write_text("SAMPLE 合成演示数据流说明。\n")
+    (root / "docs/OPERATIONS.md").write_text("SAMPLE 合成演示数据运维说明。\n")
     (root / "docs/screenshots/01_home_sample_status.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     (root / "README.md").write_text(
         "SAMPLE 合成演示数据，不代表真实行情，不构成投资建议，不预测未来走势。\n"
         "[Demo](docs/demo_briefs/sample_observation_brief.md)\n"
     )
     (root / "tools/release_check.py").write_text("print('release')\n")
+    (root / "tools/quality_gate.py").write_text("print('quality')\n")
     (root / "src/runtime_profile.py").write_text("# placeholder\n")
     (root / "src/data_contracts.py").write_text("# placeholder\n")
     (root / ".gitignore").write_text(

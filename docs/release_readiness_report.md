@@ -10,7 +10,7 @@
 ## Public Assets
 
 - 状态：公开资产齐备
-- 可用资产数量：18
+- 可用资产数量：20
 - 缺失资产数量：0
 
 ## SAMPLE Notice Coverage
@@ -32,15 +32,15 @@
 
 ## Version / Tracked Files
 
-- APP_VERSION：v3.0
+- APP_VERSION：v3.1
 - CHANGELOG 对应版本：True
 - tracked forbidden files：0
 
 ## Markdown Links
 
-- 检查 Markdown 文件数量：17
+- 检查 Markdown 文件数量：18
 - 缺失链接数量：0
-- 外部链接数量：1
+- 外部链接数量：2
 
 ## Local Path / Sensitive Text Scan
 

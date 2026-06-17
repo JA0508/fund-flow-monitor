@@ -23,6 +23,7 @@ PUBLIC_FILES = (
     "docs/PORTFOLIO_PRESENTATION.md",
     "docs/INTERVIEW_TALKING_POINTS.md",
     "docs/RESUME_SNIPPETS.md",
+    "docs/OPERATIONS.md",
     "docs/assets/README.md",
     "docs/demo_briefs/README.md",
     "docs/demo_briefs/sample_observation_brief.md",
@@ -53,7 +54,9 @@ REQUIRED_PUBLIC_ASSETS = (
     "docs/PORTFOLIO_PRESENTATION.md",
     "docs/INTERVIEW_TALKING_POINTS.md",
     "docs/RESUME_SNIPPETS.md",
+    "docs/OPERATIONS.md",
     "src/data_contracts.py",
+    "tools/quality_gate.py",
     "LICENSE",
 )
 
