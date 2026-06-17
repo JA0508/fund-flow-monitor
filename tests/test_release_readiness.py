@@ -4,6 +4,7 @@ from pathlib import Path
 
 from src.release_readiness import (
     build_release_readiness_report,
+    check_sample_data_contract,
     check_tracked_file_safety,
     check_gitignore_safety,
     check_required_public_assets,
@@ -83,6 +84,32 @@ def test_check_gitignore_safety_detects_missing_sqlite_ignore(tmp_path: Path):
     result = check_gitignore_safety(tmp_path)
     assert "*.sqlite" in result["required_patterns_missing"]
     assert result["error_count"] > 0
+
+
+def test_check_sample_data_contract_detects_bad_sample_marker(tmp_path: Path):
+    sample_dir = tmp_path / "sample_data/ticks"
+    sample_dir.mkdir(parents=True)
+    (sample_dir / "sector_flow_2026-01-15.csv").write_text(
+        "captured_time,sector_type,sector_name,main_net_inflow_billion,source,data_mode\n"
+        "09:35:00,行业资金流,半导体,1.2,LOCAL,LOCAL\n",
+        encoding="utf-8",
+    )
+    result = check_sample_data_contract(tmp_path)
+    assert result["error_count"] > 0
+    assert result["contract_ok"] is False
+
+
+def test_check_sample_data_contract_passes_valid_sample(tmp_path: Path):
+    sample_dir = tmp_path / "sample_data/ticks"
+    sample_dir.mkdir(parents=True)
+    (sample_dir / "sector_flow_2026-01-15.csv").write_text(
+        "captured_time,sector_type,sector_name,main_net_inflow_billion,source,data_mode\n"
+        "09:35:00,行业资金流,半导体,1.2,SAMPLE,SAMPLE\n",
+        encoding="utf-8",
+    )
+    result = check_sample_data_contract(tmp_path)
+    assert result["contract_ok"] is True
+    assert result["file_count"] == 1
 
 
 def test_check_version_consistency_detects_missing_changelog_version(tmp_path: Path):

@@ -20,6 +20,13 @@ The app fetches or reads sector fund-flow snapshots, normalizes them with pandas
 - Theme taxonomy JSON defines fund-oriented mapping rules.
 - CSV snapshots remain the primary data source.
 - SQLite warehouse is optional and rebuildable from CSV.
+- Lightweight data contracts validate the practical snapshot shape, especially SAMPLE CSV structure, without blocking valid local cache data unnecessarily.
+
+## Engineering Architecture Tradeoff
+
+I intentionally kept the project as a Streamlit MVP because the portfolio goal is to show the full observation workflow quickly: data-state trust, theme aggregation, visualization, brief export, and public-demo safety. Adding FastAPI, React, user login, or a production database too early would make the system look larger without proving more of the current product idea.
+
+The current architecture is still modular: Streamlit is the UI shell, while data loading, runtime profile, CSV cataloging, theme mapping, warehouse querying, brief generation, release checks, and data contracts live in testable Python modules. If the project needed to scale, I would evolve it toward scheduled ingestion, a durable warehouse, API service boundaries, and a separate frontend.
 
 ## Data Pipeline Explanation
 

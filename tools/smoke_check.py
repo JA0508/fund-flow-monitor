@@ -12,6 +12,12 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.config import APP_VERSION  # noqa: E402
+from src.data_contracts import (  # noqa: E402
+    summarize_data_contract_report,
+    validate_data_contract_text,
+    validate_snapshot_directory,
+)
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
 from src.fund_profile_importer import (  # noqa: E402
     build_profile_theme_exposure_table,
@@ -112,6 +118,7 @@ REQUIRED_FILES = (
     "src/theme_history_brief.py",
     "src/release_readiness.py",
     "src/runtime_profile.py",
+    "src/data_contracts.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
@@ -129,6 +136,8 @@ REQUIRED_FILES = (
     "docs/demo_briefs/README.md",
     "docs/demo_briefs/sample_observation_brief.md",
     "docs/RELEASE_CHECKLIST.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DATA_FLOW.md",
     "README.md",
 )
 
@@ -323,6 +332,8 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     latest_csv = find_latest_csv(project_root / "data/ticks")
     catalog = build_snapshot_catalog(str(project_root / "data/ticks"))
     sample_catalog = build_sample_snapshot_catalog(str(project_root / "sample_data/ticks"))
+    sample_data_contract = validate_snapshot_directory(project_root / "sample_data/ticks", sample=True)
+    sample_data_contract_summary = summarize_data_contract_report(sample_data_contract)
     sample_profile_csv = load_fund_profiles_csv(str(project_root / "sample_data/fund_profiles/sample_fund_profiles.csv"))
     sample_profile_validation = validate_fund_profiles_csv(sample_profile_csv, load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json")))
     sample_profile_exposure = build_profile_theme_exposure_table(sample_profile_csv, load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json")))
@@ -371,6 +382,14 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         "sample_catalog": {
             "date_count": int(len(sample_catalog)),
             "latest_sample_date": get_latest_sample_date(sample_catalog) or "<none>",
+        },
+        "data_contracts": {
+            "data_contracts_module_imported": True,
+            "sample_data_contract_label": sample_data_contract.get("contract_label"),
+            "sample_data_contract_ok": bool(sample_data_contract.get("contract_ok")),
+            "sample_data_contract_file_count": int(sample_data_contract.get("file_count", 0) or 0),
+            "sample_data_contract_row_count": int(sample_data_contract.get("row_count", 0) or 0),
+            "data_contract_forbidden_hits": validate_data_contract_text(sample_data_contract_summary),
         },
         "sample_profile_csv": {
             "row_count": int(sample_profile_validation.get("row_count", 0)),
@@ -431,7 +450,7 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
 
 def main() -> int:
     report = build_smoke_report()
-    print("Fund Flow Monitor v2.9 本地冒烟检查")
+    print(f"Fund Flow Monitor {APP_VERSION} 本地冒烟检查")
     print(f"项目路径: {report['project_root']}")
     py = report["python"]
     print(f"Python 版本: {py['version']} (要求 {py['required']}) -> {'OK' if py['ok'] else 'FAIL'}")
@@ -471,6 +490,11 @@ def main() -> int:
     sample_catalog = report["sample_catalog"]
     print(f"SAMPLE 样例日期数量: {sample_catalog['date_count']}")
     print(f"最新 SAMPLE 日期: {sample_catalog['latest_sample_date']}")
+    data_contracts = report["data_contracts"]
+    print(f"data contracts module imported: {data_contracts['data_contracts_module_imported']}")
+    print(f"SAMPLE data contract label: {data_contracts['sample_data_contract_label']}")
+    print(f"SAMPLE data contract files/rows: {data_contracts['sample_data_contract_file_count']} / {data_contracts['sample_data_contract_row_count']}")
+    print(f"data contract forbidden hits: {data_contracts['data_contract_forbidden_hits']}")
     sample_profile = report["sample_profile_csv"]
     print(f"SAMPLE fund profile CSV 行数: {sample_profile['row_count']}")
     print(f"SAMPLE fund profile 数量: {sample_profile['profile_count']}")
@@ -549,6 +573,10 @@ def main() -> int:
         and taxonomy["ok"]
         and report["insight_brief_import"]
         and sample_catalog["date_count"] >= 2
+        and report["data_contracts"]["data_contracts_module_imported"]
+        and report["data_contracts"]["sample_data_contract_ok"]
+        and report["data_contracts"]["sample_data_contract_file_count"] >= 2
+        and not report["data_contracts"]["data_contract_forbidden_hits"]
         and sample_profile["profile_count"] >= 5
         and sample_profile["error_count"] == 0
         and snapshot_quality["sample_file_count"] >= 1

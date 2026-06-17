@@ -10,6 +10,35 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.0 Engineering Architecture Hardening Checks
+
+Run:
+
+```bash
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/release_check.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.0`.
+- `CHANGELOG.md` contains a `v3.0` entry.
+- `docs/ARCHITECTURE.md` exists and explains module boundaries without claiming production financial-platform readiness.
+- `docs/DATA_FLOW.md` exists and explains `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY`.
+- `src/data_contracts.py` exists.
+- `tests/test_data_contracts.py` passes.
+- `release_check.py` reports SAMPLE data contract status.
+- `cloud_preflight.py` checks SAMPLE data contract status and architecture/data-flow docs.
+- `smoke_check.py` and `verify_runtime.py` report SAMPLE data contract readiness.
+- SAMPLE remains synthetic demo data and is not described as real market data.
+- No backend service, account login, brokerage connection, trading action, or prediction wording is introduced.
+- No real CSV, SQLite, secrets, virtualenv, or cache files are staged or tracked.
+
 ## v2.9 Public Release Final Audit Checks
 
 Run:

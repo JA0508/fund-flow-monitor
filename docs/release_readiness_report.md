@@ -10,7 +10,7 @@
 ## Public Assets
 
 - 状态：公开资产齐备
-- 可用资产数量：9
+- 可用资产数量：18
 - 缺失资产数量：0
 
 ## SAMPLE Notice Coverage
@@ -24,11 +24,23 @@
 - 已覆盖规则数量：10
 - 缺失规则数量：0
 
+## SAMPLE Data Contract
+
+- 状态：SAMPLE 数据契约通过
+- SAMPLE 文件数量：2
+- SAMPLE 行数：200
+
+## Version / Tracked Files
+
+- APP_VERSION：v3.0
+- CHANGELOG 对应版本：True
+- tracked forbidden files：0
+
 ## Markdown Links
 
-- 检查 Markdown 文件数量：9
+- 检查 Markdown 文件数量：17
 - 缺失链接数量：0
-- 外部链接数量：0
+- 外部链接数量：1
 
 ## Local Path / Sensitive Text Scan
 

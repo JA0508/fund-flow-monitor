@@ -4,8 +4,9 @@ This audit summarizes the public-release readiness of `fund-flow-monitor` before
 
 ## Current Release Status
 
-- App version: `v2.9`
+- App version: `v3.0`
 - Release state: ready for public portfolio review after local validation and manual Streamlit Cloud checks.
+- v2.9 finalized the public release audit; v3.0 adds architecture/data-flow documentation and lightweight SAMPLE data contract checks without changing user-facing calculation logic.
 - Current public demo behavior: if no local real CSV cache exists but `sample_data/ticks` is available, the app defaults to SAMPLE demonstration data and portfolio presentation mode.
 - Live demo URL: `https://fund-flow-monitor-ja0508.streamlit.app/`.
 
@@ -27,8 +28,10 @@ Expected result:
 
 - `release_check.py` reports no errors.
 - `cloud_preflight.py` reports public demo readiness.
+- SAMPLE snapshot CSVs pass the lightweight data contract check.
 - Public demo mode defaults to SAMPLE when enabled.
 - Tests and compile checks pass.
+- GitHub Actions CI is available for pytest, compileall, release_check, and cloud_preflight on push or pull request.
 
 ## Public Demo Behavior
 

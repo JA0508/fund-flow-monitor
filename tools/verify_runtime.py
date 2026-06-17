@@ -14,6 +14,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import APP_VERSION  # noqa: E402
+from src.data_contracts import (  # noqa: E402
+    summarize_data_contract_report,
+    validate_data_contract_text,
+    validate_snapshot_directory,
+)
 from src.concept_flow import get_concept_latest_snapshot, summarize_concept_hotspots  # noqa: E402
 from src.brief_templates import (  # noqa: E402
     build_brief_compliance_report,
@@ -414,8 +419,13 @@ def _verify_sample_mode() -> None:
     print("SAMPLE 演示样例数据检查:")
     sample_dir = PROJECT_ROOT / "sample_data/ticks"
     sample_catalog = build_sample_snapshot_catalog(str(sample_dir))
+    sample_contract = validate_snapshot_directory(sample_dir, sample=True)
+    sample_contract_summary = summarize_data_contract_report(sample_contract)
     print(f"  sample_data/ticks 存在: {sample_dir.exists()}")
     print(f"  sample date count: {len(sample_catalog)}")
+    print(f"  sample data contract label: {sample_contract.get('contract_label')}")
+    print(f"  sample data contract files/rows: {sample_contract.get('file_count')} / {sample_contract.get('row_count')}")
+    print(f"  sample data contract forbidden_hits: {validate_data_contract_text(sample_contract_summary)}")
     if sample_catalog.empty:
         print("  暂无 SAMPLE 样例数据，可运行 python tools/generate_sample_data.py 生成。")
         return
@@ -783,6 +793,7 @@ def _verify_release_readiness() -> None:
     print(f"  release_readiness_label: {report.get('readiness_label')}")
     print(f"  release_readiness_warning_count: {report.get('warning_count')}")
     print(f"  release_readiness_error_count: {report.get('error_count')}")
+    print(f"  sample_data_contract_label: {report.get('sample_data_contract', {}).get('sample_data_contract_label')}")
     print(f"  sample_notice_coverage_label: {sample_notice.get('coverage_label')}")
     print(f"  gitignore_safety_label: {gitignore.get('gitignore_label')}")
     print(f"  release_readiness_forbidden_hits: {forbidden_hits}")

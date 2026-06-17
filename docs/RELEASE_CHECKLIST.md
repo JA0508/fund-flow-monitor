@@ -16,6 +16,8 @@ python -m compileall app.py src tests tools
 - `release_check.py` should report no errors.
 - `release_check.py` should confirm APP_VERSION has a matching CHANGELOG entry.
 - `release_check.py` should report no tracked forbidden files.
+- `release_check.py` should report SAMPLE data contract status.
+- `cloud_preflight.py` should confirm `docs/ARCHITECTURE.md` and `docs/DATA_FLOW.md` exist.
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
 - Warnings should be reviewed manually before release.
 - Tests and compile checks must pass.
@@ -88,6 +90,7 @@ streamlit run app.py
 - Public repo settings checklist exists: `docs/PUBLIC_REPO_SETTINGS.md`.
 - Public release audit exists: `docs/PUBLIC_RELEASE_AUDIT.md`.
 - Portfolio support docs exist: `docs/PORTFOLIO_PRESENTATION.md`, `docs/INTERVIEW_TALKING_POINTS.md`, and `docs/RESUME_SNIPPETS.md`.
+- Engineering docs exist: `docs/ARCHITECTURE.md` and `docs/DATA_FLOW.md`.
 - `LICENSE` exists and matches the intended public sharing policy.
 - README links point to existing files.
 - README does not include missing screenshot references.

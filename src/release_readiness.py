@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import Iterable
 
+from src.data_contracts import validate_snapshot_directory
+
 
 PUBLIC_FILES = (
     "README.md",
@@ -12,6 +14,8 @@ PUBLIC_FILES = (
     "CHANGELOG.md",
     "ROADMAP.md",
     "PROJECT_BRIEF.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DATA_FLOW.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/screenshots/SCREENSHOT_GUIDE.md",
     "docs/PUBLIC_REPO_SETTINGS.md",
@@ -42,11 +46,14 @@ REQUIRED_PUBLIC_ASSETS = (
     "docs/demo_briefs/sample_observation_brief.md",
     "docs/screenshots/SCREENSHOT_GUIDE.md",
     "docs/RELEASE_CHECKLIST.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DATA_FLOW.md",
     "docs/PUBLIC_REPO_SETTINGS.md",
     "docs/PUBLIC_RELEASE_AUDIT.md",
     "docs/PORTFOLIO_PRESENTATION.md",
     "docs/INTERVIEW_TALKING_POINTS.md",
     "docs/RESUME_SNIPPETS.md",
+    "src/data_contracts.py",
     "LICENSE",
 )
 
@@ -398,6 +405,24 @@ def check_gitignore_safety(project_root: str | Path = ".") -> dict:
     }
 
 
+def check_sample_data_contract(project_root: str | Path = ".") -> dict:
+    root = _root(project_root)
+    report = validate_snapshot_directory(root / "sample_data/ticks", sample=True)
+    errors = [f"SAMPLE 数据契约失败：{error}" for error in report.get("errors", [])]
+    warnings = [f"SAMPLE 数据契约提示：{warning}" for warning in report.get("warnings", [])]
+    label = "SAMPLE 数据契约通过" if not errors else "SAMPLE 数据契约需修复"
+    return {
+        "sample_data_contract_label": label,
+        "contract_ok": not errors,
+        "file_count": report.get("file_count", 0),
+        "row_count": report.get("row_count", 0),
+        "warning_count": len(warnings),
+        "error_count": len(errors),
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
 def _parse_app_version(project_root: Path) -> str:
     config_text = _read_text(project_root / "src/config.py")
     match = re.search(r"APP_VERSION\s*=\s*[\"']([^\"']+)[\"']", config_text)
@@ -539,6 +564,7 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
     public_assets = check_required_public_assets(root)
     sample_notice_coverage = check_sample_notice_coverage(root)
     gitignore_safety = check_gitignore_safety(root)
+    sample_data_contract = check_sample_data_contract(root)
     version_consistency = check_version_consistency(root)
     tracked_file_safety = check_tracked_file_safety(root)
     markdown_link_report = _build_markdown_link_report(root, targets)
@@ -548,9 +574,11 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
     errors: list[str] = []
     errors.extend(public_assets.get("errors", []))
     errors.extend(gitignore_safety.get("errors", []))
+    errors.extend(sample_data_contract.get("errors", []))
     errors.extend(version_consistency.get("errors", []))
     errors.extend(tracked_file_safety.get("errors", []))
     warnings.extend(sample_notice_coverage.get("warnings", []))
+    warnings.extend(sample_data_contract.get("warnings", []))
     warnings.extend(version_consistency.get("warnings", []))
     warnings.extend(tracked_file_safety.get("warnings", []))
     if targets.get("missing_files"):
@@ -585,6 +613,7 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
         "public_assets": public_assets,
         "sample_notice_coverage": sample_notice_coverage,
         "gitignore_safety": gitignore_safety,
+        "sample_data_contract": sample_data_contract,
         "version_consistency": version_consistency,
         "tracked_file_safety": tracked_file_safety,
         "app_version": version_consistency.get("app_version", ""),
@@ -608,6 +637,7 @@ def render_release_readiness_markdown(report: dict) -> str:
     public_assets = report.get("public_assets", {})
     sample_notice = report.get("sample_notice_coverage", {})
     gitignore = report.get("gitignore_safety", {})
+    sample_contract = report.get("sample_data_contract", {})
     version = report.get("version_consistency", {})
     tracked = report.get("tracked_file_safety", {})
     links = report.get("markdown_link_report", {})
@@ -637,6 +667,12 @@ def render_release_readiness_markdown(report: dict) -> str:
         f"- 状态：{gitignore.get('gitignore_label', '--')}",
         f"- 已覆盖规则数量：{len(gitignore.get('required_patterns_found', []))}",
         f"- 缺失规则数量：{len(gitignore.get('required_patterns_missing', []))}",
+        "",
+        "## SAMPLE Data Contract",
+        "",
+        f"- 状态：{sample_contract.get('sample_data_contract_label', '--')}",
+        f"- SAMPLE 文件数量：{sample_contract.get('file_count', 0)}",
+        f"- SAMPLE 行数：{sample_contract.get('row_count', 0)}",
         "",
         "## Version / Tracked Files",
         "",

@@ -26,6 +26,8 @@ def _create_minimal_public_demo_project(root: Path) -> None:
     (root / "docs/demo_briefs/sample_observation_brief.md").write_text(
         "SAMPLE 合成演示数据，不代表真实行情，不构成投资建议，不预测未来走势。\n"
     )
+    (root / "docs/ARCHITECTURE.md").write_text("SAMPLE 合成演示数据架构说明。\n")
+    (root / "docs/DATA_FLOW.md").write_text("SAMPLE 合成演示数据流说明。\n")
     (root / "docs/screenshots/01_home_sample_status.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     (root / "README.md").write_text(
         "SAMPLE 合成演示数据，不代表真实行情，不构成投资建议，不预测未来走势。\n"
@@ -33,6 +35,7 @@ def _create_minimal_public_demo_project(root: Path) -> None:
     )
     (root / "tools/release_check.py").write_text("print('release')\n")
     (root / "src/runtime_profile.py").write_text("# placeholder\n")
+    (root / "src/data_contracts.py").write_text("# placeholder\n")
     (root / ".gitignore").write_text(
         "data/ticks/*.csv\n"
         "data/warehouse/\n"

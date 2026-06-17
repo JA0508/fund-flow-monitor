@@ -18,6 +18,7 @@ from src.runtime_profile import (  # noqa: E402
     get_runtime_profile,
     validate_runtime_profile_text,
 )
+from src.data_contracts import validate_snapshot_directory  # noqa: E402
 
 
 REQUIRED_ASSETS = (
@@ -26,9 +27,12 @@ REQUIRED_ASSETS = (
     ".streamlit/config.toml",
     ".streamlit/secrets.example.toml",
     "docs/demo_briefs/sample_observation_brief.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DATA_FLOW.md",
     "README.md",
     "tools/release_check.py",
     "src/runtime_profile.py",
+    "src/data_contracts.py",
 )
 
 
@@ -71,6 +75,10 @@ def build_cloud_preflight_report(project_root: str | Path = ".", public_demo_env
     sample_data_available = _has_sample_csv(root)
     if not sample_data_available:
         errors.append("sample_data/ticks 缺少可复现演示 CSV。")
+    sample_contract = validate_snapshot_directory(root / "sample_data/ticks", sample=True)
+    if sample_contract.get("error_count", 0):
+        errors.append("sample_data/ticks 未通过轻量数据契约检查。")
+    warnings.extend(sample_contract.get("warnings", []))
 
     screenshot_dir = root / "docs/screenshots"
     screenshot_count = _count_pngs(screenshot_dir)
@@ -148,6 +156,9 @@ def build_cloud_preflight_report(project_root: str | Path = ".", public_demo_env
         "runtime_profile_label": runtime_profile.get("runtime_label"),
         "public_demo_default_source": public_demo_default_source,
         "runtime_profile": runtime_profile,
+        "sample_data_contract_label": sample_contract.get("contract_label"),
+        "sample_data_contract_ok": sample_contract.get("contract_ok"),
+        "sample_data_contract_rows": sample_contract.get("row_count", 0),
         "missing_assets": missing_assets,
         "missing_links": readme_links.get("missing_links", []),
         "local_path_hits": local_path_hits,
@@ -183,6 +194,8 @@ def run_cloud_preflight(strict: bool = False, quiet: bool = False, public_demo_e
         print(f"  sample_data_available: {report.get('sample_data_available')}")
         print(f"  screenshot_count: {report.get('screenshot_count')}")
         print(f"  demo_brief_available: {report.get('demo_brief_available')}")
+        print(f"  sample_data_contract_label: {report.get('sample_data_contract_label')}")
+        print(f"  sample_data_contract_rows: {report.get('sample_data_contract_rows')}")
         print(f"  runtime_profile_label: {report.get('runtime_profile_label')}")
         print(f"  public_demo_default_source: {report.get('public_demo_default_source')}")
         print(f"  missing_assets: {report.get('missing_assets')}")

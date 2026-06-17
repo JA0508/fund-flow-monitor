@@ -163,6 +163,8 @@ v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准
 
 公开发布最终审计见 [`docs/PUBLIC_RELEASE_AUDIT.md`](docs/PUBLIC_RELEASE_AUDIT.md)。作品集讲解材料见 [`docs/PORTFOLIO_PRESENTATION.md`](docs/PORTFOLIO_PRESENTATION.md)、[`docs/INTERVIEW_TALKING_POINTS.md`](docs/INTERVIEW_TALKING_POINTS.md) 和 [`docs/RESUME_SNIPPETS.md`](docs/RESUME_SNIPPETS.md)。
 
+工程架构说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数据流与数据状态说明见 [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md)。
+
 ## Reproducible Demo Commands
 
 下面几条命令可以在无真实缓存、无网络依赖的情况下复现作品集演示主路径：
@@ -207,6 +209,7 @@ This project is released under the [MIT License](LICENSE).
 - SAMPLE demo brief 离线导出，包含主题历史观察摘要，方便 GitHub 作品集直接预览。
 - 本地 CSV 快照质量治理和手动采集脚本，保持 CSV MVP 的可追溯性。
 - 本地 SQLite warehouse 作为 CSV 可重建查询索引，为后续历史查询打基础。
+- 轻量数据契约检查覆盖 SAMPLE snapshot 结构，帮助公开 demo 和 release checks 提前发现列缺失、数值异常或 SAMPLE 标记缺失。
 
 ## Portfolio Description
 

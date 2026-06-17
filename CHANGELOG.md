@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v3.0
+
+- Engineering architecture hardening.
+- 新增 `docs/ARCHITECTURE.md`，说明 Streamlit entry point、数据源、runtime profile、CSV/cache、SAMPLE、主题计算、UI、warehouse、简报和 release checks 的模块边界。
+- 新增 `docs/DATA_FLOW.md`，说明 `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY` 数据状态、CSV-first 流程、SAMPLE/真实缓存边界和数据可信口径。
+- 新增 `src/data_contracts.py`，为 sector-flow snapshot 与 SAMPLE CSV 提供轻量 pandas 数据契约检查，并补充单元测试。
+- `release_check.py`、`cloud_preflight.py`、`smoke_check.py` 和 `verify_runtime.py` 增加 SAMPLE 数据契约与架构文档检查。
+- 新增简单 GitHub Actions CI 工作流，运行 pytest、compileall、release_check 和 cloud_preflight。
+- 保持 v2.9 公开发布安全边界，不新增后端、不新增数据库类型、不改变主题计算或 Streamlit UI 主流程。
+
 ## v2.9
 
 - Public release final audit.

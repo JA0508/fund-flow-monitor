@@ -43,6 +43,14 @@ The project is CSV-first:
 - SQLite warehouse is derived from CSV and can be rebuilt locally.
 - Streamlit pages continue to work without SQLite.
 
+## Engineering Architecture Notes
+
+- Streamlit was chosen for fast product iteration and portfolio review: one deployable app can show data status, charts, tables, brief export, and release boundaries without adding a separate frontend/backend split too early.
+- Public demo mode uses SAMPLE data because free live data and private local cache are not reliable assumptions for external reviewers.
+- A production database was intentionally not made mandatory. CSV keeps data lineage inspectable during MVP development, and SQLite remains a local rebuildable query index.
+- If the project later became production-grade, the natural path would be scheduled ingestion, stronger data quality rules, durable warehouse storage, API boundaries, monitoring, and compliance review.
+- v3.0 adds architecture and data-flow documentation plus lightweight data contracts, improving maintainability without changing the app's user-facing calculation logic.
+
 ## Runtime and Data Modes
 
 - `LIVE`: current successful fetch.

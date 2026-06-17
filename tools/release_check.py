@@ -71,6 +71,7 @@ def run_release_check(write_report: str = "", strict: bool = False, quiet: bool 
     if not quiet:
         links = report.get("markdown_link_report", {})
         assets = report.get("public_assets", {})
+        sample_contract = report.get("sample_data_contract", {})
         print("Release readiness check")
         print(f"  readiness_label: {report.get('readiness_label')}")
         print(f"  warning_count: {report.get('warning_count')}")
@@ -78,6 +79,8 @@ def run_release_check(write_report: str = "", strict: bool = False, quiet: bool 
         print(f"  app_version: {report.get('app_version')}")
         print(f"  changelog_version_ok: {report.get('changelog_version_ok')}")
         print(f"  tracked_forbidden_files: {report.get('tracked_forbidden_files', [])}")
+        print(f"  sample_data_contract_label: {sample_contract.get('sample_data_contract_label')}")
+        print(f"  sample_data_contract_rows: {sample_contract.get('row_count')}")
         print(f"  missing_assets: {assets.get('missing_assets', [])}")
         print(f"  missing_links: {links.get('missing_links', [])}")
         print(f"  local_path_hits: {report.get('local_path_hits', [])}")
