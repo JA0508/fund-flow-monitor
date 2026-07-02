@@ -111,12 +111,26 @@ If Streamlit Cloud shows `EMPTY` on first visit:
 
 SAMPLE and DEMO must never be described as real market data.
 
+## Local Real Data Collection
+
+Use the explicit local collector when you want a real AKShare sector fund-flow snapshot:
+
+```bash
+.venv/bin/python tools/collect_real_snapshot.py --dry-run
+.venv/bin/python tools/collect_real_snapshot.py
+```
+
+The collector fetches one AKShare snapshot, normalizes it into the project schema, validates the real snapshot contract, and writes through the existing CSV cache layer. Output goes to `data/ticks/sector_flow_YYYY-MM-DD.csv`, which is ignored by Git. `--dry-run` is the safest first check because it exercises fetch/normalize/validate without writing a CSV.
+
+If AKShare or the network is unavailable, the collector should fail with a readable error and must not generate fake real data. Unit tests use mocked DataFrames and do not require live network access.
+
 ## Data Contracts
 
 `src/data_contracts.py` provides lightweight CSV checks:
 
 - Snapshot checks require only core columns needed by the app.
 - SAMPLE checks additionally require SAMPLE markers.
+- Real snapshot checks reject SAMPLE/DEMO markers and encourage provenance fields such as `data_mode`, provider, API name and `fetched_at`.
 - Recommended columns produce warnings, not hard failures.
 - Missing directories produce readable warnings where appropriate.
 

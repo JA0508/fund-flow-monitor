@@ -11,6 +11,7 @@ from src.utils import safe_to_float
 
 
 COLUMN_ALIASES = {
+    "rank_value": ("序号", "排名", "排行", "rank"),
     "sector_code": ("板块代码", "代码", "行业代码", "概念代码"),
     "sector_name": ("板块名称", "名称", "行业名称", "概念名称"),
     "change_pct": ("涨跌幅", "今日涨跌幅", "涨跌幅%", "涨跌幅(%)"),
@@ -32,7 +33,9 @@ OUTPUT_COLUMNS = [
     "trade_date",
     "captured_at",
     "captured_time",
+    "fetched_at",
     "sector_type",
+    "rank_value",
     "sector_code",
     "sector_name",
     "change_pct",
@@ -45,6 +48,9 @@ OUTPUT_COLUMNS = [
     "small_net_inflow_yuan",
     "leading_stock",
     "source",
+    "provider",
+    "api_name",
+    "data_mode",
 ]
 
 
@@ -97,6 +103,7 @@ def normalize_sector_flow(
         normalized[target] = _series_or_none(raw_df, aliases)
 
     for column in [
+        "rank_value",
         "change_pct",
         "main_net_inflow_yuan",
         "main_net_ratio",
@@ -127,8 +134,12 @@ def normalize_sector_flow(
     normalized["captured_at"] = captured_ts
     normalized["captured_time"] = captured_ts.strftime("%H:%M:%S")
     normalized["trade_date"] = captured_ts.strftime("%Y-%m-%d")
+    normalized["fetched_at"] = captured_ts.isoformat()
     normalized["sector_type"] = sector_type
     normalized["source"] = DATA_SOURCE
+    normalized["provider"] = "AKShare / Eastmoney"
+    normalized["api_name"] = "stock_sector_fund_flow_rank"
+    normalized["data_mode"] = "REAL"
 
     normalized = normalized.drop(columns=["leading_stock_code"], errors="ignore")
     normalized = normalized[
@@ -137,4 +148,3 @@ def normalize_sector_flow(
         & normalized["main_net_inflow_yuan"].map(lambda value: not math.isnan(value))
     ]
     return normalized[OUTPUT_COLUMNS].reset_index(drop=True)
-

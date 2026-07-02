@@ -60,8 +60,8 @@ Fund Flow Monitor 的长期目标是成为面向“养基宝 / 基金投资辅�
 - v2.8 完成 public portfolio presentation polish：首屏 demo guide、README 评审路径、项目简报和发布检查说明增强。
 - v2.9 完成 public release final audit：版本一致性、tracked forbidden files、GitHub 可见性检查和公开发布 go/no-go 文档。
 - v3.0 完成 engineering architecture hardening：架构文档、数据流文档、轻量数据契约、release/preflight 检查增强和 CI 基础工作流。
-- v3.1 以后继续围绕 screenshot / demo asset planning、实际截图资产更新、公开 demo 复盘和更细的数据质量规则做小步 polish。
-- v3.2 以后再考虑部署完成后回填真实 Streamlit Cloud URL、README 中引用云端 demo 链接、demo brief 图表截图引用、更细的数据质量规则、DuckDB 可选分析后端。
+- v3.2 继续把真实 AKShare 采集、真实缓存质量和数据新鲜度可观测性作为本地真实数据主线。
+- v3.3 以后再考虑部署复盘、demo brief 图表截图引用、更细的数据质量规则、定时采集运维说明、DuckDB 可选分析后端。
 - 在 Streamlit MVP 验证稳定后，再考虑 FastAPI + React + ECharts 产品化重构。
 - 后端未来负责低频沉淀和统一 API。
 - 前端未来负责主题雷达、曲线、热力图和交互展示。

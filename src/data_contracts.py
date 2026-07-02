@@ -23,6 +23,13 @@ SNAPSHOT_RECOMMENDED_COLUMNS = (
 
 SAMPLE_REQUIRED_COLUMNS = SNAPSHOT_REQUIRED_COLUMNS + ("source", "data_mode")
 
+REAL_RECOMMENDED_COLUMNS = SNAPSHOT_RECOMMENDED_COLUMNS + (
+    "data_mode",
+    "provider",
+    "api_name",
+    "fetched_at",
+)
+
 NUMERIC_SNAPSHOT_COLUMNS = (
     "change_pct",
     "main_net_inflow_yuan",
@@ -202,7 +209,59 @@ def validate_sample_snapshot_dataframe(df: pd.DataFrame | None, context: str = "
     return report
 
 
-def validate_snapshot_csv_file(path: str | Path, sample: bool = False) -> dict:
+def validate_real_snapshot_dataframe(df: pd.DataFrame | None, context: str = "real_snapshot") -> dict:
+    report = validate_snapshot_dataframe(
+        df,
+        context=context,
+        required_columns=SNAPSHOT_REQUIRED_COLUMNS,
+        recommended_columns=REAL_RECOMMENDED_COLUMNS,
+    )
+    warnings = list(report.get("warnings", []))
+    errors = list(report.get("errors", []))
+    provenance_columns: list[str] = []
+    if df is not None and not df.empty:
+        provenance_columns = [
+            column
+            for column in ("source", "provider", "api_name", "data_mode", "fetched_at")
+            if column in df.columns
+        ]
+        for column in ("source", "data_mode", "mode"):
+            if column not in df.columns:
+                continue
+            values = df[column].fillna("").astype(str).str.upper()
+            if values.str.contains("SAMPLE", regex=False).any() or values.str.contains("DEMO", regex=False).any():
+                errors.append(f"真实快照不应包含 SAMPLE / DEMO 标记列：{column}。")
+        if not provenance_columns:
+            warnings.append("真实快照缺少 source/provider/api_name/fetched_at 等来源字段，建议补充数据来源说明。")
+        if "data_mode" in df.columns:
+            modes = set(df["data_mode"].fillna("").astype(str).str.upper())
+            if modes and modes != {"REAL"}:
+                warnings.append("真实快照 data_mode 建议统一标记为 REAL。")
+
+    error_count = len(errors)
+    warning_count = len(warnings)
+    if error_count:
+        label = "真实数据契约不通过"
+    elif warning_count:
+        label = "真实数据契约通过但有警告"
+    else:
+        label = "真实数据契约通过"
+    report.update(
+        {
+            "contract_name": "real_snapshot",
+            "contract_ok": error_count == 0,
+            "contract_label": label,
+            "provenance_columns": provenance_columns,
+            "warning_count": warning_count,
+            "error_count": error_count,
+            "warnings": warnings,
+            "errors": errors,
+        }
+    )
+    return report
+
+
+def validate_snapshot_csv_file(path: str | Path, sample: bool = False, real: bool = False) -> dict:
     csv_path = Path(path)
     if not csv_path.exists():
         return {
@@ -230,13 +289,18 @@ def validate_snapshot_csv_file(path: str | Path, sample: bool = False) -> dict:
             "warnings": [],
             "errors": [f"CSV 文件不可读：{exc}"],
         }
-    report = validate_sample_snapshot_dataframe(df, csv_path.name) if sample else validate_snapshot_dataframe(df, csv_path.name)
+    if sample:
+        report = validate_sample_snapshot_dataframe(df, csv_path.name)
+    elif real:
+        report = validate_real_snapshot_dataframe(df, csv_path.name)
+    else:
+        report = validate_snapshot_dataframe(df, csv_path.name)
     report["file_path"] = str(csv_path)
     report["file_name"] = csv_path.name
     return report
 
 
-def validate_snapshot_directory(directory: str | Path, sample: bool = False) -> dict:
+def validate_snapshot_directory(directory: str | Path, sample: bool = False, real: bool = False) -> dict:
     root = Path(directory)
     warnings: list[str] = []
     errors: list[str] = []
@@ -244,6 +308,7 @@ def validate_snapshot_directory(directory: str | Path, sample: bool = False) -> 
         return {
             "directory": str(root),
             "sample": sample,
+            "real": real,
             "file_count": 0,
             "valid_file_count": 0,
             "invalid_file_count": 0,
@@ -259,7 +324,7 @@ def validate_snapshot_directory(directory: str | Path, sample: bool = False) -> 
     files = sorted(root.glob("sector_flow_*.csv"))
     if not files:
         warnings.append("快照目录中没有 sector_flow_*.csv 文件。")
-    file_reports = [validate_snapshot_csv_file(path, sample=sample) for path in files]
+    file_reports = [validate_snapshot_csv_file(path, sample=sample, real=real) for path in files]
     valid_count = sum(1 for item in file_reports if item.get("contract_ok"))
     invalid_reports = [item for item in file_reports if not item.get("contract_ok")]
     for item in invalid_reports:
@@ -277,6 +342,7 @@ def validate_snapshot_directory(directory: str | Path, sample: bool = False) -> 
     return {
         "directory": str(root),
         "sample": sample,
+        "real": real,
         "file_count": len(files),
         "valid_file_count": valid_count,
         "invalid_file_count": len(invalid_reports),

@@ -10,6 +10,42 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.2 Real Data Ingestion and Cache Quality Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Optional live-data checks:
+
+```bash
+python tools/collect_real_snapshot.py --dry-run
+python tools/probe_akshare.py
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.2`.
+- `CHANGELOG.md` contains a `v3.2` entry.
+- `docs/REAL_DATA_INGESTION.md` exists.
+- `tools/collect_real_snapshot.py` exists and delegates to the existing one-shot collector.
+- Real AKShare normalization includes practical provenance fields such as `data_mode=REAL`, provider, API name, fetched timestamp and rank value when available.
+- Real snapshot data contract rejects SAMPLE / DEMO markers without forcing SAMPLE-specific fields on real cache.
+- `collect_real_snapshot.py --dry-run` must not write `data/ticks`.
+- The Streamlit data explanation tab shows compact real cache freshness/provenance when local real cache exists, and remains readable when it does not.
+- SAMPLE fallback remains intact and is still clearly marked as synthetic demo data.
+- Tests do not require live network access.
+- No real `data/ticks/*.csv`, SQLite, secrets, virtualenv, `.DS_Store` or cache files are staged or tracked.
+
 ## v3.1 CI and Operational Quality Hardening Checks
 
 Run:

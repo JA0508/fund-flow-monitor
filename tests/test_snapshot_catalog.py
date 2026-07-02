@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.snapshot_catalog import (
+    build_real_cache_summary,
     build_snapshot_catalog,
     get_snapshot_summary,
     infer_view_data_status,
@@ -32,6 +33,10 @@ def _rows(snapshot_date: str, times: list[str], sector_type: str = "行业资金
                 "main_net_inflow_billion": float(idx + 1),
                 "main_net_inflow_yuan": float(idx + 1) * 100_000_000,
                 "source": "AKShare / Eastmoney",
+                "provider": "AKShare / Eastmoney",
+                "api_name": "stock_sector_fund_flow_rank",
+                "data_mode": "REAL",
+                "fetched_at": f"{snapshot_date}T{captured_time}+08:00",
             }
         )
     return rows
@@ -67,6 +72,8 @@ def test_build_snapshot_catalog_counts_and_quality(tmp_path: Path) -> None:
     assert item["captured_time_count"] == 2
     assert item["industry_rows"] == 2
     assert item["concept_rows"] == 1
+    assert item["latest_data_mode"] == "REAL"
+    assert item["latest_provider"] == "AKShare / Eastmoney"
     assert item["quality_label"] == "快照可回放"
 
 
@@ -88,6 +95,24 @@ def test_get_snapshot_summary_counts_sector_types() -> None:
     assert summary["concept_rows"] == 1
     assert summary["has_industry_data"] is True
     assert summary["has_concept_data"] is True
+    assert summary["data_mode"] == "REAL"
+    assert summary["provider"] == "AKShare / Eastmoney"
+
+
+def test_build_real_cache_summary_empty(tmp_path: Path) -> None:
+    summary = build_real_cache_summary(str(tmp_path))
+    assert summary["real_cache_available"] is False
+    assert summary["quality_label"] == "暂无真实缓存"
+
+
+def test_build_real_cache_summary_with_real_cache(tmp_path: Path) -> None:
+    _write_snapshot(tmp_path / "sector_flow_2026-06-01.csv", _rows("2026-06-01", ["09:30:00", "09:35:00"]))
+    summary = build_real_cache_summary(str(tmp_path))
+    assert summary["real_cache_available"] is True
+    assert summary["file_count"] == 1
+    assert summary["latest_snapshot_date"] == "2026-06-01"
+    assert summary["latest_data_mode"] == "REAL"
+    assert summary["latest_provider"] == "AKShare / Eastmoney"
 
 
 def test_infer_view_data_status() -> None:

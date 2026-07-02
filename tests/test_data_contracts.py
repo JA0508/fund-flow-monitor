@@ -10,6 +10,7 @@ from src.data_contracts import (
     summarize_data_contract_report,
     validate_data_contract_text,
     validate_sample_snapshot_dataframe,
+    validate_real_snapshot_dataframe,
     validate_snapshot_csv_file,
     validate_snapshot_dataframe,
     validate_snapshot_directory,
@@ -95,6 +96,28 @@ def test_validate_sample_snapshot_dataframe_passes():
     report = validate_sample_snapshot_dataframe(_snapshot_df())
     assert report["contract_ok"] is True
     assert report["sample_marker_ok"] is True
+
+
+def test_validate_real_snapshot_dataframe_accepts_real_markers():
+    df = _snapshot_df().copy()
+    df["source"] = "AKShare / Eastmoney"
+    df["data_mode"] = "REAL"
+    df["provider"] = "AKShare / Eastmoney"
+    df["api_name"] = "stock_sector_fund_flow_rank"
+    df["fetched_at"] = "2026-01-15T09:35:00+08:00"
+    report = validate_real_snapshot_dataframe(df)
+    assert report["contract_ok"] is True
+    assert report["contract_label"] == "真实数据契约通过"
+    assert "provider" in report["provenance_columns"]
+
+
+def test_validate_real_snapshot_dataframe_rejects_sample_marker():
+    df = _snapshot_df().copy()
+    df["source"] = "SAMPLE"
+    df["data_mode"] = "SAMPLE"
+    report = validate_real_snapshot_dataframe(df)
+    assert report["contract_ok"] is False
+    assert report["error_count"] > 0
 
 
 def test_validate_snapshot_csv_file(tmp_path: Path):

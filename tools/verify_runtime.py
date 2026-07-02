@@ -96,6 +96,7 @@ from src.sample_data import (  # noqa: E402
 )
 from src.snapshot_catalog import (  # noqa: E402
     build_snapshot_catalog,
+    build_real_cache_summary,
     get_latest_snapshot_date,
     get_snapshot_summary,
     load_snapshot_by_date,
@@ -550,6 +551,7 @@ def _verify_snapshot_quality() -> None:
     summary = summarize_snapshot_quality(report)
     forbidden_hits = validate_snapshot_quality_text(summary)
     sample_catalog = report.get("sample_catalog_df", pd.DataFrame())
+    real_cache_summary = build_real_cache_summary(PROJECT_ROOT / "data/ticks")
     collect_script = PROJECT_ROOT / "tools/collect_market_snapshot.py"
     spec = importlib.util.spec_from_file_location("collect_market_snapshot", collect_script)
     collect_import_ok = spec is not None and spec.loader is not None
@@ -557,15 +559,26 @@ def _verify_snapshot_quality() -> None:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         collect_import_ok = hasattr(module, "build_parser") and hasattr(module, "collect_once")
+    collect_real_script = PROJECT_ROOT / "tools/collect_real_snapshot.py"
+    real_spec = importlib.util.spec_from_file_location("collect_real_snapshot", collect_real_script)
+    collect_real_import_ok = real_spec is not None and real_spec.loader is not None
+    if collect_real_import_ok and real_spec and real_spec.loader:
+        real_module = importlib.util.module_from_spec(real_spec)
+        real_spec.loader.exec_module(real_module)
+        collect_real_import_ok = hasattr(real_module, "main")
     print(f"  snapshot_quality_report_label: {report.get('report_label')}")
     print(f"  local_file_count: {report.get('local_file_count')}")
     print(f"  sample_file_count: {report.get('sample_file_count')}")
     print(f"  local warning/error: {report.get('local_warning_count')} / {report.get('local_error_count')}")
     print(f"  sample warning/error: {report.get('sample_warning_count')} / {report.get('sample_error_count')}")
     print(f"  sample_catalog row count: {len(sample_catalog) if isinstance(sample_catalog, pd.DataFrame) else 0}")
+    print(f"  real_cache_label: {real_cache_summary.get('quality_label')}")
+    print(f"  real_cache_available: {real_cache_summary.get('real_cache_available')}")
+    print(f"  real_cache_latest_date/time: {real_cache_summary.get('latest_date')} / {real_cache_summary.get('latest_captured_time')}")
     print(f"  snapshot_quality_forbidden_hits: {forbidden_hits}")
     print(f"  collect_market_snapshot.py import: {collect_import_ok}")
-    print("  verify_runtime 不执行真实采集；如需手动检查可运行 python tools/collect_market_snapshot.py --no-network。")
+    print(f"  collect_real_snapshot.py import: {collect_real_import_ok}")
+    print("  verify_runtime 不执行真实采集；如需手动检查可运行 python tools/collect_real_snapshot.py --dry-run。")
 
 
 def _verify_local_warehouse() -> None:

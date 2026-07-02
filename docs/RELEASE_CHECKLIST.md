@@ -20,6 +20,7 @@ python -m compileall app.py src tests tools
 - `release_check.py` should report no tracked forbidden files.
 - `release_check.py` should report SAMPLE data contract status.
 - `cloud_preflight.py` should confirm `docs/ARCHITECTURE.md`, `docs/DATA_FLOW.md` and `docs/OPERATIONS.md` exist.
+- `release_check.py` and `cloud_preflight.py` should confirm `docs/REAL_DATA_INGESTION.md` and `tools/collect_real_snapshot.py` exist.
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
 - Warnings should be reviewed manually before release.
 - Tests and compile checks must pass.
@@ -58,6 +59,18 @@ git check-ignore -v .streamlit/secrets.toml
 - Do not commit `data/warehouse/*.sqlite`, `*.sqlite3`, or `*.db`.
 - Do not commit `.env`, `.streamlit/secrets.toml`, `.venv/`, `__pycache__/`, or `.pytest_cache/`.
 - `sample_data/ticks/*.csv` and demo brief files are public portfolio assets and should remain trackable.
+
+## 2.1 Local Real Data Collection Checks
+
+```bash
+python tools/collect_real_snapshot.py --dry-run
+python tools/probe_akshare.py
+```
+
+- These checks may depend on live AKShare/network availability and should be interpreted separately from unit tests.
+- `--dry-run` should not write `data/ticks`.
+- A successful collector run without `--dry-run` may create ignored real CSV files under `data/ticks`; never stage those files.
+- Any AKShare failure should be documented as a live data source/network limitation, not replaced with fake real data.
 
 ## 3. Demo Checks
 

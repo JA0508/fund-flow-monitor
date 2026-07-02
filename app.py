@@ -90,6 +90,7 @@ from src.multi_day_trends import (
     split_multi_day_trend_sections,
 )
 from src.snapshot_catalog import (
+    build_real_cache_summary,
     build_snapshot_catalog,
     get_latest_snapshot_date,
     get_snapshot_summary,
@@ -363,6 +364,7 @@ def main() -> None:
     market_status = get_market_status(now)
     can_fetch = market_status in FETCH_ALLOWED_STATUSES
     snapshot_catalog_df = build_snapshot_catalog()
+    real_cache_summary = build_real_cache_summary()
     latest_snapshot_date = get_latest_snapshot_date(snapshot_catalog_df)
     sample_catalog_df = build_sample_snapshot_catalog()
     latest_sample_date = get_latest_sample_date(sample_catalog_df)
@@ -1436,6 +1438,14 @@ def main() -> None:
             "- 历史回放只用于观察已保存的资金流状态。"
         )
         render_snapshot_quality_cards(snapshot_quality_report)
+        st.markdown("#### 本地真实缓存新鲜度")
+        st.markdown(
+            f"- 真实缓存可用：`{'是' if real_cache_summary.get('real_cache_available') else '否'}`。\n"
+            f"- 真实缓存文件数：`{real_cache_summary.get('file_count', 0)}`；可读日期数：`{real_cache_summary.get('date_count', 0)}`；总行数：`{real_cache_summary.get('row_count', 0)}`。\n"
+            f"- 最新真实缓存日期：`{real_cache_summary.get('latest_snapshot_date') or '--'}`；最新时间点：`{real_cache_summary.get('latest_captured_time') or '--'}`。\n"
+            f"- 来源：`{real_cache_summary.get('latest_source') or real_cache_summary.get('latest_provider') or '--'}`；data_mode：`{real_cache_summary.get('latest_data_mode') or '--'}`。\n"
+            f"- 质量标签：`{real_cache_summary.get('quality_label') or '--'}`。"
+        )
         render_snapshot_quality_notes(snapshot_quality_report)
         if int(snapshot_quality_report.get("local_file_count", 0) or 0) == 0:
             st.markdown(

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -77,6 +80,38 @@ def test_dry_run_mode_does_not_write_file(monkeypatch, tmp_path):
     result = collect_market_snapshot.collect_once(args)
     assert result["fetch_status"] == "success"
     assert result["write_status"] == "dry_run"
+    assert result["data_mode"] == "REAL"
+    assert result["provider"] == "AKShare / Eastmoney"
+    assert result["api_name"] == "stock_sector_fund_flow_rank"
+    assert result["contract_ok"] is True
+    assert result["contract_label"] == "真实数据契约通过"
+    assert not list(tmp_path.glob("*.csv"))
+
+
+def test_collect_real_snapshot_wrapper_imports():
+    from tools import collect_real_snapshot
+
+    assert collect_real_snapshot.main is collect_market_snapshot.main
+
+
+def test_collect_real_snapshot_script_no_network_runs_without_writing(tmp_path):
+    project_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "tools/collect_real_snapshot.py",
+            "--no-network",
+            "--output-dir",
+            str(tmp_path),
+            "--quiet",
+        ],
+        cwd=project_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0
     assert not list(tmp_path.glob("*.csv"))
 
 

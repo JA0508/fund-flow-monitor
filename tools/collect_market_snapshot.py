@@ -11,6 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import DEFAULT_SECTOR_TYPE  # noqa: E402
 from src.data_source import fetch_sector_flow  # noqa: E402
+from src.data_contracts import validate_real_snapshot_dataframe  # noqa: E402
 from src.snapshot_quality import audit_snapshot_dataframe  # noqa: E402
 from src.storage import append_snapshot_safely, get_snapshot_output_path  # noqa: E402
 from src.transform import normalize_sector_flow  # noqa: E402
@@ -86,6 +87,7 @@ def collect_once(args: argparse.Namespace) -> dict:
     captured_time = snapshot["captured_time"].iloc[0] if not snapshot.empty and "captured_time" in snapshot.columns else None
     output_file = get_snapshot_output_path(data_date=str(data_date), directory=args.output_dir)
     quality = audit_snapshot_dataframe(snapshot, source_label="manual_collect", file_path=output_file)
+    contract = validate_real_snapshot_dataframe(snapshot, context=f"collect:{args.sector_type}")
     duplicate_detected = _detect_existing_duplicate(snapshot, output_file)
 
     write_result = {
@@ -106,13 +108,20 @@ def collect_once(args: argparse.Namespace) -> dict:
     return {
         "fetch_status": "success",
         "row_count": int(len(snapshot)),
+        "trade_date": data_date,
         "captured_time": captured_time,
         "output_file": output_file,
+        "source": snapshot["source"].iloc[0] if "source" in snapshot.columns and not snapshot.empty else "AKShare / Eastmoney",
+        "provider": snapshot["provider"].iloc[0] if "provider" in snapshot.columns and not snapshot.empty else "AKShare / Eastmoney",
+        "api_name": snapshot["api_name"].iloc[0] if "api_name" in snapshot.columns and not snapshot.empty else "stock_sector_fund_flow_rank",
+        "data_mode": snapshot["data_mode"].iloc[0] if "data_mode" in snapshot.columns and not snapshot.empty else "REAL",
         "duplicate_detected": duplicate_detected,
         "write_status": write_result.get("write_status", "dry_run"),
+        "contract_label": contract.get("contract_label", "--"),
+        "contract_ok": bool(contract.get("contract_ok")),
         "quality_label": quality.get("quality_label", "--"),
-        "warnings": list(quality.get("warnings") or []) + list(write_result.get("warnings") or []),
-        "errors": list(quality.get("errors") or []) + list(write_result.get("errors") or []),
+        "warnings": list(contract.get("warnings") or []) + list(quality.get("warnings") or []) + list(write_result.get("warnings") or []),
+        "errors": list(contract.get("errors") or []) + list(quality.get("errors") or []) + list(write_result.get("errors") or []),
         "written_rows": int(write_result.get("written_rows", 0) or 0),
     }
 
@@ -122,7 +131,22 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     result = collect_once(args)
     _print("本地市场快照手动采集结果", args.quiet)
-    for key in ("fetch_status", "row_count", "captured_time", "output_file", "duplicate_detected", "write_status", "quality_label", "written_rows"):
+    for key in (
+        "fetch_status",
+        "row_count",
+        "trade_date",
+        "captured_time",
+        "output_file",
+        "source",
+        "provider",
+        "api_name",
+        "data_mode",
+        "duplicate_detected",
+        "write_status",
+        "contract_label",
+        "quality_label",
+        "written_rows",
+    ):
         if key in result:
             _print(f"{key}: {result.get(key)}", args.quiet)
     warnings = result.get("warnings") or []

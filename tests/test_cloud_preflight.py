@@ -29,6 +29,7 @@ def _create_minimal_public_demo_project(root: Path) -> None:
     )
     (root / "docs/ARCHITECTURE.md").write_text("SAMPLE 合成演示数据架构说明。\n")
     (root / "docs/DATA_FLOW.md").write_text("SAMPLE 合成演示数据流说明。\n")
+    (root / "docs/REAL_DATA_INGESTION.md").write_text("SAMPLE fallback 与本地真实数据采集说明。\n")
     (root / "docs/OPERATIONS.md").write_text("SAMPLE 合成演示数据运维说明。\n")
     (root / "docs/screenshots/01_home_sample_status.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     (root / "README.md").write_text(
@@ -37,6 +38,7 @@ def _create_minimal_public_demo_project(root: Path) -> None:
     )
     (root / "tools/release_check.py").write_text("print('release')\n")
     (root / "tools/quality_gate.py").write_text("print('quality')\n")
+    (root / "tools/collect_real_snapshot.py").write_text("print('collect real')\n")
     (root / "src/runtime_profile.py").write_text("# placeholder\n")
     (root / "src/data_contracts.py").write_text("# placeholder\n")
     (root / ".gitignore").write_text(

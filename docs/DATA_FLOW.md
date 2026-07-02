@@ -37,6 +37,11 @@ The main sector-flow DataFrame is expected to include:
 - `small_net_inflow_yuan`
 - `leading_stock`
 - `source`
+- `provider`
+- `api_name`
+- `data_mode`
+- `fetched_at`
+- `rank_value`
 
 `src/data_contracts.py` checks the minimum practical contract without making the app overly brittle. The required columns for theme computation are:
 
@@ -46,6 +51,8 @@ The main sector-flow DataFrame is expected to include:
 - `main_net_inflow_billion`
 
 SAMPLE files additionally require `source=SAMPLE` and `data_mode=SAMPLE`.
+
+Real AKShare snapshots use the same core shape but are validated by a separate real snapshot contract. Real rows should not contain SAMPLE or DEMO markers. Recommended provenance fields such as `provider`, `api_name`, `data_mode=REAL` and `fetched_at` improve cache observability, but the contract remains lightweight so future AKShare column drift does not break the app unnecessarily.
 
 ## Raw Data To Theme Observation
 
@@ -101,6 +108,14 @@ Real local CSV cache and local SQLite indexes should not enter git history.
 ## Real Local Cache
 
 Real cache files are local CSV snapshots created or supplied by the user. They live under `data/ticks`. The app may read them for CACHE or HISTORY views, but they remain private and ignored.
+
+The primary local collector entry point is:
+
+```bash
+python tools/collect_real_snapshot.py
+```
+
+It calls the same underlying collector as `tools/collect_market_snapshot.py`: fetch AKShare sector fund-flow data, normalize Chinese columns into the internal schema, validate the real snapshot contract, and append safely to `data/ticks/sector_flow_YYYY-MM-DD.csv`. `--dry-run` validates and summarizes without writing.
 
 When real cache exists, local users can inspect:
 

@@ -50,6 +50,10 @@ def build_snapshot_catalog(data_dir: str = "data/ticks") -> pd.DataFrame:
             "industry_rows": 0,
             "concept_rows": 0,
             "file_size_kb": round(path.stat().st_size / 1024, 1) if path.exists() else 0,
+            "latest_source": None,
+            "latest_data_mode": None,
+            "latest_provider": None,
+            "latest_fetched_at": None,
             "is_readable": False,
             "quality_label": "文件异常",
             "quality_reason": "CSV 文件不可读或解析失败。",
@@ -68,6 +72,14 @@ def build_snapshot_catalog(data_dir: str = "data/ticks") -> pd.DataFrame:
             if "sector_type" in df.columns:
                 row["industry_rows"] = int(df["sector_type"].eq("行业资金流").sum())
                 row["concept_rows"] = int(df["sector_type"].eq("概念资金流").sum())
+            for source_column, target_column in (
+                ("source", "latest_source"),
+                ("data_mode", "latest_data_mode"),
+                ("provider", "latest_provider"),
+                ("fetched_at", "latest_fetched_at"),
+            ):
+                if source_column in df.columns and not df[source_column].dropna().empty:
+                    row[target_column] = str(df[source_column].dropna().iloc[-1])
             row["quality_label"], row["quality_reason"] = _quality_label(
                 row["captured_time_count"],
                 row["industry_rows"],
@@ -88,6 +100,10 @@ def build_snapshot_catalog(data_dir: str = "data/ticks") -> pd.DataFrame:
             "industry_rows",
             "concept_rows",
             "file_size_kb",
+            "latest_source",
+            "latest_data_mode",
+            "latest_provider",
+            "latest_fetched_at",
             "is_readable",
             "quality_label",
             "quality_reason",
@@ -145,6 +161,10 @@ def get_snapshot_summary(ticks_df: pd.DataFrame) -> dict:
             "concept_rows": 0,
             "has_industry_data": False,
             "has_concept_data": False,
+            "source": None,
+            "data_mode": None,
+            "provider": None,
+            "fetched_at": None,
         }
     sector_counts = ticks_df["sector_type"].value_counts().to_dict() if "sector_type" in ticks_df.columns else {}
     industry_rows = int(sector_counts.get("行业资金流", 0))
@@ -163,6 +183,60 @@ def get_snapshot_summary(ticks_df: pd.DataFrame) -> dict:
         "concept_rows": concept_rows,
         "has_industry_data": industry_rows > 0,
         "has_concept_data": concept_rows > 0,
+        "source": str(ticks_df["source"].dropna().iloc[-1]) if "source" in ticks_df.columns and not ticks_df["source"].dropna().empty else None,
+        "data_mode": str(ticks_df["data_mode"].dropna().iloc[-1]) if "data_mode" in ticks_df.columns and not ticks_df["data_mode"].dropna().empty else None,
+        "provider": str(ticks_df["provider"].dropna().iloc[-1]) if "provider" in ticks_df.columns and not ticks_df["provider"].dropna().empty else None,
+        "fetched_at": str(ticks_df["fetched_at"].dropna().iloc[-1]) if "fetched_at" in ticks_df.columns and not ticks_df["fetched_at"].dropna().empty else None,
+    }
+
+
+def build_real_cache_summary(data_dir: str = "data/ticks") -> dict:
+    catalog = build_snapshot_catalog(data_dir)
+    if catalog.empty:
+        return {
+            "real_cache_available": False,
+            "file_count": 0,
+            "date_count": 0,
+            "row_count": 0,
+            "latest_snapshot_date": None,
+            "latest_captured_time": None,
+            "latest_source": None,
+            "latest_data_mode": None,
+            "latest_provider": None,
+            "latest_fetched_at": None,
+            "quality_label": "暂无真实缓存",
+            "quality_reason": "本地 data/ticks 中没有可用真实快照 CSV。",
+        }
+    readable = catalog[catalog["is_readable"].fillna(False)].copy()
+    if readable.empty:
+        return {
+            "real_cache_available": False,
+            "file_count": int(len(catalog)),
+            "date_count": 0,
+            "row_count": 0,
+            "latest_snapshot_date": None,
+            "latest_captured_time": None,
+            "latest_source": None,
+            "latest_data_mode": None,
+            "latest_provider": None,
+            "latest_fetched_at": None,
+            "quality_label": "真实缓存不可读",
+            "quality_reason": "发现真实缓存文件，但当前均不可读或结构异常。",
+        }
+    latest = readable.iloc[0]
+    return {
+        "real_cache_available": True,
+        "file_count": int(len(catalog)),
+        "date_count": int(readable["snapshot_date"].nunique()),
+        "row_count": int(readable["row_count"].sum()),
+        "latest_snapshot_date": latest.get("snapshot_date"),
+        "latest_captured_time": latest.get("latest_captured_time"),
+        "latest_source": latest.get("latest_source"),
+        "latest_data_mode": latest.get("latest_data_mode"),
+        "latest_provider": latest.get("latest_provider"),
+        "latest_fetched_at": latest.get("latest_fetched_at"),
+        "quality_label": latest.get("quality_label"),
+        "quality_reason": latest.get("quality_reason"),
     }
 
 

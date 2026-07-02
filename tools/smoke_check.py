@@ -122,6 +122,7 @@ REQUIRED_FILES = (
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
+    "tools/collect_real_snapshot.py",
     "tools/export_sample_brief.py",
     "tools/release_check.py",
     "tools/cloud_preflight.py",
@@ -139,6 +140,7 @@ REQUIRED_FILES = (
     "docs/RELEASE_CHECKLIST.md",
     "docs/ARCHITECTURE.md",
     "docs/DATA_FLOW.md",
+    "docs/REAL_DATA_INGESTION.md",
     "docs/OPERATIONS.md",
     "README.md",
 )

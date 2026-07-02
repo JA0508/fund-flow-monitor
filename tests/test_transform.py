@@ -41,6 +41,10 @@ def test_normalize_chinese_fields_and_billion_conversion():
     assert df.loc[0, "main_net_inflow_billion"] == 2.5
     assert df.loc[0, "captured_time"] == "10:47:00"
     assert df.loc[0, "trade_date"] == "2026-05-29"
+    assert df.loc[0, "data_mode"] == "REAL"
+    assert df.loc[0, "provider"] == "AKShare / Eastmoney"
+    assert df.loc[0, "api_name"] == "stock_sector_fund_flow_rank"
+    assert "2026-05-29T10:47:00" in df.loc[0, "fetched_at"]
 
 
 def test_missing_fields_do_not_crash():
@@ -61,4 +65,3 @@ def test_missing_name_or_amount_is_dropped():
     )
     df = normalize_sector_flow(raw, "行业资金流", datetime(2026, 5, 29, 10, 0))
     assert df["sector_name"].tolist() == ["保留"]
-

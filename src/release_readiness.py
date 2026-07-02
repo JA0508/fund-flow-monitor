@@ -16,6 +16,7 @@ PUBLIC_FILES = (
     "PROJECT_BRIEF.md",
     "docs/ARCHITECTURE.md",
     "docs/DATA_FLOW.md",
+    "docs/REAL_DATA_INGESTION.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/screenshots/SCREENSHOT_GUIDE.md",
     "docs/PUBLIC_REPO_SETTINGS.md",
@@ -49,6 +50,7 @@ REQUIRED_PUBLIC_ASSETS = (
     "docs/RELEASE_CHECKLIST.md",
     "docs/ARCHITECTURE.md",
     "docs/DATA_FLOW.md",
+    "docs/REAL_DATA_INGESTION.md",
     "docs/PUBLIC_REPO_SETTINGS.md",
     "docs/PUBLIC_RELEASE_AUDIT.md",
     "docs/PORTFOLIO_PRESENTATION.md",
@@ -57,6 +59,7 @@ REQUIRED_PUBLIC_ASSETS = (
     "docs/OPERATIONS.md",
     "src/data_contracts.py",
     "tools/quality_gate.py",
+    "tools/collect_real_snapshot.py",
     "LICENSE",
 )
 

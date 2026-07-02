@@ -45,7 +45,7 @@ Key modules:
 - `src/transform.py`: raw AKShare/Eastmoney-style rows to the standard snapshot DataFrame.
 - `src/data_contracts.py`: lightweight structural checks for snapshot and SAMPLE data.
 
-The live path is optional. If AKShare or a live fetch is unavailable, the app can still run with CACHE, HISTORY, SAMPLE, DEMO, or EMPTY states. The public Streamlit Cloud path should not depend on live fetch success.
+The live path is optional but first-class for local real-data work. Current sector fund-flow collection uses AKShare's `stock_sector_fund_flow_rank` through `src/data_source.py`, then normalizes rows with provenance fields such as provider, API name, fetched timestamp and `data_mode=REAL`. If AKShare or a live fetch is unavailable, the app can still run with CACHE, HISTORY, SAMPLE, DEMO, or EMPTY states. The public Streamlit Cloud path should not depend on live fetch success.
 
 ## Runtime Profile Layer
 
@@ -70,8 +70,9 @@ Key modules:
 - `src/snapshot_catalog.py`
 - `src/snapshot_quality.py`
 - `tools/collect_market_snapshot.py`
+- `tools/collect_real_snapshot.py`
 
-Real local cache lives under `data/ticks/*.csv` and is intentionally ignored by git. `tools/collect_market_snapshot.py` is the manual local collection path. The Streamlit UI does not silently create real market CSV files for public visitors.
+Real local cache lives under `data/ticks/*.csv` and is intentionally ignored by git. `tools/collect_real_snapshot.py` is the clearer manual local collection entry point and delegates to the existing one-shot collector. The Streamlit UI does not silently create real market CSV files for public visitors.
 
 ## Sample Data Layer
 

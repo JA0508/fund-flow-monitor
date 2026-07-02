@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v3.2
+
+- Real data ingestion and cache quality hardening.
+- `src/transform.py` enriches normalized AKShare snapshots with practical provenance fields such as `data_mode=REAL`, provider, API name, fetched timestamp and rank value when available.
+- `src/data_contracts.py` adds a real snapshot contract that is separate from SAMPLE checks, preventing SAMPLE/DEMO markers from leaking into real cache while keeping recommended fields as warnings.
+- `tools/collect_market_snapshot.py` reports real snapshot contract status, provider, API name, trade date and data mode; `tools/collect_real_snapshot.py` provides a clearer local real-data collection entry point.
+- `src/snapshot_catalog.py` exposes real cache provenance and freshness summary for tools and the Streamlit data explanation tab.
+- 新增 `docs/REAL_DATA_INGESTION.md`，说明如何本地采集 AKShare 真实快照、缓存位置、校验方式、SAMPLE 区别和故障排查。
+- 保持 SAMPLE 公开 fallback、CSV-first、本地真实缓存忽略规则和无投资建议边界不变。
+
 ## v3.1
 
 - CI and operational quality hardening.

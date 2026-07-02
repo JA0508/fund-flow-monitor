@@ -21,6 +21,17 @@ Live demo: [https://fund-flow-monitor-ja0508.streamlit.app/](https://fund-flow-m
 
 公开展示边界始终保持不变：SAMPLE / DEMO 不代表真实行情；项目不接真实账户，不读取真实个人持仓，不提供交易功能，不预测未来走势。
 
+## Local Real Data Path
+
+公开 demo 默认使用 SAMPLE 合成演示数据，但项目的长期主线仍是本地真实 A 股行业/概念资金流观察。你可以在本地通过 AKShare 手动采集真实快照，写入被 Git 忽略的 `data/ticks/*.csv`，再用 CACHE / HISTORY / 多日趋势 / 数据说明面板查看缓存质量和新鲜度。
+
+```bash
+python tools/collect_real_snapshot.py --dry-run
+python tools/collect_real_snapshot.py
+```
+
+真实采集路径会通过项目统一的 AKShare fetch、normalize、data contract 和 storage 层处理；公开 SAMPLE fallback 不会写入 `data/ticks`。详细说明见 [`docs/REAL_DATA_INGESTION.md`](docs/REAL_DATA_INGESTION.md)。
+
 ## What to Look at in the Demo
 
 - **第一眼先看状态**：顶部和侧边栏会标明当前是 `SAMPLE`、`CACHE`、`HISTORY` 还是其他状态；公开演示通常默认 `SAMPLE`。
