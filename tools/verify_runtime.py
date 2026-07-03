@@ -559,6 +559,10 @@ def _verify_snapshot_quality() -> None:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         collect_import_ok = hasattr(module, "build_parser") and hasattr(module, "collect_once")
+        if collect_import_ok:
+            parser = module.build_parser()
+            collector_args = parser.parse_args(["--no-network", "--no-log"])
+            collect_import_ok = bool(getattr(collector_args, "no_network", False) and getattr(collector_args, "no_log", False))
     collect_real_script = PROJECT_ROOT / "tools/collect_real_snapshot.py"
     real_spec = importlib.util.spec_from_file_location("collect_real_snapshot", collect_real_script)
     collect_real_import_ok = real_spec is not None and real_spec.loader is not None
@@ -578,6 +582,7 @@ def _verify_snapshot_quality() -> None:
     print(f"  snapshot_quality_forbidden_hits: {forbidden_hits}")
     print(f"  collect_market_snapshot.py import: {collect_import_ok}")
     print(f"  collect_real_snapshot.py import: {collect_real_import_ok}")
+    print("  collector audit flags: --no-network / --no-log 可解析")
     print("  verify_runtime 不执行真实采集；如需手动检查可运行 python tools/collect_real_snapshot.py --dry-run。")
 
 

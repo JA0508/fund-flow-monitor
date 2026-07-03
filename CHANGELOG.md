@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v3.3
+
+- Real collector audit workflow.
+- `tools/collect_market_snapshot.py` / `tools/collect_real_snapshot.py` now classify one-shot collector runs as `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` or `write_error`.
+- Collector runs append a local JSONL audit record to `data/logs/collector_runs.jsonl` by default, with `--no-log` available for validation runs.
+- `.gitignore`, release readiness, cloud preflight and smoke checks now cover collector log directories so runtime logs stay local.
+- Tests cover mocked successful collection, dry-run safety, no-network behavior, empty/fetch/contract error classification, duplicate skip handling and audit log behavior.
+- Public SAMPLE fallback, CSV-first storage, real cache ignore rules and no-advice/no-prediction boundaries remain unchanged.
+
 ## v3.2
 
 - Real data ingestion and cache quality hardening.

@@ -122,6 +122,8 @@ Use the explicit local collector when you want a real AKShare sector fund-flow s
 
 The collector fetches one AKShare snapshot, normalizes it into the project schema, validates the real snapshot contract, and writes through the existing CSV cache layer. Output goes to `data/ticks/sector_flow_YYYY-MM-DD.csv`, which is ignored by Git. `--dry-run` is the safest first check because it exercises fetch/normalize/validate without writing a CSV.
 
+Collector run statuses include `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. By default, each run writes a local JSONL audit record to `data/logs/collector_runs.jsonl`. Use `--no-log` when you only want console output. `data/logs/` and `logs/` are ignored and should not be committed.
+
 If AKShare or the network is unavailable, the collector should fail with a readable error and must not generate fake real data. Unit tests use mocked DataFrames and do not require live network access.
 
 ## Data Contracts
@@ -144,6 +146,7 @@ Never commit:
 - `.venv/`
 - `.streamlit/secrets.toml`
 - real `data/ticks/*.csv`
+- local collector logs under `data/logs/` or `logs/`
 - `data/warehouse/*.sqlite`
 - `*.sqlite`, `*.sqlite3`, `*.db`
 - `.DS_Store`

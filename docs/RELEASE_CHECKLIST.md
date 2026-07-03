@@ -47,6 +47,8 @@ FUND_FLOW_PUBLIC_DEMO=1 streamlit run app.py
 ```bash
 git status --short
 git check-ignore -v data/ticks/*.csv
+git check-ignore -v data/logs/collector_runs.jsonl
+git check-ignore -v logs/collector_runs.jsonl
 git check-ignore -v data/warehouse/fund_flow.sqlite
 git check-ignore -v "*.sqlite"
 git check-ignore -v "*.db"
@@ -56,6 +58,7 @@ git check-ignore -v .streamlit/secrets.toml
 ```
 
 - Do not commit real `data/ticks/*.csv` snapshots.
+- Do not commit local collector logs under `data/logs/` or `logs/`.
 - Do not commit `data/warehouse/*.sqlite`, `*.sqlite3`, or `*.db`.
 - Do not commit `.env`, `.streamlit/secrets.toml`, `.venv/`, `__pycache__/`, or `.pytest_cache/`.
 - `sample_data/ticks/*.csv` and demo brief files are public portfolio assets and should remain trackable.
@@ -64,12 +67,17 @@ git check-ignore -v .streamlit/secrets.toml
 
 ```bash
 python tools/collect_real_snapshot.py --dry-run
+python tools/collect_real_snapshot.py --no-network
+python tools/collect_real_snapshot.py --dry-run --no-log
 python tools/probe_akshare.py
 ```
 
 - These checks may depend on live AKShare/network availability and should be interpreted separately from unit tests.
 - `--dry-run` should not write `data/ticks`.
+- `--no-network` should not access AKShare and should not write `data/ticks`.
+- `--no-log` should suppress `data/logs/collector_runs.jsonl` for that run.
 - A successful collector run without `--dry-run` may create ignored real CSV files under `data/ticks`; never stage those files.
+- Normal collector runs may create ignored audit logs under `data/logs/collector_runs.jsonl`; never stage those logs.
 - Any AKShare failure should be documented as a live data source/network limitation, not replaced with fake real data.
 
 ## 3. Demo Checks

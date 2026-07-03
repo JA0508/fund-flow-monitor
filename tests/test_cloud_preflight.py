@@ -43,6 +43,8 @@ def _create_minimal_public_demo_project(root: Path) -> None:
     (root / "src/data_contracts.py").write_text("# placeholder\n")
     (root / ".gitignore").write_text(
         "data/ticks/*.csv\n"
+        "data/logs/\n"
+        "logs/\n"
         "data/warehouse/\n"
         "*.sqlite\n"
         "*.sqlite3\n"

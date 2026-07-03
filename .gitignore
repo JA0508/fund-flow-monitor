@@ -37,6 +37,8 @@ htmlcov/
 *.log
 cache/
 data/cache/
+data/logs/
+logs/
 
 # =========================
 # Runtime market data

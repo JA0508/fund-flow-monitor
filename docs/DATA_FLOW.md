@@ -117,6 +117,8 @@ python tools/collect_real_snapshot.py
 
 It calls the same underlying collector as `tools/collect_market_snapshot.py`: fetch AKShare sector fund-flow data, normalize Chinese columns into the internal schema, validate the real snapshot contract, and append safely to `data/ticks/sector_flow_YYYY-MM-DD.csv`. `--dry-run` validates and summarizes without writing.
 
+Collector runs are classified with explicit statuses such as `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. By default, the command appends a local JSONL audit entry to `data/logs/collector_runs.jsonl`; these logs are ignored and are not part of the public dataset.
+
 When real cache exists, local users can inspect:
 
 - latest intraday curve

@@ -83,6 +83,7 @@ def test_check_gitignore_safety_detects_missing_sqlite_ignore(tmp_path: Path):
     (tmp_path / ".gitignore").write_text("data/ticks/*.csv\n", encoding="utf-8")
     result = check_gitignore_safety(tmp_path)
     assert "*.sqlite" in result["required_patterns_missing"]
+    assert "data/logs/" in result["required_patterns_missing"]
     assert result["error_count"] > 0
 
 

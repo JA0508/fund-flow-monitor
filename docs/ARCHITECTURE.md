@@ -74,6 +74,8 @@ Key modules:
 
 Real local cache lives under `data/ticks/*.csv` and is intentionally ignored by git. `tools/collect_real_snapshot.py` is the clearer manual local collection entry point and delegates to the existing one-shot collector. The Streamlit UI does not silently create real market CSV files for public visitors.
 
+Collector run audit logs live under `data/logs/collector_runs.jsonl` by default. They record local run status and troubleshooting metadata for manual operations, and remain ignored runtime artifacts.
+
 ## Sample Data Layer
 
 Key modules and files:

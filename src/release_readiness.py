@@ -165,6 +165,8 @@ ALLOWED_INVESTMENT_CONTEXTS = (
 
 REQUIRED_GITIGNORE_PATTERNS = (
     "data/ticks/*.csv",
+    "data/logs/",
+    "logs/",
     "data/warehouse/",
     "*.sqlite",
     "*.sqlite3",
@@ -185,6 +187,8 @@ TRACKED_FORBIDDEN_PATTERNS = (
     re.compile(r"^env/"),
     re.compile(r"^\.streamlit/secrets\.toml$"),
     re.compile(r"^data/ticks/.+\.csv$"),
+    re.compile(r"^data/logs/"),
+    re.compile(r"^logs/"),
     re.compile(r"^data/warehouse/"),
     re.compile(r".*\.(sqlite|sqlite3|db)$"),
 )

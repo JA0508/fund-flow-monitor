@@ -327,6 +327,7 @@ def check_warehouse_status(project_root: Path = PROJECT_ROOT) -> dict:
         "sample_rebuild_temp_label": rebuild.get("rebuild_label"),
         "sample_inserted_rows": int(rebuild.get("inserted_rows", 0) or 0),
         "warehouse_gitignore_ok": _git_check_ignore("data/warehouse/fund_flow.sqlite", project_root),
+        "collector_log_gitignore_ok": _git_check_ignore("data/logs/collector_runs.jsonl", project_root),
         "warehouse_text_forbidden_hits": forbidden_hits,
         "warehouse_explorer_forbidden_hits": explorer_forbidden_hits,
     }
@@ -524,6 +525,7 @@ def main() -> int:
     print(f"warehouse sample rebuild temp label: {warehouse['sample_rebuild_temp_label']}")
     print(f"warehouse sample inserted rows: {warehouse['sample_inserted_rows']}")
     print(f"warehouse gitignore ok: {warehouse['warehouse_gitignore_ok']}")
+    print(f"collector log gitignore ok: {warehouse['collector_log_gitignore_ok']}")
     print(f"warehouse text forbidden hits: {warehouse['warehouse_text_forbidden_hits']}")
     print(f"warehouse explorer forbidden hits: {warehouse['warehouse_explorer_forbidden_hits']}")
     print(f"theme history module imported: {warehouse['theme_history_module_imported']}")
@@ -590,6 +592,7 @@ def main() -> int:
         and warehouse["explorer_summary_available"]
         and warehouse["sample_inserted_rows"] > 0
         and warehouse["warehouse_gitignore_ok"]
+        and warehouse["collector_log_gitignore_ok"]
         and not warehouse["warehouse_text_forbidden_hits"]
         and not warehouse["warehouse_explorer_forbidden_hits"]
         and warehouse["theme_history_module_imported"]

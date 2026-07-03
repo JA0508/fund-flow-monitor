@@ -10,6 +10,36 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.3 Real Collector Audit Workflow Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/collect_real_snapshot.py --no-network
+python tools/collect_real_snapshot.py --dry-run --no-log
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.3`.
+- `CHANGELOG.md` contains a `v3.3` entry.
+- `collect_real_snapshot.py --no-network` must not call AKShare and must not write `data/ticks`.
+- `collect_real_snapshot.py --dry-run` may call AKShare but must not write `data/ticks`.
+- Collector output includes `status`, row count, trade date, captured time, provider/API, contract label, log status and error category where applicable.
+- Collector statuses include success, dry-run, no-network, fetch error, empty fetch, contract error, duplicate skip and write error cases.
+- By default, collector runs append JSONL audit records under `data/logs/collector_runs.jsonl`; `--no-log` disables this.
+- `data/logs/` and `logs/` are ignored by Git.
+- Tests use mocked fetches and do not require live AKShare.
+- No real `data/ticks/*.csv`, collector logs, SQLite, secrets, virtualenv, `.DS_Store` or cache files are staged or tracked.
+
 ## v3.2 Real Data Ingestion and Cache Quality Checks
 
 Run:

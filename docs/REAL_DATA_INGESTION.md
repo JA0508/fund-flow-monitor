@@ -24,6 +24,8 @@ Dry run first:
 .venv/bin/python tools/collect_real_snapshot.py --dry-run
 ```
 
+`--dry-run` may still call AKShare, but it does not write `data/ticks`.
+
 Write one real snapshot into the ignored local cache:
 
 ```bash
@@ -43,6 +45,56 @@ data/ticks/sector_flow_YYYY-MM-DD.csv
 ```
 
 `data/ticks/*.csv` is ignored by Git and must not be committed.
+
+## Collector Modes and Audit Log
+
+The collector is a one-shot local command. It does not run inside Streamlit and it does not create a scheduler.
+
+Common modes:
+
+```bash
+.venv/bin/python tools/collect_real_snapshot.py --no-network
+.venv/bin/python tools/collect_real_snapshot.py --dry-run --no-log
+.venv/bin/python tools/collect_real_snapshot.py --output-dir data/ticks
+```
+
+- `--no-network`: skips AKShare entirely, validates CLI/import behavior, and never writes `data/ticks`.
+- `--dry-run`: fetches and validates when AKShare is available, but does not write `data/ticks`.
+- `--no-log`: disables the collector audit log for the current run.
+- `--output-dir`: changes the real CSV cache directory; the default remains `data/ticks`.
+
+By default, each collector run writes one JSON object to:
+
+```text
+data/logs/collector_runs.jsonl
+```
+
+The audit log records:
+
+- timestamp
+- status
+- row count
+- written row count
+- captured time
+- trade date
+- source / provider / API name
+- output path
+- contract and quality labels
+- error category, when applicable
+- short message
+
+Possible collector statuses include:
+
+- `success`
+- `dry_run`
+- `no_network`
+- `fetch_error`
+- `empty_fetch`
+- `contract_error`
+- `duplicate_skipped`
+- `write_error`
+
+`data/logs/` and `logs/` are ignored by Git. Audit logs are local runtime artifacts and should not be committed.
 
 ## Normalized Real Snapshot Schema
 
