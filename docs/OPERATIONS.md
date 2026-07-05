@@ -122,7 +122,16 @@ Use the explicit local collector when you want a real AKShare sector fund-flow s
 
 The collector fetches one AKShare snapshot, normalizes it into the project schema, validates the real snapshot contract, and writes through the existing CSV cache layer. Output goes to `data/ticks/sector_flow_YYYY-MM-DD.csv`, which is ignored by Git. `--dry-run` is the safest first check because it exercises fetch/normalize/validate without writing a CSV.
 
-Collector run statuses include `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. By default, each run writes a local JSONL audit record to `data/logs/collector_runs.jsonl`. Use `--no-log` when you only want console output. `data/logs/` and `logs/` are ignored and should not be committed.
+For provider-boundary diagnosis without writing cache files:
+
+```bash
+.venv/bin/python tools/probe_akshare.py
+.venv/bin/python tools/probe_akshare.py --json
+```
+
+The probe reports AKShare version, API name, response type, row count, returned columns, schema fingerprint, normalization status and contract status. It does not write `data/ticks`.
+
+Collector run statuses include `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. Provider-level categories include `network_error`, `timeout_error`, `provider_parse_error`, `empty_response`, `schema_drift`, `normalization_error` and `contract_error`. By default, each run writes a local JSONL audit record to `data/logs/collector_runs.jsonl`. Use `--no-log` when you only want console output. `data/logs/` and `logs/` are ignored and should not be committed.
 
 If AKShare or the network is unavailable, the collector should fail with a readable error and must not generate fake real data. Unit tests use mocked DataFrames and do not require live network access.
 

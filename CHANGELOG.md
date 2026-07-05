@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v3.5
+
+- AKShare live adapter resilience and schema-drift diagnostics.
+- Added `src/providers/akshare_sector_flow.py` as the explicit AKShare/Eastmoney provider boundary for fetch diagnostics, controlled schema mapping, schema fingerprinting and normalization.
+- `tools/probe_akshare.py` now reports AKShare version, provider API name, response type, row count, returned columns, schema fingerprint, normalization status and contract result without writing real cache files.
+- Collector runs now preserve provider-level error categories such as `network_error`, `timeout_error`, `provider_parse_error`, `empty_response`, `schema_drift`, `normalization_error` and `contract_error` in results and audit logs.
+- Added bounded retry support for transport/network/timeout failures only; schema drift, normalization and contract failures are not retried.
+- Smoke/runtime/cloud/release checks now verify the provider adapter and probe assets without making CI depend on live AKShare.
+- Tests cover known schemas, schema drift, ambiguous mappings, provider parse classification, retry behavior, probe JSON output and collector status mapping.
+
 ## v3.4
 
 - Real cache catalog and freshness evidence.

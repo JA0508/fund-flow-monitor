@@ -35,8 +35,10 @@ REQUIRED_ASSETS = (
     "tools/release_check.py",
     "tools/quality_gate.py",
     "tools/collect_real_snapshot.py",
+    "tools/probe_akshare.py",
     "src/runtime_profile.py",
     "src/data_contracts.py",
+    "src/providers/akshare_sector_flow.py",
 )
 
 

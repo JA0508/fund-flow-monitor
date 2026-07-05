@@ -51,6 +51,12 @@ from src.presentation import (  # noqa: E402
     get_display_mode_options,
     validate_presentation_text,
 )
+from src.providers.akshare_sector_flow import (  # noqa: E402
+    API_NAME as AKSHARE_SECTOR_API_NAME,
+    FIELD_ALIASES,
+    build_schema_fingerprint,
+    validate_provider_text,
+)
 from src.release_readiness import (  # noqa: E402
     build_release_readiness_report,
     render_release_readiness_markdown,
@@ -124,6 +130,7 @@ REQUIRED_FILES = (
     "src/release_readiness.py",
     "src/runtime_profile.py",
     "src/data_contracts.py",
+    "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
     "tools/collect_market_snapshot.py",
@@ -132,6 +139,7 @@ REQUIRED_FILES = (
     "tools/release_check.py",
     "tools/cloud_preflight.py",
     "tools/quality_gate.py",
+    "tools/probe_akshare.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -403,6 +411,15 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_data_contract_row_count": int(sample_data_contract.get("row_count", 0) or 0),
             "data_contract_forbidden_hits": validate_data_contract_text(sample_data_contract_summary),
         },
+        "provider_adapter": {
+            "provider_adapter_imported": True,
+            "provider_probe_exists": (project_root / "tools/probe_akshare.py").exists(),
+            "provider_api_name": AKSHARE_SECTOR_API_NAME,
+            "provider_mapping_target_count": len(FIELD_ALIASES),
+            "provider_schema_fingerprint": build_schema_fingerprint(["名称", "今日主力净流入-净额"]),
+            "provider_diagnostics_gitignore_ok": _git_check_ignore("data/logs/provider_diagnostics.jsonl", project_root),
+            "provider_text_forbidden_hits": validate_provider_text("AKShare provider schema diagnostics describe historical ingestion status only."),
+        },
         "sample_profile_csv": {
             "row_count": int(sample_profile_validation.get("row_count", 0)),
             "profile_count": int(sample_profile_validation.get("profile_count", 0)),
@@ -515,6 +532,14 @@ def main() -> int:
     print(f"SAMPLE data contract label: {data_contracts['sample_data_contract_label']}")
     print(f"SAMPLE data contract files/rows: {data_contracts['sample_data_contract_file_count']} / {data_contracts['sample_data_contract_row_count']}")
     print(f"data contract forbidden hits: {data_contracts['data_contract_forbidden_hits']}")
+    provider_adapter = report["provider_adapter"]
+    print(f"provider adapter imported: {provider_adapter['provider_adapter_imported']}")
+    print(f"provider probe exists: {provider_adapter['provider_probe_exists']}")
+    print(f"provider api name: {provider_adapter['provider_api_name']}")
+    print(f"provider mapping target count: {provider_adapter['provider_mapping_target_count']}")
+    print(f"provider schema fingerprint sample: {provider_adapter['provider_schema_fingerprint']}")
+    print(f"provider diagnostics gitignore ok: {provider_adapter['provider_diagnostics_gitignore_ok']}")
+    print(f"provider text forbidden hits: {provider_adapter['provider_text_forbidden_hits']}")
     sample_profile = report["sample_profile_csv"]
     print(f"SAMPLE fund profile CSV 行数: {sample_profile['row_count']}")
     print(f"SAMPLE fund profile 数量: {sample_profile['profile_count']}")
@@ -609,6 +634,13 @@ def main() -> int:
         and report["data_contracts"]["sample_data_contract_ok"]
         and report["data_contracts"]["sample_data_contract_file_count"] >= 2
         and not report["data_contracts"]["data_contract_forbidden_hits"]
+        and report["provider_adapter"]["provider_adapter_imported"]
+        and report["provider_adapter"]["provider_probe_exists"]
+        and report["provider_adapter"]["provider_api_name"] == "stock_sector_fund_flow_rank"
+        and report["provider_adapter"]["provider_mapping_target_count"] >= 2
+        and report["provider_adapter"]["provider_schema_fingerprint"]
+        and report["provider_adapter"]["provider_diagnostics_gitignore_ok"]
+        and not report["provider_adapter"]["provider_text_forbidden_hits"]
         and sample_profile["profile_count"] >= 5
         and sample_profile["error_count"] == 0
         and snapshot_quality["sample_file_count"] >= 1

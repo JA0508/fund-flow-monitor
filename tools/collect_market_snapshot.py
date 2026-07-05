@@ -11,11 +11,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import DEFAULT_SECTOR_TYPE  # noqa: E402
-from src.data_source import fetch_sector_flow  # noqa: E402
 from src.data_contracts import validate_real_snapshot_dataframe  # noqa: E402
+from src.providers.akshare_sector_flow import ProviderBoundaryError, fetch_and_normalize_sector_flow  # noqa: E402
 from src.snapshot_quality import audit_snapshot_dataframe  # noqa: E402
 from src.storage import append_snapshot_safely, get_snapshot_output_path  # noqa: E402
-from src.transform import normalize_sector_flow  # noqa: E402
 from src.utils import get_china_now  # noqa: E402
 
 DEFAULT_AUDIT_LOG_PATH = "data/logs/collector_runs.jsonl"
@@ -33,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-log", action="store_true", help="不写入采集审计日志。")
     parser.add_argument("--log-path", default=DEFAULT_AUDIT_LOG_PATH, help="采集审计 JSONL 路径，默认 data/logs/collector_runs.jsonl。")
     parser.add_argument("--sector-type", default=DEFAULT_SECTOR_TYPE, help="板块类型，默认行业资金流。")
+    parser.add_argument("--fetch-attempts", type=int, default=1, help="AKShare 网络/超时错误最多尝试次数，默认 1，最大 3。")
     return parser
 
 
@@ -58,6 +58,13 @@ def _detect_existing_duplicate(snapshot: pd.DataFrame, output_file: str) -> bool
 
 
 def _classify_fetch_exception(exc: Exception) -> tuple[str, str]:
+    if isinstance(exc, ProviderBoundaryError):
+        category = exc.category
+        if category == "empty_response":
+            return "empty_fetch", category
+        if category in {"schema_drift", "normalization_error"}:
+            return "fetch_error", category
+        return "fetch_error", category
     message = str(exc)
     if "空数据" in message or "empty" in message.lower():
         return "empty_fetch", "empty_fetch"
@@ -117,14 +124,28 @@ def collect_once(args: argparse.Namespace) -> dict:
 
     now = get_china_now()
     try:
-        raw_df = fetch_sector_flow(sector_type=args.sector_type, indicator="今日")
-        snapshot = normalize_sector_flow(raw_df, sector_type=args.sector_type, captured_at=now)
+        provider_result = fetch_and_normalize_sector_flow(
+            sector_type=args.sector_type,
+            indicator="今日",
+            captured_at=now,
+            attempts=getattr(args, "fetch_attempts", 1),
+        )
+        snapshot = provider_result.normalized_df if provider_result.normalized_df is not None else pd.DataFrame()
+        provider_diagnostic = provider_result.diagnostic
     except Exception as exc:
         status, error_category = _classify_fetch_exception(exc)
+        diagnostic = getattr(exc, "diagnostic", {}) if isinstance(exc, ProviderBoundaryError) else {}
         return _finalize_result({
             "status": status,
             "error_category": error_category,
             "fetch_status": "error",
+            "provider_diagnostic": diagnostic,
+            "schema_fingerprint": diagnostic.get("schema_fingerprint"),
+            "provider_response_type": diagnostic.get("response_type"),
+            "provider_row_count": diagnostic.get("row_count"),
+            "provider_columns": diagnostic.get("column_names", []),
+            "normalization_status": diagnostic.get("normalization_status"),
+            "retry_count": int(diagnostic.get("retry_count", 0) or 0),
             "row_count": 0,
             "trade_date": None,
             "captured_time": None,
@@ -141,6 +162,7 @@ def collect_once(args: argparse.Namespace) -> dict:
             "warnings": [],
             "errors": [str(exc)],
         })
+    provider_diagnostic = provider_diagnostic or {}
 
     data_date = snapshot["trade_date"].iloc[0] if not snapshot.empty and "trade_date" in snapshot.columns else now.strftime("%Y-%m-%d")
     captured_time = snapshot["captured_time"].iloc[0] if not snapshot.empty and "captured_time" in snapshot.columns else None
@@ -156,6 +178,13 @@ def collect_once(args: argparse.Namespace) -> dict:
             "status": "empty_fetch",
             "error_category": "empty_fetch",
             "fetch_status": "success",
+            "provider_diagnostic": provider_diagnostic,
+            "schema_fingerprint": provider_diagnostic.get("schema_fingerprint"),
+            "provider_response_type": provider_diagnostic.get("response_type"),
+            "provider_row_count": provider_diagnostic.get("row_count"),
+            "provider_columns": provider_diagnostic.get("column_names", []),
+            "normalization_status": provider_diagnostic.get("normalization_status"),
+            "retry_count": int(provider_diagnostic.get("retry_count", 0) or 0),
             "row_count": 0,
             "trade_date": data_date,
             "captured_time": captured_time,
@@ -179,6 +208,13 @@ def collect_once(args: argparse.Namespace) -> dict:
             "status": "contract_error",
             "error_category": "contract_error",
             "fetch_status": "success",
+            "provider_diagnostic": provider_diagnostic,
+            "schema_fingerprint": provider_diagnostic.get("schema_fingerprint"),
+            "provider_response_type": provider_diagnostic.get("response_type"),
+            "provider_row_count": provider_diagnostic.get("row_count"),
+            "provider_columns": provider_diagnostic.get("column_names", []),
+            "normalization_status": provider_diagnostic.get("normalization_status"),
+            "retry_count": int(provider_diagnostic.get("retry_count", 0) or 0),
             "row_count": int(len(snapshot)),
             "trade_date": data_date,
             "captured_time": captured_time,
@@ -231,6 +267,13 @@ def collect_once(args: argparse.Namespace) -> dict:
         "status": status,
         "error_category": error_category,
         "fetch_status": "success",
+        "provider_diagnostic": provider_diagnostic,
+        "schema_fingerprint": provider_diagnostic.get("schema_fingerprint"),
+        "provider_response_type": provider_diagnostic.get("response_type"),
+        "provider_row_count": provider_diagnostic.get("row_count"),
+        "provider_columns": provider_diagnostic.get("column_names", []),
+        "normalization_status": provider_diagnostic.get("normalization_status"),
+        "retry_count": int(provider_diagnostic.get("retry_count", 0) or 0),
         "row_count": int(len(snapshot)),
         "trade_date": data_date,
         "captured_time": captured_time,
@@ -266,6 +309,11 @@ def build_audit_log_entry(result: dict) -> dict:
         "contract_label": result.get("contract_label"),
         "quality_label": result.get("quality_label"),
         "error_category": result.get("error_category"),
+        "schema_fingerprint": result.get("schema_fingerprint"),
+        "provider_response_type": result.get("provider_response_type"),
+        "provider_row_count": result.get("provider_row_count"),
+        "normalization_status": result.get("normalization_status"),
+        "retry_count": int(result.get("retry_count", 0) or 0),
         "message": result.get("message"),
     }
 
@@ -334,6 +382,11 @@ def main(argv: list[str] | None = None) -> int:
         "log_status",
         "log_path",
         "error_category",
+        "schema_fingerprint",
+        "provider_response_type",
+        "provider_row_count",
+        "normalization_status",
+        "retry_count",
         "message",
     ):
         if key in result:

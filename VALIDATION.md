@@ -10,6 +10,51 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.5 AKShare Provider Boundary Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Optional live-data diagnostics:
+
+```bash
+python tools/probe_akshare.py
+python tools/probe_akshare.py --json
+python tools/collect_real_snapshot.py --no-network
+python tools/collect_real_snapshot.py --dry-run --no-log
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.5`.
+- `CHANGELOG.md` contains a `v3.5` entry.
+- `src/providers/akshare_sector_flow.py` exists and is importable.
+- `tools/probe_akshare.py` exists and does not write `data/ticks`.
+- The real sector-flow path uses `ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")`.
+- Known AKShare column variants are mapped through explicit aliases.
+- Unknown provider schemas fail as `schema_drift`.
+- Ambiguous provider column mappings fail clearly and do not silently choose a column.
+- Empty provider DataFrames are classified as `empty_response`.
+- Upstream JSON parse failures are classified as `provider_parse_error` where practical.
+- Project-owned normalization failures are classified as `normalization_error`.
+- Real snapshot contract failures remain separate as `contract_error`.
+- Schema fingerprints are deterministic and do not include full raw market rows.
+- Retry is bounded and only applies to network/timeout failures.
+- Unit tests mock provider responses and do not require live AKShare.
+- `quality_gate.py`, `smoke_check.py`, `verify_runtime.py`, `release_check.py`, and `cloud_preflight.py` must not call live AKShare.
+- `data/ticks/*.csv`, `data/logs/`, provider diagnostics, SQLite files, secrets and virtual environments must remain ignored.
+- SAMPLE fallback remains available and is not treated as real market data.
+
 ## v3.4 Real Cache Catalog and Freshness Evidence Checks
 
 Run:

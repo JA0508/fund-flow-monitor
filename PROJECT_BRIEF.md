@@ -173,6 +173,8 @@ v2.9 进一步补齐公开发布最终审计：`docs/PUBLIC_RELEASE_AUDIT.md` �
 
 v3.0 / v3.1 作为作品集材料准备阶段，新增 portfolio presentation、interview talking points、resume snippets 和 assets 占位说明。这些文档帮助公开评审理解项目，但不改变 app 数据链路、不新增后端、不改变 SAMPLE / CSV-first / SQLite 可重建索引边界。
 
+v3.5 聚焦 AKShare live provider boundary 加固。项目新增轻量 AKShare adapter，用显式字段映射、schema fingerprint 和 provider diagnostics 区分网络/超时、上游解析、schema drift、项目规范化和数据契约失败。`tools/probe_akshare.py` 可在不写真实缓存的情况下输出安全诊断摘要。该能力增强真实数据工程可信度，但不新增行情接口、不预测未来走势、不提供投资建议，也不让 CI 依赖 live AKShare。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -188,7 +190,7 @@ v3.0 / v3.1 作为作品集材料准备阶段，新增 portfolio presentation、
 - 观察简报是规则化摘要，不调用大模型，不提供个性化投资结论。
 - SAMPLE 样例数据是合成数据，仅用于演示和测试页面能力。
 - 云端环境可能无法稳定访问免费数据源，公开演示时可使用 SAMPLE 模式。
-- 本地采集脚本是手动一次性工具，暂未提供调度、失败重试、节流队列、数据库治理或正式数据血缘追踪。
+- 本地采集脚本是手动一次性工具，只提供有限网络/超时重试；暂未提供调度、节流队列、数据库治理或正式数据血缘追踪。
 - CSV 快照质量检查是基础审计，不替代生产级数据质量系统。
 - SQLite warehouse 当前只作为可重建索引和基础查询层，核心页面仍走 CSV-first 数据流。
 

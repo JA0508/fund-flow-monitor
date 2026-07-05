@@ -71,9 +71,12 @@ python tools/collect_real_snapshot.py --dry-run
 python tools/collect_real_snapshot.py --no-network
 python tools/collect_real_snapshot.py --dry-run --no-log
 python tools/probe_akshare.py
+python tools/probe_akshare.py --json
 ```
 
 - These checks may depend on live AKShare/network availability and should be interpreted separately from unit tests.
+- Probe output should include AKShare version, `stock_sector_fund_flow_rank`, response type, row count, schema fingerprint, normalization status and contract status when available.
+- Provider failures should be classified as `network_error`, `timeout_error`, `provider_parse_error`, `empty_response`, `schema_drift`, `normalization_error` or `contract_error` rather than hidden behind generic wording.
 - `--dry-run` should not write `data/ticks`.
 - `--no-network` should not access AKShare and should not write `data/ticks`.
 - `--no-log` should suppress `data/logs/collector_runs.jsonl` for that run.

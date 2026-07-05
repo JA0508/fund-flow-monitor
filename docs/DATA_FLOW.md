@@ -115,9 +115,21 @@ The primary local collector entry point is:
 python tools/collect_real_snapshot.py
 ```
 
-It calls the same underlying collector as `tools/collect_market_snapshot.py`: fetch AKShare sector fund-flow data, normalize Chinese columns into the internal schema, validate the real snapshot contract, and append safely to `data/ticks/sector_flow_YYYY-MM-DD.csv`. `--dry-run` validates and summarizes without writing.
+It calls the same underlying collector as `tools/collect_market_snapshot.py`: fetch AKShare sector fund-flow data, diagnose the provider response, normalize Chinese columns into the internal schema, validate the real snapshot contract, and append safely to `data/ticks/sector_flow_YYYY-MM-DD.csv`. `--dry-run` validates and summarizes without writing.
 
-Collector runs are classified with explicit statuses such as `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. By default, the command appends a local JSONL audit entry to `data/logs/collector_runs.jsonl`; these logs are ignored and are not part of the public dataset.
+The live provider boundary is:
+
+```text
+ak.stock_sector_fund_flow_rank(...)
+-> response type / columns / dtype / schema fingerprint
+-> explicit AKShare column mapping
+-> normalized internal snapshot
+-> real data contract
+```
+
+Provider failures and data contract failures are separate. Network, timeout or upstream parse failures happen before a project-owned DataFrame exists. `schema_drift` means AKShare returned a DataFrame but its columns did not match any controlled mapping. `contract_error` means normalization succeeded but the internal snapshot failed project contract checks.
+
+Collector runs are classified with explicit statuses such as `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. Provider-level error categories include `network_error`, `timeout_error`, `provider_parse_error`, `empty_response`, `schema_drift`, `normalization_error` and `contract_error`. By default, the command appends a local JSONL audit entry to `data/logs/collector_runs.jsonl`; these logs are ignored and are not part of the public dataset.
 
 The read-only cache evidence path uses `src/snapshot_catalog.py` to answer:
 

@@ -115,6 +115,12 @@ from src.presentation import (  # noqa: E402
     get_display_mode_options,
     validate_presentation_text,
 )
+from src.providers.akshare_sector_flow import (  # noqa: E402
+    API_NAME as AKSHARE_SECTOR_API_NAME,
+    FIELD_ALIASES,
+    build_schema_fingerprint,
+    validate_provider_text,
+)
 from src.release_readiness import (  # noqa: E402
     build_release_readiness_report,
     check_gitignore_safety,
@@ -859,6 +865,22 @@ def _verify_runtime_profile() -> None:
     print("  runtime profile 检查不访问网络，不写默认 data/warehouse。")
 
 
+def _verify_provider_boundary() -> None:
+    probe_path = PROJECT_ROOT / "tools/probe_akshare.py"
+    fingerprint = build_schema_fingerprint(["名称", "今日主力净流入-净额"])
+    forbidden_hits = validate_provider_text(
+        "AKShare provider diagnostics classify fetch, schema, normalization, and contract status."
+    )
+    print("AKShare provider boundary 检查:")
+    print("  provider_adapter_imported: True")
+    print(f"  provider_api_name: {AKSHARE_SECTOR_API_NAME}")
+    print(f"  provider_mapping_target_count: {len(FIELD_ALIASES)}")
+    print(f"  provider_schema_fingerprint_sample: {fingerprint}")
+    print(f"  provider_probe_exists: {probe_path.exists()}")
+    print(f"  provider_boundary_forbidden_hits: {forbidden_hits}")
+    print("  provider boundary 检查不访问 AKShare，不写 data/ticks。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -958,6 +980,7 @@ def main() -> int:
     _verify_theme_taxonomy(latest, watchlist_themes, fund_exposure)
     _verify_fund_profile_csv(radar, taxonomy)
     _verify_snapshot_quality()
+    _verify_provider_boundary()
     _verify_local_warehouse()
     print("fund summary Top 3:")
     if fund_summary.empty:

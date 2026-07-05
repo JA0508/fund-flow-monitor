@@ -41,11 +41,12 @@ The architecture favors explicit data-state labels over hidden automation. Publi
 Key modules:
 
 - `src/data_source.py`: live data fetch orchestration.
+- `src/providers/akshare_sector_flow.py`: AKShare/Eastmoney provider adapter, schema fingerprinting, explicit column mapping and provider-boundary diagnostics.
 - `src/concept_flow.py`: concept-flow helper logic.
 - `src/transform.py`: raw AKShare/Eastmoney-style rows to the standard snapshot DataFrame.
 - `src/data_contracts.py`: lightweight structural checks for snapshot and SAMPLE data.
 
-The live path is optional but first-class for local real-data work. Current sector fund-flow collection uses AKShare's `stock_sector_fund_flow_rank` through `src/data_source.py`, then normalizes rows with provenance fields such as provider, API name, fetched timestamp and `data_mode=REAL`. If AKShare or a live fetch is unavailable, the app can still run with CACHE, HISTORY, SAMPLE, DEMO, or EMPTY states. The public Streamlit Cloud path should not depend on live fetch success.
+The live path is optional but first-class for local real-data work. Current sector fund-flow collection uses AKShare's `stock_sector_fund_flow_rank` through a provider adapter, then normalizes rows with provenance fields such as provider, API name, fetched timestamp and `data_mode=REAL`. The adapter keeps the upstream boundary explicit: it records safe response metadata, builds a deterministic schema fingerprint, maps only known column variants and reports unsupported schemas as schema drift. If AKShare or a live fetch is unavailable, the app can still run with CACHE, HISTORY, SAMPLE, DEMO, or EMPTY states. The public Streamlit Cloud path should not depend on live fetch success.
 
 ## Runtime Profile Layer
 

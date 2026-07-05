@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.providers.akshare_sector_flow import ProviderBoundaryError, ProviderFetchResult, build_provider_diagnostic
 from src.storage import append_snapshot_safely
 from tools import collect_market_snapshot
 
@@ -21,6 +22,8 @@ def _snapshot_df(captured_time: str = "10:00:00") -> pd.DataFrame:
             "sector_type": ["行业资金流", "行业资金流"],
             "sector_code": ["BK001", "BK002"],
             "sector_name": ["半导体", "银行"],
+            "change_pct": [1.2, -0.8],
+            "main_net_inflow_yuan": [1_000_000_000, -500_000_000],
             "main_net_inflow_billion": [10.0, -5.0],
             "source": ["AKShare / Eastmoney", "AKShare / Eastmoney"],
             "provider": ["AKShare / Eastmoney", "AKShare / Eastmoney"],
@@ -41,6 +44,7 @@ def _collector_args(**overrides) -> argparse.Namespace:
         "no_log": False,
         "log_path": "",
         "sector_type": "行业资金流",
+        "fetch_attempts": 1,
     }
     values.update(overrides)
     return argparse.Namespace(**values)
@@ -65,7 +69,7 @@ def test_collect_market_snapshot_can_be_imported():
 
 def test_parser_accepts_expected_flags():
     parser = collect_market_snapshot.build_parser()
-    args = parser.parse_args(["--dry-run", "--output-dir", "tmp", "--force", "--quiet", "--no-network", "--no-log", "--log-path", "tmp/log.jsonl"])
+    args = parser.parse_args(["--dry-run", "--output-dir", "tmp", "--force", "--quiet", "--no-network", "--no-log", "--log-path", "tmp/log.jsonl", "--fetch-attempts", "2"])
     assert args.dry_run is True
     assert args.output_dir == "tmp"
     assert args.force is True
@@ -73,6 +77,23 @@ def test_parser_accepts_expected_flags():
     assert args.no_network is True
     assert args.no_log is True
     assert args.log_path == "tmp/log.jsonl"
+    assert args.fetch_attempts == 2
+
+
+def _provider_result(raw: pd.DataFrame | None = None, normalized: pd.DataFrame | None = None) -> ProviderFetchResult:
+    raw_df = raw if raw is not None else _raw_sector_flow()
+    normalized_df = normalized if normalized is not None else _snapshot_df()
+    return ProviderFetchResult(
+        raw_df=raw_df,
+        normalized_df=normalized_df,
+        diagnostic=build_provider_diagnostic(
+            sector_type="行业资金流",
+            indicator="今日",
+            response=raw_df,
+            normalization_status="success",
+            message="mock provider result",
+        ),
+    )
 
 
 def test_no_network_mode_does_not_fetch_or_write(tmp_path):
@@ -85,10 +106,7 @@ def test_no_network_mode_does_not_fetch_or_write(tmp_path):
 
 
 def test_dry_run_mode_does_not_write_file(monkeypatch, tmp_path):
-    def fake_fetch_sector_flow(sector_type: str, indicator: str = "今日"):
-        return _raw_sector_flow()
-
-    monkeypatch.setattr(collect_market_snapshot, "fetch_sector_flow", fake_fetch_sector_flow)
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", lambda **kwargs: _provider_result())
     args = _collector_args(dry_run=True, output_dir=str(tmp_path))
     result = collect_market_snapshot.collect_once(args)
     assert result["status"] == "dry_run"
@@ -103,10 +121,7 @@ def test_dry_run_mode_does_not_write_file(monkeypatch, tmp_path):
 
 
 def test_successful_mocked_fetch_writes_csv_and_audit_log(monkeypatch, tmp_path):
-    def fake_fetch_sector_flow(sector_type: str, indicator: str = "今日"):
-        return _raw_sector_flow()
-
-    monkeypatch.setattr(collect_market_snapshot, "fetch_sector_flow", fake_fetch_sector_flow)
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", lambda **kwargs: _provider_result())
     log_path = tmp_path / "logs/collector_runs.jsonl"
     args = _collector_args(output_dir=str(tmp_path / "ticks"), log_path=str(log_path))
     result = collect_market_snapshot.run_collector(args)
@@ -121,7 +136,7 @@ def test_successful_mocked_fetch_writes_csv_and_audit_log(monkeypatch, tmp_path)
 
 
 def test_no_log_disables_audit_log(monkeypatch, tmp_path):
-    monkeypatch.setattr(collect_market_snapshot, "fetch_sector_flow", lambda sector_type, indicator="今日": _raw_sector_flow())
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", lambda **kwargs: _provider_result())
     log_path = tmp_path / "logs/collector_runs.jsonl"
     args = _collector_args(output_dir=str(tmp_path / "ticks"), log_path=str(log_path), no_log=True)
     result = collect_market_snapshot.run_collector(args)
@@ -131,30 +146,53 @@ def test_no_log_disables_audit_log(monkeypatch, tmp_path):
 
 
 def test_empty_fetch_classification(monkeypatch, tmp_path):
-    def fake_fetch_sector_flow(sector_type: str, indicator: str = "今日"):
-        raise RuntimeError("AKShare 返回空数据")
+    def fake_fetch(**kwargs):
+        diagnostic = build_provider_diagnostic(sector_type="行业资金流", indicator="今日", response=pd.DataFrame())
+        raise ProviderBoundaryError("AKShare 返回空 DataFrame。", "empty_response", diagnostic=diagnostic)
 
-    monkeypatch.setattr(collect_market_snapshot, "fetch_sector_flow", fake_fetch_sector_flow)
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", fake_fetch)
     args = _collector_args(output_dir=str(tmp_path))
     result = collect_market_snapshot.collect_once(args)
     assert result["status"] == "empty_fetch"
-    assert result["error_category"] == "empty_fetch"
+    assert result["error_category"] == "empty_response"
     assert result["write_status"] == "not_written"
 
 
 def test_fetch_error_classification(monkeypatch, tmp_path):
-    def fake_fetch_sector_flow(sector_type: str, indicator: str = "今日"):
-        raise RuntimeError("network unavailable")
+    def fake_fetch(**kwargs):
+        diagnostic = build_provider_diagnostic(sector_type="行业资金流", indicator="今日", error_category="network_error")
+        raise ProviderBoundaryError("network unavailable", "network_error", diagnostic=diagnostic)
 
-    monkeypatch.setattr(collect_market_snapshot, "fetch_sector_flow", fake_fetch_sector_flow)
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", fake_fetch)
     args = _collector_args(output_dir=str(tmp_path))
     result = collect_market_snapshot.collect_once(args)
     assert result["status"] == "fetch_error"
-    assert result["error_category"] == "fetch_error"
+    assert result["error_category"] == "network_error"
+
+
+def test_schema_drift_classification_is_not_generic_fetch(monkeypatch, tmp_path):
+    def fake_fetch(**kwargs):
+        raw = pd.DataFrame({"未知列": [1]})
+        diagnostic = build_provider_diagnostic(
+            sector_type="行业资金流",
+            indicator="今日",
+            response=raw,
+            normalization_status="schema_drift",
+            error_category="schema_drift",
+        )
+        raise ProviderBoundaryError("AKShare 返回 schema 缺少必要列映射。", "schema_drift", diagnostic=diagnostic)
+
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", fake_fetch)
+    args = _collector_args(output_dir=str(tmp_path))
+    result = collect_market_snapshot.collect_once(args)
+    assert result["status"] == "fetch_error"
+    assert result["error_category"] == "schema_drift"
+    assert result["normalization_status"] == "schema_drift"
+    assert result["provider_columns"] == ["未知列"]
 
 
 def test_contract_error_classification_blocks_write(monkeypatch, tmp_path):
-    monkeypatch.setattr(collect_market_snapshot, "fetch_sector_flow", lambda sector_type, indicator="今日": _raw_sector_flow())
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", lambda **kwargs: _provider_result())
     monkeypatch.setattr(
         collect_market_snapshot,
         "validate_real_snapshot_dataframe",
@@ -175,7 +213,7 @@ def test_contract_error_classification_blocks_write(monkeypatch, tmp_path):
 def test_duplicate_write_is_classified(monkeypatch, tmp_path):
     fixed_now = pd.Timestamp("2026-06-01 10:00:00", tz="Asia/Shanghai")
     monkeypatch.setattr(collect_market_snapshot, "get_china_now", lambda: fixed_now)
-    monkeypatch.setattr(collect_market_snapshot, "fetch_sector_flow", lambda sector_type, indicator="今日": _raw_sector_flow())
+    monkeypatch.setattr(collect_market_snapshot, "fetch_and_normalize_sector_flow", lambda **kwargs: _provider_result())
     args = _collector_args(output_dir=str(tmp_path))
     first = collect_market_snapshot.collect_once(args)
     second = collect_market_snapshot.collect_once(args)

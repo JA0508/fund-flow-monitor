@@ -16,6 +16,65 @@ The collector can also request other supported `sector_type` values, such as `�
 
 AKShare and Eastmoney are third-party/free data sources. Availability, column names, timing and network behavior may change. The app treats this path as a learning/prototype data source, not a production financial feed.
 
+## Provider Boundary Diagnostics
+
+v3.5 adds a lightweight AKShare provider adapter:
+
+```text
+AKShare provider call
+-> provider response diagnostic
+-> explicit schema mapping
+-> controlled normalization
+-> real snapshot contract
+-> local CSV cache / audit log
+```
+
+The adapter currently uses:
+
+```python
+ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")
+```
+
+It records safe schema metadata only:
+
+- provider and API name
+- response type
+- row count
+- returned column names
+- normalized column names
+- dtype summary
+- schema fingerprint
+- normalization status
+- contract status when available
+- concise failure category and message
+
+It does not store the full raw market response in provider diagnostics.
+
+Supported field mappings are explicit. Unknown columns are not guessed with fuzzy matching. If AKShare returns a schema that does not map to the required internal fields, the adapter reports `schema_drift` instead of silently choosing a column.
+
+Provider-level failure categories include:
+
+- `network_error`
+- `timeout_error`
+- `provider_error`
+- `provider_parse_error`
+- `empty_response`
+- `schema_drift`
+- `normalization_error`
+- `contract_error`
+
+Network and timeout errors may be retried with a small bounded retry count. Schema drift, normalization errors and contract errors are not retried because repeating the same call usually cannot fix a deterministic schema mismatch.
+
+Run the probe without writing cache files:
+
+```bash
+.venv/bin/python tools/probe_akshare.py
+.venv/bin/python tools/probe_akshare.py --json
+.venv/bin/python tools/probe_akshare.py --raw-columns
+```
+
+The probe is diagnostic only. It does not write `data/ticks`, `sample_data`, SQLite or warehouse files.
+
 ## Collect One Real Snapshot
 
 Dry run first:
@@ -118,6 +177,8 @@ Possible collector statuses include:
 - `contract_error`
 - `duplicate_skipped`
 - `write_error`
+
+Provider-level categories are preserved in `error_category` when available. For example, an upstream JSON parse failure inside AKShare is reported as `provider_parse_error`, while a returned DataFrame with unsupported columns is reported as `schema_drift`. A contract failure after successful normalization is reported separately as `contract_error`.
 
 `data/logs/` and `logs/` are ignored by Git. Audit logs are local runtime artifacts and should not be committed.
 
