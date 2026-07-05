@@ -119,6 +119,17 @@ It calls the same underlying collector as `tools/collect_market_snapshot.py`: fe
 
 Collector runs are classified with explicit statuses such as `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. By default, the command appends a local JSONL audit entry to `data/logs/collector_runs.jsonl`; these logs are ignored and are not part of the public dataset.
 
+The read-only cache evidence path uses `src/snapshot_catalog.py` to answer:
+
+- whether real local cache exists
+- how many snapshot CSV files and dates are available
+- which cache date/time is latest
+- whether any cache files are empty or malformed
+- whether the latest cache appears fresh, stale, missing, or unknown
+- what the latest collector run status was, if a local audit log exists
+
+This is data provenance and runtime observability, not a market signal. Missing real cache on Streamlit Cloud is expected because real `data/ticks` and `data/logs` are private local runtime artifacts.
+
 When real cache exists, local users can inspect:
 
 - latest intraday curve

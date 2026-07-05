@@ -62,7 +62,12 @@ from src.runtime_profile import (  # noqa: E402
     validate_runtime_profile_text,
 )
 from src.sample_data import build_sample_snapshot_catalog, get_latest_sample_date  # noqa: E402
-from src.snapshot_catalog import build_snapshot_catalog, get_latest_snapshot_date  # noqa: E402
+from src.snapshot_catalog import (  # noqa: E402
+    build_collector_audit_summary,
+    build_real_cache_summary,
+    build_snapshot_catalog,
+    get_latest_snapshot_date,
+)
 from src.snapshot_quality import build_snapshot_quality_report  # noqa: E402
 from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_theme_taxonomy  # noqa: E402
 from src.theme_history import (  # noqa: E402
@@ -346,6 +351,8 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         directory=str(project_root / "data/ticks"),
         sample_directory=str(project_root / "sample_data/ticks"),
     )
+    real_cache_summary = build_real_cache_summary(str(project_root / "data/ticks"))
+    collector_audit_summary = build_collector_audit_summary(str(project_root / "data/logs/collector_runs.jsonl"))
     warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
@@ -412,6 +419,14 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "local_error_count": int(snapshot_quality.get("local_error_count", 0) or 0),
             "sample_warning_count": int(snapshot_quality.get("sample_warning_count", 0) or 0),
             "sample_error_count": int(snapshot_quality.get("sample_error_count", 0) or 0),
+            "real_cache_exists": bool(real_cache_summary.get("real_cache_exists")),
+            "real_cache_staleness_status": real_cache_summary.get("staleness_status", "unknown"),
+            "real_cache_valid_file_count": int(real_cache_summary.get("valid_file_count", 0) or 0),
+            "real_cache_empty_file_count": int(real_cache_summary.get("empty_file_count", 0) or 0),
+            "real_cache_malformed_file_count": int(real_cache_summary.get("malformed_file_count", 0) or 0),
+            "collector_audit_log_exists": bool(collector_audit_summary.get("log_exists")),
+            "collector_latest_status": collector_audit_summary.get("latest_run_status"),
+            "collector_malformed_line_count": int(collector_audit_summary.get("malformed_line_count", 0) or 0),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -514,6 +529,17 @@ def main() -> int:
         f"local {snapshot_quality['local_warning_count']}/{snapshot_quality['local_error_count']} | "
         f"sample {snapshot_quality['sample_warning_count']}/{snapshot_quality['sample_error_count']}"
     )
+    print(f"real cache exists: {snapshot_quality['real_cache_exists']}")
+    print(f"real cache staleness: {snapshot_quality['real_cache_staleness_status']}")
+    print(
+        "real cache valid/empty/malformed files: "
+        f"{snapshot_quality['real_cache_valid_file_count']} / "
+        f"{snapshot_quality['real_cache_empty_file_count']} / "
+        f"{snapshot_quality['real_cache_malformed_file_count']}"
+    )
+    print(f"collector audit log exists: {snapshot_quality['collector_audit_log_exists']}")
+    print(f"collector latest status: {snapshot_quality['collector_latest_status']}")
+    print(f"collector malformed log lines: {snapshot_quality['collector_malformed_line_count']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")

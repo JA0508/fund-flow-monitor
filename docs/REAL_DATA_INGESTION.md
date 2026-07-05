@@ -46,6 +46,31 @@ data/ticks/sector_flow_YYYY-MM-DD.csv
 
 `data/ticks/*.csv` is ignored by Git and must not be committed.
 
+## Inspect Real Cache Coverage
+
+After collecting real snapshots locally, verify that the cache exists without committing it:
+
+```bash
+.venv/bin/python tools/verify_runtime.py
+.venv/bin/python tools/smoke_check.py
+git status --short
+git check-ignore -v data/ticks/test.csv
+git check-ignore -v data/logs/collector_runs.jsonl
+```
+
+The app also shows a compact evidence section in the `数据说明` tab:
+
+- current view status: `LIVE`, `CACHE`, `HISTORY`, `SAMPLE`, `DEMO`, or `EMPTY`
+- whether local real cache exists
+- real snapshot file count and covered dates
+- latest real cache date and captured time
+- latest cache file modified time
+- empty or malformed cache file counts
+- cache staleness status: `fresh`, `stale`, `missing`, or `unknown`
+- latest collector run status, if `data/logs/collector_runs.jsonl` exists
+
+Freshness is a data-observability label only. It describes how recent the local CSV cache appears to be; it is not a trading signal and does not imply any future market direction.
+
 ## Collector Modes and Audit Log
 
 The collector is a one-shot local command. It does not run inside Streamlit and it does not create a scheduler.
@@ -95,6 +120,8 @@ Possible collector statuses include:
 - `write_error`
 
 `data/logs/` and `logs/` are ignored by Git. Audit logs are local runtime artifacts and should not be committed.
+
+If the audit log contains malformed lines, the reader reports warning counts and keeps any valid records. Public Streamlit Cloud and CI do not require this log to exist.
 
 ## Normalized Real Snapshot Schema
 

@@ -126,6 +126,18 @@ Collector run statuses include `success`, `dry_run`, `no_network`, `fetch_error`
 
 If AKShare or the network is unavailable, the collector should fail with a readable error and must not generate fake real data. Unit tests use mocked DataFrames and do not require live network access.
 
+After a successful local collection, verify evidence without exposing private cache:
+
+```bash
+.venv/bin/python tools/verify_runtime.py
+.venv/bin/python tools/smoke_check.py
+git status --short
+git check-ignore -v data/ticks/test.csv
+git check-ignore -v data/logs/collector_runs.jsonl
+```
+
+The `数据说明` tab shows the current view mode, real cache availability, covered dates, latest cache date/time, staleness label, empty/malformed file counts, and latest collector run status. These fields are factual runtime evidence only; they do not indicate future market movement.
+
 ## Data Contracts
 
 `src/data_contracts.py` provides lightweight CSV checks:

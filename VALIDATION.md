@@ -10,6 +10,39 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.4 Real Cache Catalog and Freshness Evidence Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Optional live-data checks:
+
+```bash
+python tools/collect_real_snapshot.py --no-network
+python tools/collect_real_snapshot.py --dry-run --no-log
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.4`.
+- `CHANGELOG.md` contains a `v3.4` entry.
+- `build_real_cache_summary` reports real cache existence, snapshot count, date count, available dates, latest path/date/time, modified time, empty/malformed/valid file counts, staleness status and warnings.
+- Collector audit-log reader handles missing logs, valid JSONL logs and malformed lines without writing files.
+- `数据说明` tab shows compact current data-status evidence, real cache coverage/freshness and latest collector run status.
+- `smoke_check.py` and `verify_runtime.py` report real cache evidence and collector audit-log visibility without requiring real cache or live AKShare in CI.
+- Missing real cache and missing collector logs remain acceptable in public SAMPLE demo / Streamlit Cloud.
+- No real `data/ticks/*.csv`, collector logs, SQLite, secrets, virtualenv, `.DS_Store` or cache files are staged or tracked.
+
 ## v3.3 Real Collector Audit Workflow Checks
 
 Run:

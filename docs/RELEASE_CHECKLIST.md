@@ -19,6 +19,7 @@ python -m compileall app.py src tests tools
 - `release_check.py` should confirm APP_VERSION has a matching CHANGELOG entry.
 - `release_check.py` should report no tracked forbidden files.
 - `release_check.py` should report SAMPLE data contract status.
+- `smoke_check.py` / `verify_runtime.py` should report real cache evidence and collector audit-log visibility without requiring real cache in CI.
 - `cloud_preflight.py` should confirm `docs/ARCHITECTURE.md`, `docs/DATA_FLOW.md` and `docs/OPERATIONS.md` exist.
 - `release_check.py` and `cloud_preflight.py` should confirm `docs/REAL_DATA_INGESTION.md` and `tools/collect_real_snapshot.py` exist.
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
@@ -78,6 +79,8 @@ python tools/probe_akshare.py
 - `--no-log` should suppress `data/logs/collector_runs.jsonl` for that run.
 - A successful collector run without `--dry-run` may create ignored real CSV files under `data/ticks`; never stage those files.
 - Normal collector runs may create ignored audit logs under `data/logs/collector_runs.jsonl`; never stage those logs.
+- After local collection, the `数据说明` tab should show real cache coverage, latest cache date/time, staleness status, empty/malformed file counts, and latest collector run status.
+- Missing real cache or missing collector logs on Streamlit Cloud is expected and should not be treated as a public demo failure.
 - Any AKShare failure should be documented as a live data source/network limitation, not replaced with fake real data.
 
 ## 3. Demo Checks

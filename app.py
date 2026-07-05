@@ -90,6 +90,7 @@ from src.multi_day_trends import (
     split_multi_day_trend_sections,
 )
 from src.snapshot_catalog import (
+    build_collector_audit_summary,
     build_real_cache_summary,
     build_snapshot_catalog,
     get_latest_snapshot_date,
@@ -365,6 +366,7 @@ def main() -> None:
     can_fetch = market_status in FETCH_ALLOWED_STATUSES
     snapshot_catalog_df = build_snapshot_catalog()
     real_cache_summary = build_real_cache_summary()
+    collector_audit_summary = build_collector_audit_summary()
     latest_snapshot_date = get_latest_snapshot_date(snapshot_catalog_df)
     sample_catalog_df = build_sample_snapshot_catalog()
     latest_sample_date = get_latest_sample_date(sample_catalog_df)
@@ -1429,6 +1431,27 @@ def main() -> None:
             "- DEMO：内存模拟 UI 数据，不写 CSV。\n"
             "- EMPTY：暂无可用真实缓存或样例数据。"
         )
+        st.markdown("#### 当前数据状态证据")
+        current_view_label = {
+            "LIVE": "本轮 AKShare 抓取结果",
+            "CACHE": "本地真实 CSV 缓存",
+            "HISTORY": "本地历史 CSV 回放",
+            "SAMPLE": "合成演示 CSV",
+            "DEMO": "内存模拟数据",
+            "EMPTY": "暂无可用数据",
+        }.get(data_status, data_status)
+        latest_collector_status = collector_audit_summary.get("latest_run_status") or "--"
+        latest_collector_time = collector_audit_summary.get("latest_run_timestamp") or "--"
+        latest_collector_message = collector_audit_summary.get("latest_message") or "--"
+        st.markdown(
+            f"- 当前视图状态：`{data_status}`（{current_view_label}）。\n"
+            f"- 当前展示日期：`{selected_snapshot_date or '--'}`；当前展示时间点：`{latest_time or '--'}`。\n"
+            f"- 本地真实缓存存在：`{'是' if real_cache_summary.get('real_cache_exists') else '否'}`；可用真实缓存：`{'是' if real_cache_summary.get('real_cache_available') else '否'}`。\n"
+            f"- 真实缓存覆盖日期：`{real_cache_summary.get('date_count', 0)}` 天；快照文件数：`{real_cache_summary.get('snapshot_count', real_cache_summary.get('file_count', 0))}`。\n"
+            f"- 最新 collector 状态：`{latest_collector_status}`；运行时间：`{latest_collector_time}`。\n"
+            f"- collector 信息：`{latest_collector_message}`。"
+        )
+        st.caption("公开 Streamlit Cloud 环境通常没有本地真实缓存和 collector log，因此默认可使用 SAMPLE 合成演示数据；这不代表真实行情。")
         st.markdown("#### 历史快照回放")
         st.markdown(
             f"- 当前数据日期：`{selected_snapshot_date or '--'}`，视图状态：`{data_status}`。\n"
@@ -1441,11 +1464,20 @@ def main() -> None:
         st.markdown("#### 本地真实缓存新鲜度")
         st.markdown(
             f"- 真实缓存可用：`{'是' if real_cache_summary.get('real_cache_available') else '否'}`。\n"
-            f"- 真实缓存文件数：`{real_cache_summary.get('file_count', 0)}`；可读日期数：`{real_cache_summary.get('date_count', 0)}`；总行数：`{real_cache_summary.get('row_count', 0)}`。\n"
-            f"- 最新真实缓存日期：`{real_cache_summary.get('latest_snapshot_date') or '--'}`；最新时间点：`{real_cache_summary.get('latest_captured_time') or '--'}`。\n"
+            f"- 真实缓存文件数：`{real_cache_summary.get('file_count', 0)}`；有效文件数：`{real_cache_summary.get('valid_file_count', 0)}`；可读日期数：`{real_cache_summary.get('date_count', 0)}`；总行数：`{real_cache_summary.get('row_count', 0)}`。\n"
+            f"- 最新真实缓存日期：`{real_cache_summary.get('latest_snapshot_date') or '--'}`；最新时间点：`{real_cache_summary.get('latest_captured_time') or '--'}`；文件修改时间：`{real_cache_summary.get('latest_modified_time') or '--'}`。\n"
             f"- 来源：`{real_cache_summary.get('latest_source') or real_cache_summary.get('latest_provider') or '--'}`；data_mode：`{real_cache_summary.get('latest_data_mode') or '--'}`。\n"
-            f"- 质量标签：`{real_cache_summary.get('quality_label') or '--'}`。"
+            f"- 新鲜度状态：`{real_cache_summary.get('staleness_status') or 'unknown'}`；质量标签：`{real_cache_summary.get('quality_label') or '--'}`。\n"
+            f"- 空文件数：`{real_cache_summary.get('empty_file_count', 0)}`；异常文件数：`{real_cache_summary.get('malformed_file_count', 0)}`。"
         )
+        cache_warnings = real_cache_summary.get("warnings") or []
+        audit_warnings = collector_audit_summary.get("warnings") or []
+        if cache_warnings or audit_warnings:
+            with st.expander("查看真实缓存 / 采集日志提示", expanded=False):
+                for item in cache_warnings[:8]:
+                    st.markdown(f"- {item}")
+                for item in audit_warnings[:8]:
+                    st.markdown(f"- {item}")
         render_snapshot_quality_notes(snapshot_quality_report)
         if int(snapshot_quality_report.get("local_file_count", 0) or 0) == 0:
             st.markdown(

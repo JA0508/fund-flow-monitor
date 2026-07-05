@@ -95,6 +95,7 @@ from src.sample_data import (  # noqa: E402
     load_sample_snapshot_by_date,
 )
 from src.snapshot_catalog import (  # noqa: E402
+    build_collector_audit_summary,
     build_snapshot_catalog,
     build_real_cache_summary,
     get_latest_snapshot_date,
@@ -552,6 +553,7 @@ def _verify_snapshot_quality() -> None:
     forbidden_hits = validate_snapshot_quality_text(summary)
     sample_catalog = report.get("sample_catalog_df", pd.DataFrame())
     real_cache_summary = build_real_cache_summary(PROJECT_ROOT / "data/ticks")
+    collector_audit_summary = build_collector_audit_summary(str(PROJECT_ROOT / "data/logs/collector_runs.jsonl"))
     collect_script = PROJECT_ROOT / "tools/collect_market_snapshot.py"
     spec = importlib.util.spec_from_file_location("collect_market_snapshot", collect_script)
     collect_import_ok = spec is not None and spec.loader is not None
@@ -577,8 +579,15 @@ def _verify_snapshot_quality() -> None:
     print(f"  sample warning/error: {report.get('sample_warning_count')} / {report.get('sample_error_count')}")
     print(f"  sample_catalog row count: {len(sample_catalog) if isinstance(sample_catalog, pd.DataFrame) else 0}")
     print(f"  real_cache_label: {real_cache_summary.get('quality_label')}")
+    print(f"  real_cache_exists: {real_cache_summary.get('real_cache_exists')}")
     print(f"  real_cache_available: {real_cache_summary.get('real_cache_available')}")
-    print(f"  real_cache_latest_date/time: {real_cache_summary.get('latest_date')} / {real_cache_summary.get('latest_captured_time')}")
+    print(f"  real_cache_latest_date/time: {real_cache_summary.get('latest_snapshot_date')} / {real_cache_summary.get('latest_captured_time')}")
+    print(f"  real_cache_staleness_status: {real_cache_summary.get('staleness_status')}")
+    print(f"  real_cache_valid/empty/malformed: {real_cache_summary.get('valid_file_count')} / {real_cache_summary.get('empty_file_count')} / {real_cache_summary.get('malformed_file_count')}")
+    print(f"  collector_audit_log_exists: {collector_audit_summary.get('log_exists')}")
+    print(f"  collector_latest_status: {collector_audit_summary.get('latest_run_status')}")
+    print(f"  collector_latest_message: {collector_audit_summary.get('latest_message')}")
+    print(f"  collector_malformed_log_lines: {collector_audit_summary.get('malformed_line_count')}")
     print(f"  snapshot_quality_forbidden_hits: {forbidden_hits}")
     print(f"  collect_market_snapshot.py import: {collect_import_ok}")
     print(f"  collect_real_snapshot.py import: {collect_real_import_ok}")

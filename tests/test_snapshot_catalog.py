@@ -5,11 +5,13 @@ from pathlib import Path
 import pandas as pd
 
 from src.snapshot_catalog import (
+    build_collector_audit_summary,
     build_real_cache_summary,
     build_snapshot_catalog,
     get_snapshot_summary,
     infer_view_data_status,
     list_snapshot_files,
+    load_collector_audit_runs,
     load_snapshot_by_date,
     parse_snapshot_date,
 )
@@ -101,18 +103,84 @@ def test_get_snapshot_summary_counts_sector_types() -> None:
 
 def test_build_real_cache_summary_empty(tmp_path: Path) -> None:
     summary = build_real_cache_summary(str(tmp_path))
+    assert summary["real_cache_exists"] is False
     assert summary["real_cache_available"] is False
+    assert summary["snapshot_count"] == 0
     assert summary["quality_label"] == "暂无真实缓存"
+    assert summary["staleness_status"] == "missing"
 
 
 def test_build_real_cache_summary_with_real_cache(tmp_path: Path) -> None:
     _write_snapshot(tmp_path / "sector_flow_2026-06-01.csv", _rows("2026-06-01", ["09:30:00", "09:35:00"]))
     summary = build_real_cache_summary(str(tmp_path))
+    assert summary["real_cache_exists"] is True
     assert summary["real_cache_available"] is True
+    assert summary["snapshot_count"] == 1
     assert summary["file_count"] == 1
+    assert summary["date_count"] == 1
+    assert summary["available_dates"] == ["2026-06-01"]
+    assert summary["valid_file_count"] == 1
     assert summary["latest_snapshot_date"] == "2026-06-01"
+    assert summary["latest_trade_date"] == "2026-06-01"
+    assert summary["latest_snapshot_path"].endswith("sector_flow_2026-06-01.csv")
+    assert summary["latest_modified_time"]
     assert summary["latest_data_mode"] == "REAL"
     assert summary["latest_provider"] == "AKShare / Eastmoney"
+    assert summary["staleness_status"] in {"fresh", "stale", "unknown"}
+
+
+def test_build_real_cache_summary_counts_empty_and_malformed_files(tmp_path: Path) -> None:
+    _write_snapshot(tmp_path / "sector_flow_2026-06-01.csv", _rows("2026-06-01", ["09:30:00"]))
+    (tmp_path / "sector_flow_2026-06-02.csv").write_text("", encoding="utf-8")
+    (tmp_path / "sector_flow_2026-06-03.csv").write_text('"unterminated\n', encoding="utf-8")
+
+    summary = build_real_cache_summary(str(tmp_path))
+
+    assert summary["snapshot_count"] == 3
+    assert summary["valid_file_count"] == 1
+    assert summary["empty_file_count"] >= 1
+    assert summary["malformed_file_count"] >= 1
+    assert summary["warnings"]
+
+
+def test_collector_audit_log_missing(tmp_path: Path) -> None:
+    summary = build_collector_audit_summary(str(tmp_path / "collector_runs.jsonl"))
+    assert summary["log_exists"] is False
+    assert summary["audit_log_available"] is False
+    assert summary["latest_run_status"] is None
+
+
+def test_collector_audit_log_valid(tmp_path: Path) -> None:
+    log_path = tmp_path / "collector_runs.jsonl"
+    log_path.write_text(
+        '{"timestamp":"2026-06-01T10:00:00+08:00","status":"success","rows":2,"trade_date":"2026-06-01","captured_time":"10:00:00","message":"ok"}\n'
+        '{"timestamp":"2026-06-01T10:05:00+08:00","status":"duplicate_skipped","rows":2,"trade_date":"2026-06-01","captured_time":"10:05:00","message":"duplicate"}\n',
+        encoding="utf-8",
+    )
+
+    summary = build_collector_audit_summary(str(log_path))
+
+    assert summary["audit_log_available"] is True
+    assert summary["latest_run_status"] == "duplicate_skipped"
+    assert summary["status_counts"]["success"] == 1
+    assert summary["status_counts"]["duplicate_skipped"] == 1
+    assert summary["latest_captured_time"] == "10:05:00"
+
+
+def test_collector_audit_log_malformed_line(tmp_path: Path) -> None:
+    log_path = tmp_path / "collector_runs.jsonl"
+    log_path.write_text(
+        '{"timestamp":"2026-06-01T10:00:00+08:00","status":"success"}\n'
+        'not-json\n',
+        encoding="utf-8",
+    )
+
+    report = load_collector_audit_runs(str(log_path))
+    summary = build_collector_audit_summary(str(log_path))
+
+    assert report["malformed_line_count"] == 1
+    assert summary["malformed_line_count"] == 1
+    assert summary["warning_count"] == 1
 
 
 def test_infer_view_data_status() -> None:

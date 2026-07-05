@@ -62,7 +62,8 @@ Fund Flow Monitor 的长期目标是成为面向“养基宝 / 基金投资辅�
 - v3.0 完成 engineering architecture hardening：架构文档、数据流文档、轻量数据契约、release/preflight 检查增强和 CI 基础工作流。
 - v3.2 继续把真实 AKShare 采集、真实缓存质量和数据新鲜度可观测性作为本地真实数据主线。
 - v3.3 完成本地真实采集器运行状态分类、JSONL 审计日志、no-network/no-log 安全校验和发布检查加固。
-- v3.4 以后再考虑部署复盘、demo brief 图表截图引用、更细的数据质量规则、外部定时采集运维说明、DuckDB 可选分析后端。
+- v3.4 完成真实缓存目录证据层：cache coverage、freshness、empty/malformed 文件统计、collector audit-log 读取和数据说明 tab 可观测性增强。
+- v3.5 以后再考虑部署复盘、demo brief 图表截图引用、更细的数据质量规则、外部定时采集运维说明、DuckDB 可选分析后端。
 - 在 Streamlit MVP 验证稳定后，再考虑 FastAPI + React + ECharts 产品化重构。
 - 后端未来负责低频沉淀和统一 API。
 - 前端未来负责主题雷达、曲线、热力图和交互展示。

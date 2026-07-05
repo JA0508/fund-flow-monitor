@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v3.4
+
+- Real cache catalog and freshness evidence.
+- `src/snapshot_catalog.py` now exposes a richer real-cache summary with snapshot count, date coverage, latest path/date/time, modified time, empty/malformed file counts and staleness status.
+- Added a read-only collector audit-log reader for `data/logs/collector_runs.jsonl`, including latest run status, status counts and malformed-line tolerance.
+- The Streamlit data explanation tab now shows compact data-status evidence: current view status, real cache availability, freshness, collector latest status and public demo SAMPLE fallback note.
+- `smoke_check.py` and `verify_runtime.py` report real cache coverage and collector audit-log visibility without requiring real cache or live AKShare in CI.
+- Documentation explains how to inspect local real cache coverage and collector run status while keeping real CSV/logs ignored by Git.
+
 ## v3.3
 
 - Real collector audit workflow.

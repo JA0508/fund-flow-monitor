@@ -76,6 +76,8 @@ Real local cache lives under `data/ticks/*.csv` and is intentionally ignored by 
 
 Collector run audit logs live under `data/logs/collector_runs.jsonl` by default. They record local run status and troubleshooting metadata for manual operations, and remain ignored runtime artifacts.
 
+`src/snapshot_catalog.py` provides the read-only evidence layer for local real cache coverage. It summarizes available real cache dates, latest snapshot path/date/time, file modified time, empty or malformed cache files, cache staleness, and the latest collector audit-log status. This evidence layer only reads local CSV/log files; it does not fetch AKShare, write CSV, write logs, or create a database.
+
 ## Sample Data Layer
 
 Key modules and files:

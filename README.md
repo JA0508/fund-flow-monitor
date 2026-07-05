@@ -30,7 +30,7 @@ python tools/collect_real_snapshot.py --dry-run
 python tools/collect_real_snapshot.py
 ```
 
-真实采集路径会通过项目统一的 AKShare fetch、normalize、data contract 和 storage 层处理；公开 SAMPLE fallback 不会写入 `data/ticks`。采集器默认会把本次运行状态写入本地审计日志 `data/logs/collector_runs.jsonl`，该目录同样被 Git 忽略；需要纯校验时可使用 `--no-network` 或 `--dry-run --no-log`。详细说明见 [`docs/REAL_DATA_INGESTION.md`](docs/REAL_DATA_INGESTION.md)。
+真实采集路径会通过项目统一的 AKShare fetch、normalize、data contract 和 storage 层处理；公开 SAMPLE fallback 不会写入 `data/ticks`。采集器默认会把本次运行状态写入本地审计日志 `data/logs/collector_runs.jsonl`，该目录同样被 Git 忽略；需要纯校验时可使用 `--no-network` 或 `--dry-run --no-log`。采集后可在 `数据说明` tab 查看真实缓存覆盖、freshness 和最新 collector 状态。详细说明见 [`docs/REAL_DATA_INGESTION.md`](docs/REAL_DATA_INGESTION.md)。
 
 ## What to Look at in the Demo
 
