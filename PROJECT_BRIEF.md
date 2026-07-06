@@ -181,6 +181,14 @@ v3.7 增加 `src/history_evidence.py` 和 `tools/inspect_history_evidence.py`，
 
 该能力只服务于 lineage、coverage 和 replay provenance：它解释“这个历史回放来自哪些 CSV、覆盖哪些日期和时间点、结构是否一致、契约是否通过”。它不做历史绩效评估，不预测未来走势，不提供投资建议，也不改变现有主题雷达、多日趋势、warehouse 或观察简报的核心计算。
 
+## Evidence-Backed Theme Observation
+
+v3.8 将历史证据层与主题计算层连接起来。项目新增确定性的 taxonomy fingerprint 和 theme definition fingerprint，用于说明某个主题状态由哪一版主题库配置、哪种计算口径和哪些实际匹配行生成。
+
+主题证据记录来自现有 `theme_pool` 计算路径：严格代表口径、代表口径和广度观察都复用同一套匹配、成员选择、聚合与状态阈值逻辑，并额外输出参与成员、未匹配成员、聚合输入、聚合值、阈值映射、来源模式和历史覆盖三维状态。这是分析 provenance，不是模型解释，也不是投资理由。
+
+Streamlit 的主题雷达和多日趋势区域提供紧凑证据面板；`tools/inspect_theme_evidence.py` 提供只读 CLI 检查。SAMPLE 证据始终标注为合成演示数据，不代表真实行情。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -200,6 +208,7 @@ v3.7 增加 `src/history_evidence.py` 和 `tools/inspect_history_evidence.py`，
 - CSV 快照质量检查是基础审计，不替代生产级数据质量系统。
 - SQLite warehouse 当前只作为可重建索引和基础查询层，核心页面仍走 CSV-first 数据流。
 - Historical Evidence 当前只做文件级和 captured_time 覆盖证据，不替代完整生产级 lineage / data catalog。
+- Theme Observation Evidence 当前解释规则化主题计算 lineage，不替代正式行业分类体系，也不产生任何交易建议或未来判断。
 
 ## 后续计划
 

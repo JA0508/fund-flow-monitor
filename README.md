@@ -78,6 +78,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 历史快照回放：选择已有 CSV 日期，回看当日曲线、主题雷达、日内热点、持仓相关池和排行榜。
 - 多日主题趋势：基于多个本地 CSV 日期的最后快照，观察主题资金状态的跨日期变化。
 - Historical Evidence：从本地 CSV 恢复文件 hash、schema fingerprint、数据契约状态和 captured_time 覆盖矩阵，用于解释回放来源。
+- Theme Observation Evidence：为主题状态提供计算 lineage，包括 taxonomy fingerprint、参与成员、聚合输入、阈值映射和 SAMPLE / REAL 来源标识。
 - 主题库配置化：通过 `config/theme_taxonomy.json` 管理主题定义、核心行业、相关行业和概念关键词。
 - 主题覆盖审计：检查当前快照覆盖率、高资金流未覆盖板块、重复映射和 watchlist / fund_profiles 一致性。
 - 观察简报：整合主题雷达、日内热点、多日趋势、持仓相关池和覆盖审计，支持标准简报 / 作品集演示简报 Markdown 下载。
@@ -200,6 +201,7 @@ streamlit run app.py
 python tools/quality_gate.py
 python tools/cloud_preflight.py
 python tools/release_check.py
+python tools/inspect_theme_evidence.py --theme "半导体/芯片链" --source-mode SAMPLE --trace
 python tools/smoke_check.py
 python tools/verify_runtime.py
 python -m pytest -q

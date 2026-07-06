@@ -93,6 +93,8 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 - Normal collector runs may create ignored audit logs under `data/logs/collector_runs.jsonl`; never stage those logs.
 - After local collection, the `数据说明` tab should show real cache coverage, latest cache date/time, staleness status, empty/malformed file counts, and latest collector run status.
 - After local collection, `tools/inspect_history_evidence.py --source-mode REAL` should show snapshot-level lineage, schema fingerprint consistency and selected-date replay provenance without printing row-level private data.
+- `tools/inspect_theme_evidence.py --theme "半导体/芯片链" --source-mode SAMPLE --trace` should show taxonomy fingerprint, matched members, aggregation method and threshold mapping.
+- Theme Radar evidence panels should label SAMPLE evidence as synthetic demo evidence and should not frame evidence as investment rationale.
 - Missing real cache or missing collector logs on Streamlit Cloud is expected and should not be treated as a public demo failure.
 - Any AKShare failure should be documented as a live data source/network limitation, not replaced with fake real data.
 

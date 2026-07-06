@@ -43,6 +43,7 @@ The project is CSV-first:
 - Reproducible SAMPLE snapshots live under tracked `sample_data/ticks/*.csv`.
 - SQLite warehouse is derived from CSV and can be rebuilt locally.
 - Historical evidence is derived from CSV files and is used only for lineage, coverage and replay provenance.
+- Theme observation evidence links each displayed theme state back to taxonomy fingerprints, matched members, aggregation inputs and threshold mapping.
 - Streamlit pages continue to work without SQLite.
 
 ## Engineering Architecture Notes
@@ -52,6 +53,7 @@ The project is CSV-first:
 - A production database was intentionally not made mandatory. CSV keeps data lineage inspectable during MVP development, and SQLite remains a local rebuildable query index.
 - If the project later became production-grade, the natural path would be scheduled ingestion, stronger data quality rules, durable warehouse storage, API boundaries, monitoring, and compliance review.
 - v3.0 adds architecture and data-flow documentation plus lightweight data contracts, improving maintainability without changing the app's user-facing calculation logic.
+- v3.8 adds explainable analytics engineering: the app can show factual theme calculation lineage without turning that evidence into an investment rationale.
 
 ## Runtime and Data Modes
 

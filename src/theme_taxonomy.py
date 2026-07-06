@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -109,6 +110,89 @@ def _as_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _normalized_config_payload(value: object) -> object:
+    if isinstance(value, dict):
+        return {
+            str(key): _normalized_config_payload(value[key])
+            for key in sorted(value)
+            if not str(key).startswith("_")
+        }
+    if isinstance(value, list):
+        return [_normalized_config_payload(item) for item in value]
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _fingerprint_payload(value: object) -> str:
+    normalized = _normalized_config_payload(value)
+    text = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def build_taxonomy_fingerprint(taxonomy: dict) -> str:
+    content = {
+        "taxonomy_name": (taxonomy or {}).get("taxonomy_name"),
+        "version": (taxonomy or {}).get("version"),
+        "themes": get_taxonomy_themes(taxonomy or {}),
+    }
+    return _fingerprint_payload(content)
+
+
+def get_theme_definition(taxonomy: dict, theme_name: str) -> dict:
+    target = str(theme_name or "").strip()
+    for theme in get_taxonomy_themes(taxonomy):
+        if str(theme.get("theme_name", "")).strip() == target:
+            return copy.deepcopy(theme)
+    return {}
+
+
+def build_theme_definition_fingerprint(theme_definition: dict) -> str:
+    relevant = {
+        "theme_name": theme_definition.get("theme_name"),
+        "theme_group": theme_definition.get("theme_group"),
+        "description": theme_definition.get("description"),
+        "primary_sectors": _as_list(theme_definition.get("primary_sectors")),
+        "related_sectors": _as_list(theme_definition.get("related_sectors")),
+        "concept_keywords": _as_list(theme_definition.get("concept_keywords")),
+        "aliases": _as_list(theme_definition.get("aliases")),
+        "overlap_notes": theme_definition.get("overlap_notes"),
+    }
+    return _fingerprint_payload(relevant)
+
+
+def build_theme_definition_evidence(
+    taxonomy: dict,
+    theme_name: str,
+    taxonomy_source: str = "config/theme_taxonomy.json",
+) -> dict:
+    theme_definition = get_theme_definition(taxonomy, theme_name)
+    taxonomy_fingerprint = build_taxonomy_fingerprint(taxonomy or {})
+    definition_fingerprint = (
+        build_theme_definition_fingerprint(theme_definition)
+        if theme_definition
+        else _fingerprint_payload({"theme_name": str(theme_name or "").strip(), "missing": True})
+    )
+    return {
+        "theme_id": str(theme_definition.get("theme_name") or theme_name or "").strip(),
+        "theme_name": str(theme_definition.get("theme_name") or theme_name or "").strip(),
+        "theme_group": str(theme_definition.get("theme_group") or "").strip(),
+        "taxonomy_source": taxonomy_source,
+        "taxonomy_name": (taxonomy or {}).get("taxonomy_name"),
+        "taxonomy_version": (taxonomy or {}).get("version"),
+        "taxonomy_fingerprint": taxonomy_fingerprint,
+        "theme_definition_fingerprint": definition_fingerprint,
+        "core_members": _as_list(theme_definition.get("primary_sectors")),
+        "related_members": _as_list(theme_definition.get("related_sectors")),
+        "aliases": _as_list(theme_definition.get("aliases")),
+        "concept_keywords": _as_list(theme_definition.get("concept_keywords")),
+        "calculation_modes": ["strict_representative", "representative", "breadth"],
+        "description": str(theme_definition.get("description") or "").strip(),
+        "overlap_notes": str(theme_definition.get("overlap_notes") or "").strip(),
+        "definition_found": bool(theme_definition),
+    }
 
 
 def load_theme_taxonomy(path: str = "config/theme_taxonomy.json") -> dict:

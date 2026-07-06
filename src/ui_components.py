@@ -1807,6 +1807,77 @@ def render_brief_template_meta_cards(metadata: dict, compliance: dict, template_
         )
 
 
+def render_theme_observation_evidence_cards(evidence: dict) -> None:
+    if not evidence or not evidence.get("evidence_available"):
+        st.markdown(
+            "<div class='rank-panel'><div class='rank-empty'>当前主题暂无可用状态证据。</div></div>",
+            unsafe_allow_html=True,
+        )
+        return
+    data = evidence.get("data_evidence", {})
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>主题</div><div class='trust-value'>{escape(str(evidence.get('theme_name', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>来源</div><div class='trust-value'>{escape(str(evidence.get('source_mode', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>口径</div><div class='trust-value'>{escape(str(evidence.get('observation_mode_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>状态</div><div class='trust-value'>{escape(str(evidence.get('derived_state', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>聚合值</div><div class='trust-value'>{format_billion(evidence.get('aggregate_value'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>匹配/使用</div><div class='trust-value'>{int(evidence.get('matched_member_count', 0) or 0)} / {int(evidence.get('used_member_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>taxonomy</div><div class='trust-value'>{escape(str(evidence.get('taxonomy_fingerprint', ''))[:12])}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>theme def</div><div class='trust-value'>{escape(str(evidence.get('theme_definition_fingerprint', ''))[:12])}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>聚合方法：{escape(str(evidence.get('aggregation_method') or '--'))}<br>"
+        f"历史覆盖：{escape(str(data.get('history_span_label') or '--'))} / {escape(str(data.get('intraday_depth_label') or '--'))} / {escape(str(data.get('coverage_consistency_label') or '--'))}；"
+        f"schema consistent: {escape(str(data.get('schema_consistent')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    warnings = evidence.get("warnings") or []
+    if warnings:
+        st.markdown(
+            "<div class='holding-warning'>" + "<br>".join(escape(str(item)) for item in warnings[:6]) + "</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_theme_observation_contribution_table(evidence: dict, max_rows: int = 24) -> None:
+    rows = []
+    for item in (evidence or {}).get("member_traces", [])[:max_rows]:
+        rows.append(
+            [
+                item.get("member_name") or "--",
+                item.get("member_role") or "--",
+                item.get("match_type") or "--",
+                item.get("matched_source_row") or "--",
+                format_billion(item.get("input_value")) if item.get("input_value") is not None else "--",
+                "是" if item.get("included") else "否",
+                item.get("exclusion_reason") or "--",
+            ]
+        )
+    _render_simple_table(
+        ["配置成员", "角色", "匹配方式", "来源行", "输入值", "参与聚合", "说明"],
+        rows,
+        "暂无成员贡献明细。",
+    )
+
+
+def render_theme_observation_threshold_table(evidence: dict) -> None:
+    rows = []
+    for item in (evidence or {}).get("thresholds_used", []):
+        lower = item.get("lower_bound")
+        upper = item.get("upper_bound")
+        rows.append(
+            [
+                item.get("status", "--"),
+                item.get("status_level", "--"),
+                "--" if lower is None else str(lower),
+                "--" if upper is None else str(upper),
+            ]
+        )
+    _render_simple_table(["状态", "状态层级", "下界", "上界"], rows, "暂无阈值表。")
+
+
 def render_app_footer() -> None:
     st.markdown(
         f"<div class='footer-note'>{escape(APP_CN_NAME)} · {escape(APP_VERSION)} · Streamlit MVP<br>"

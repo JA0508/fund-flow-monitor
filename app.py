@@ -162,6 +162,11 @@ from src.theme_history_viz import (
     prepare_theme_history_heatmap_data,
     prepare_theme_history_line_data,
 )
+from src.theme_observation_evidence import (
+    build_theme_observation_evidence,
+    render_brief_provenance_section,
+    validate_theme_evidence_text,
+)
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
 from src.theme_taxonomy import (
     audit_theme_name_consistency,
@@ -234,6 +239,9 @@ from src.ui_components import (
     render_theme_taxonomy_panel,
     render_theme_taxonomy_status,
     render_theme_radar_cards,
+    render_theme_observation_contribution_table,
+    render_theme_observation_evidence_cards,
+    render_theme_observation_threshold_table,
 )
 from src.utils import get_china_now
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
@@ -775,6 +783,11 @@ def main() -> None:
 
     active_catalog_df = sample_catalog_df if sample_mode else snapshot_catalog_df
     active_catalog_dir = SAMPLE_DIR if sample_mode else "data/ticks"
+    active_source_mode = "SAMPLE" if sample_mode else "REAL"
+    active_history_manifest_df = sample_history_manifest_df if sample_mode else real_history_manifest_df
+    active_history_summary = sample_history_summary if sample_mode else real_history_summary
+    active_history_readiness = sample_history_readiness if sample_mode else real_history_readiness
+    active_coverage_matrix_df = sample_coverage_matrix_df if sample_mode else real_coverage_matrix_df
     selected_catalog_row = pd.DataFrame()
     if not active_catalog_df.empty and selected_snapshot_date:
         selected_catalog_row = active_catalog_df[active_catalog_df["snapshot_date"].astype(str).eq(str(selected_snapshot_date))]
@@ -997,6 +1010,48 @@ def main() -> None:
         else:
             render_theme_concept_cards(pd.DataFrame(), max_cards=8)
         render_divergence_cards(watchlist_divergence_df, max_cards=5)
+        st.markdown("<div class='radar-section-title'>主题状态证据</div>", unsafe_allow_html=True)
+        evidence_theme_options = (
+            watchlist_radar_df["theme_name"].dropna().astype(str).tolist()
+            if not watchlist_radar_df.empty and "theme_name" in watchlist_radar_df.columns
+            else radar_theme_df["theme_name"].dropna().astype(str).tolist()
+            if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
+            else []
+        )
+        evidence_theme_options = list(dict.fromkeys(evidence_theme_options))
+        if not evidence_theme_options:
+            st.markdown(
+                "<div class='rank-panel'><div class='rank-empty'>当前没有可解释的主题观察结果。</div></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            evidence_theme = st.selectbox(
+                "选择主题查看计算证据",
+                evidence_theme_options,
+                index=0,
+                key="theme_radar_evidence_theme",
+            )
+            evidence = build_theme_observation_evidence(
+                raw_latest_df,
+                evidence_theme,
+                theme_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                taxonomy=taxonomy,
+                source_mode=active_source_mode,
+                manifest_df=active_history_manifest_df,
+                as_of_trade_date=selected_snapshot_date or header_date,
+                as_of_captured_time=latest_time,
+            )
+            if sample_mode:
+                render_compact_notice(
+                    "SAMPLE 主题证据",
+                    "当前主题状态证据基于 sample_data/ticks 合成演示数据，不代表真实行情。",
+                    tone="warning",
+                )
+            render_theme_observation_evidence_cards(evidence)
+            with st.expander("查看成员输入与阈值映射", expanded=False):
+                render_theme_observation_contribution_table(evidence)
+                st.markdown("<div class='radar-section-title'>状态阈值</div>", unsafe_allow_html=True)
+                render_theme_observation_threshold_table(evidence)
 
     with tab_intraday:
         st.markdown(
@@ -1046,11 +1101,32 @@ def main() -> None:
             with st.expander("多日分化主题", expanded=False):
                 render_multi_day_trend_cards("多日分化主题", multi_day_sections["mixed_trends"], max_cards=6)
             render_multi_day_trend_table(multi_day_trend_pool_df, max_rows=30)
+            trend_evidence_options = (
+                multi_day_trend_pool_df["theme_name"].dropna().astype(str).tolist()
+                if not multi_day_trend_pool_df.empty and "theme_name" in multi_day_trend_pool_df.columns
+                else []
+            )
+            if trend_evidence_options:
+                with st.expander("查看多日主题状态证据", expanded=False):
+                    trend_evidence_theme = st.selectbox(
+                        "选择多日主题证据",
+                        list(dict.fromkeys(trend_evidence_options)),
+                        index=0,
+                        key="multi_day_evidence_theme",
+                    )
+                    trend_evidence = build_theme_observation_evidence(
+                        raw_latest_df,
+                        trend_evidence_theme,
+                        theme_mode=multi_day_mode,
+                        taxonomy=taxonomy,
+                        source_mode=active_source_mode,
+                        manifest_df=active_history_manifest_df,
+                        as_of_trade_date=selected_snapshot_date or header_date,
+                        as_of_captured_time=latest_time,
+                    )
+                    render_theme_observation_evidence_cards(trend_evidence)
+                    render_theme_observation_contribution_table(trend_evidence)
         st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
-        active_history_manifest_df = sample_history_manifest_df if sample_mode else real_history_manifest_df
-        active_history_summary = sample_history_summary if sample_mode else real_history_summary
-        active_history_readiness = sample_history_readiness if sample_mode else real_history_readiness
-        active_coverage_matrix_df = sample_coverage_matrix_df if sample_mode else real_coverage_matrix_df
         render_historical_evidence_notes(
             "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
             "它不会访问 AKShare，不会写 CSV，不会写 SQLite，也不做绩效评估或预测。"
@@ -1310,6 +1386,25 @@ def main() -> None:
             source_label,
         )
         extra_brief_sections: list[str] = []
+        brief_provenance_theme = (
+            str(radar_theme_df["theme_name"].dropna().astype(str).iloc[0])
+            if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns and not radar_theme_df["theme_name"].dropna().empty
+            else None
+        )
+        if brief_provenance_theme:
+            brief_provenance_evidence = build_theme_observation_evidence(
+                raw_latest_df,
+                brief_provenance_theme,
+                theme_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                taxonomy=taxonomy,
+                source_mode=active_source_mode,
+                manifest_df=active_history_manifest_df,
+                as_of_trade_date=selected_snapshot_date or header_date,
+                as_of_captured_time=latest_time,
+            )
+            brief_provenance_section = render_brief_provenance_section(brief_provenance_evidence)
+            if not validate_theme_evidence_text(brief_provenance_section):
+                extra_brief_sections.append(brief_provenance_section)
         theme_history_brief_section = ""
         theme_history_brief_compliance = {
             "forbidden_hits": [],

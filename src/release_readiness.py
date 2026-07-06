@@ -32,8 +32,10 @@ PUBLIC_FILES = (
     "src/collection_policy.py",
     "src/ingestion_metrics.py",
     "src/history_evidence.py",
+    "src/theme_observation_evidence.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
+    "tools/inspect_theme_evidence.py",
 )
 
 PUBLIC_DIRS = (
@@ -67,11 +69,13 @@ REQUIRED_PUBLIC_ASSETS = (
     "src/collection_policy.py",
     "src/ingestion_metrics.py",
     "src/history_evidence.py",
+    "src/theme_observation_evidence.py",
     "tools/probe_akshare.py",
     "tools/quality_gate.py",
     "tools/collect_real_snapshot.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
+    "tools/inspect_theme_evidence.py",
     "LICENSE",
 )
 

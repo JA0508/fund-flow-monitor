@@ -378,12 +378,109 @@ def build_coverage_matrix(manifest_df: pd.DataFrame | None, bucket_minutes: int 
     return matrix
 
 
+def classify_history_span(summary: dict) -> dict:
+    date_count = int(summary.get("trade_date_count", 0) or 0)
+    if date_count <= 0:
+        state = "no_history"
+        label = "暂无历史日期"
+        reason = "当前没有可读且非空的历史快照日期。"
+    elif date_count == 1:
+        state = "single_date"
+        label = "单日期历史"
+        reason = "当前仅覆盖一个交易日，适合回放单日状态。"
+    else:
+        state = "multi_date"
+        label = "多日期历史"
+        reason = f"当前覆盖 {date_count} 个交易日，可用于跨日期观察。"
+    return {
+        "history_span_state": state,
+        "history_span_label": label,
+        "history_span_reason": reason,
+        "trade_date_count": date_count,
+    }
+
+
+def classify_intraday_depth(summary: dict, sparse_threshold: int = 2, dense_threshold: int = 6) -> dict:
+    bucket_counts = {
+        str(key): int(value or 0)
+        for key, value in (summary.get("captured_bucket_count_by_date") or {}).items()
+    }
+    nonzero_counts = [value for value in bucket_counts.values() if value > 0]
+    max_buckets = max(nonzero_counts) if nonzero_counts else 0
+    min_buckets = min(nonzero_counts) if nonzero_counts else 0
+    avg_buckets = (sum(nonzero_counts) / len(nonzero_counts)) if nonzero_counts else 0.0
+    if not nonzero_counts:
+        state = "no_intraday_depth"
+        label = "暂无日内深度"
+        reason = "当前历史快照缺少 captured_time 覆盖。"
+    elif max_buckets <= 1:
+        state = "single_point_per_date"
+        label = "每日期单时间点"
+        reason = "每个可用日期最多只有一个 captured_time，可用于单点回放。"
+    elif max_buckets < dense_threshold:
+        state = "sparse_intraday"
+        label = "日内覆盖较稀疏"
+        reason = "部分日期包含多个 captured_time，但日内覆盖仍较有限。"
+    else:
+        state = "dense_intraday"
+        label = "日内覆盖较充分"
+        reason = "至少一个日期包含较多 captured_time，可用于更细的日内回放证据说明。"
+    return {
+        "intraday_depth_state": state,
+        "intraday_depth_label": label,
+        "intraday_depth_reason": reason,
+        "min_intraday_bucket_count": int(min_buckets),
+        "max_intraday_bucket_count": int(max_buckets),
+        "avg_intraday_bucket_count": round(float(avg_buckets), 2),
+        "sparse_intraday_threshold": int(sparse_threshold),
+        "dense_intraday_threshold": int(dense_threshold),
+    }
+
+
+def classify_coverage_consistency(summary: dict) -> dict:
+    bucket_counts = {
+        str(key): int(value or 0)
+        for key, value in (summary.get("captured_bucket_count_by_date") or {}).items()
+    }
+    counts = [value for value in bucket_counts.values() if value > 0]
+    if not counts:
+        state = "unknown"
+        label = "覆盖均衡性未知"
+        reason = "当前缺少 captured_time bucket 信息，暂无法判断覆盖是否均衡。"
+    elif len(counts) <= 1:
+        state = "consistent"
+        label = "单日期覆盖"
+        reason = "当前只有一个有效日期，不存在跨日期覆盖差异。"
+    elif max(counts) - min(counts) <= 1:
+        state = "consistent"
+        label = "覆盖较一致"
+        reason = "各日期 captured_time bucket 数量接近。"
+    else:
+        state = "uneven"
+        label = "覆盖不均衡"
+        reason = "不同日期的 captured_time bucket 数量差异较明显。"
+    return {
+        "coverage_consistency_state": state,
+        "coverage_consistency_label": label,
+        "coverage_consistency_reason": reason,
+        "coverage_bucket_counts": bucket_counts,
+    }
+
+
+def build_historical_evidence_dimensions(summary: dict) -> dict:
+    span = classify_history_span(summary)
+    intraday = classify_intraday_depth(summary)
+    consistency = classify_coverage_consistency(summary)
+    return {**span, **intraday, **consistency}
+
+
 def classify_historical_evidence_readiness(
     summary: dict,
     min_multi_day_dates: int = 3,
     min_intraday_buckets: int = 3,
     min_snapshots_per_ready_date: int = 1,
 ) -> dict:
+    dimensions = build_historical_evidence_dimensions(summary)
     valid_count = int(summary.get("valid_snapshot_count", 0) or 0)
     date_count = int(summary.get("trade_date_count", 0) or 0)
     bucket_counts = {
@@ -426,6 +523,7 @@ def classify_historical_evidence_readiness(
         "min_multi_day_dates": int(min_multi_day_dates),
         "min_intraday_buckets": int(min_intraday_buckets),
         "min_snapshots_per_ready_date": int(min_snapshots_per_ready_date),
+        **dimensions,
     }
 
 

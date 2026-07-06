@@ -96,6 +96,10 @@ from src.snapshot_catalog import (  # noqa: E402
 )
 from src.snapshot_quality import build_snapshot_quality_report  # noqa: E402
 from src.theme_taxonomy import get_theme_names, load_theme_taxonomy, validate_theme_taxonomy  # noqa: E402
+from src.theme_observation_evidence import (  # noqa: E402
+    resolve_theme_observation_evidence,
+    validate_theme_evidence_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -153,6 +157,7 @@ REQUIRED_FILES = (
     "src/collection_policy.py",
     "src/ingestion_metrics.py",
     "src/history_evidence.py",
+    "src/theme_observation_evidence.py",
     "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
@@ -165,6 +170,7 @@ REQUIRED_FILES = (
     "tools/probe_akshare.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
+    "tools/inspect_theme_evidence.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -404,6 +410,15 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     sample_coverage_matrix = build_coverage_matrix(sample_history_manifest)
     sample_replay_date = sample_history_summary.get("latest_trade_date")
     sample_replay = resolve_replay_evidence(sample_replay_date, sample_history_manifest, source_mode="SAMPLE", mode="SAMPLE")
+    taxonomy_for_evidence = load_theme_taxonomy(str(project_root / "config/theme_taxonomy.json"))
+    evidence_theme = (get_theme_names(taxonomy_for_evidence) or ["半导体/芯片链"])[0]
+    sample_theme_evidence = resolve_theme_observation_evidence(
+        evidence_theme,
+        source_mode="SAMPLE",
+        theme_mode="strict_representative",
+        data_dir=str(project_root / "sample_data/ticks"),
+        taxonomy=taxonomy_for_evidence,
+    )
     warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
@@ -520,6 +535,16 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
                 + " "
                 + str(sample_history_readiness.get("readiness_reason", ""))
             ),
+        },
+        "theme_observation_evidence": {
+            "theme_observation_evidence_module_imported": True,
+            "inspect_theme_evidence_script_exists": (project_root / "tools/inspect_theme_evidence.py").exists(),
+            "sample_theme_evidence_available": bool(sample_theme_evidence.get("evidence_available")),
+            "sample_theme_evidence_theme": sample_theme_evidence.get("theme_name"),
+            "sample_theme_evidence_source_mode": sample_theme_evidence.get("source_mode"),
+            "sample_theme_evidence_matched_member_count": int(sample_theme_evidence.get("matched_member_count", 0) or 0),
+            "sample_theme_evidence_taxonomy_fingerprint": str(sample_theme_evidence.get("taxonomy_fingerprint") or "")[:12],
+            "sample_theme_evidence_forbidden_hits": validate_theme_evidence_text(str(sample_theme_evidence)),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -663,6 +688,14 @@ def main() -> int:
     print(f"sample coverage matrix shape: {history_evidence['sample_coverage_matrix_shape']}")
     print(f"sample replay evidence state: {history_evidence['sample_replay_evidence_state']}")
     print(f"history evidence forbidden hits: {history_evidence['history_evidence_forbidden_hits']}")
+    theme_evidence = report["theme_observation_evidence"]
+    print(f"theme observation evidence module imported: {theme_evidence['theme_observation_evidence_module_imported']}")
+    print(f"inspect_theme_evidence.py exists: {theme_evidence['inspect_theme_evidence_script_exists']}")
+    print(f"sample theme evidence available: {theme_evidence['sample_theme_evidence_available']}")
+    print(f"sample theme evidence theme/source: {theme_evidence['sample_theme_evidence_theme']} / {theme_evidence['sample_theme_evidence_source_mode']}")
+    print(f"sample theme evidence matched members: {theme_evidence['sample_theme_evidence_matched_member_count']}")
+    print(f"sample theme taxonomy fingerprint: {theme_evidence['sample_theme_evidence_taxonomy_fingerprint']}")
+    print(f"theme evidence forbidden hits: {theme_evidence['sample_theme_evidence_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
@@ -755,6 +788,11 @@ def main() -> int:
         and report["history_evidence"]["sample_history_valid_snapshot_count"] >= 2
         and report["history_evidence"]["sample_replay_evidence_state"] == "available"
         and not report["history_evidence"]["history_evidence_forbidden_hits"]
+        and report["theme_observation_evidence"]["theme_observation_evidence_module_imported"]
+        and report["theme_observation_evidence"]["inspect_theme_evidence_script_exists"]
+        and report["theme_observation_evidence"]["sample_theme_evidence_available"]
+        and report["theme_observation_evidence"]["sample_theme_evidence_source_mode"] == "SAMPLE"
+        and not report["theme_observation_evidence"]["sample_theme_evidence_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
         and warehouse["warehouse_explorer_imported"]

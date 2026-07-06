@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.history_evidence import (
+    build_historical_evidence_dimensions,
     build_coverage_matrix,
     build_historical_coverage_summary,
     build_snapshot_manifest,
@@ -139,6 +140,59 @@ def test_classify_historical_evidence_readiness_states() -> None:
         "snapshots_by_date": {"a": 1, "b": 1, "c": 1},
     }
     assert classify_historical_evidence_readiness(multi)["readiness_state"] == "multi_day_ready"
+
+
+def test_history_dimensions_three_dates_single_snapshot_each() -> None:
+    summary = {
+        "valid_snapshot_count": 3,
+        "trade_date_count": 3,
+        "captured_bucket_count_by_date": {"a": 1, "b": 1, "c": 1},
+        "snapshots_by_date": {"a": 1, "b": 1, "c": 1},
+    }
+    dims = build_historical_evidence_dimensions(summary)
+    readiness = classify_historical_evidence_readiness(summary)
+    assert readiness["readiness_state"] == "multi_day_ready"
+    assert dims["history_span_state"] == "multi_date"
+    assert dims["intraday_depth_state"] == "single_point_per_date"
+    assert dims["coverage_consistency_state"] == "consistent"
+
+
+def test_history_dimensions_three_dates_dense_intraday() -> None:
+    summary = {
+        "valid_snapshot_count": 9,
+        "trade_date_count": 3,
+        "captured_bucket_count_by_date": {"a": 6, "b": 6, "c": 6},
+        "snapshots_by_date": {"a": 3, "b": 3, "c": 3},
+    }
+    dims = build_historical_evidence_dimensions(summary)
+    assert dims["history_span_state"] == "multi_date"
+    assert dims["intraday_depth_state"] == "dense_intraday"
+    assert dims["coverage_consistency_state"] == "consistent"
+
+
+def test_history_dimensions_uneven_coverage() -> None:
+    summary = {
+        "valid_snapshot_count": 6,
+        "trade_date_count": 3,
+        "captured_bucket_count_by_date": {"a": 1, "b": 5, "c": 2},
+        "snapshots_by_date": {"a": 1, "b": 3, "c": 2},
+    }
+    dims = build_historical_evidence_dimensions(summary)
+    assert dims["coverage_consistency_state"] == "uneven"
+
+
+def test_history_dimensions_single_date_dense_intraday() -> None:
+    summary = {
+        "valid_snapshot_count": 1,
+        "trade_date_count": 1,
+        "captured_bucket_count_by_date": {"a": 8},
+        "snapshots_by_date": {"a": 1},
+    }
+    dims = build_historical_evidence_dimensions(summary)
+    readiness = classify_historical_evidence_readiness(summary)
+    assert readiness["readiness_state"] == "single_day_intraday"
+    assert dims["history_span_state"] == "single_date"
+    assert dims["intraday_depth_state"] == "dense_intraday"
 
 
 def test_resolve_replay_evidence(tmp_path) -> None:

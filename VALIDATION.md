@@ -1115,3 +1115,21 @@ This Streamlit MVP intentionally keeps the request strategy small:
 - Recommended order: stabilize industry fund flow first, then gradually add concept fund flow, regional fund flow, 5-day, and 10-day views.
 
 The reason is simple: the concept fund-flow endpoint can occasionally fail with proxy or upstream errors. Increasing request volume before the status and cache path are stable would make the dashboard less trustworthy.
+
+## v3.8 Evidence-Backed Theme Observation Checks
+
+- `src/theme_observation_evidence.py` exists and can be imported.
+- `tools/inspect_theme_evidence.py` exists and supports SAMPLE / REAL read-only inspection.
+- `src/theme_taxonomy.py` exposes deterministic taxonomy and theme-definition fingerprints.
+- `src/theme_pool.py` can build a theme snapshot with trace while reusing the canonical matching and aggregation path.
+- Strict representative, representative and breadth modes expose actual included members and excluded members.
+- Theme state evidence includes aggregation inputs, aggregate value, threshold mapping and derived state.
+- Historical evidence readiness includes separate history span, intraday depth and coverage consistency states.
+- SAMPLE theme evidence is explicitly labeled as synthetic demo evidence.
+- REAL and SAMPLE evidence are not silently combined.
+- Streamlit Theme Radar and Multi-Day tabs expose compact factual evidence panels without changing the main calculation.
+- Observation brief exports include compact provenance metadata without dumping full trace data.
+- Theme evidence CLI does not call AKShare, write CSV, write logs, mutate taxonomy or read personal holdings.
+- Documentation explains analytical provenance versus investment rationale.
+- Tests remain offline and deterministic.
+- Page and docs avoid trading, prediction, recommendation or investment-action wording.

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v3.8
+
+- Evidence-backed theme observation traces.
+- Added deterministic taxonomy and theme-definition fingerprints so each theme observation can point back to the exact configured mapping used for calculation.
+- Added `src/theme_observation_evidence.py` and `tools/inspect_theme_evidence.py` for read-only inspection of theme calculation lineage across strict representative, representative and breadth modes.
+- Theme evidence now exposes matched members, included/excluded rows, aggregation inputs, aggregate value, threshold mapping, derived state and SAMPLE/REAL source mode without reimplementing the theme formula separately.
+- Historical evidence readiness now separates history span, intraday depth and coverage consistency instead of relying on one collapsed readiness label.
+- Streamlit Theme Radar and Multi-Day tabs now include compact factual evidence panels; observation brief exports include a concise provenance footer.
+- Smoke/runtime/cloud/release checks now verify theme evidence assets and SAMPLE evidence labeling without requiring live AKShare.
+- This is analytical provenance, not model explainability, trading rationale, prediction or investment advice.
+
 ## v3.7
 
 - Real historical coverage matrix and replay provenance.

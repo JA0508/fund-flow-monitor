@@ -21,6 +21,7 @@ The app fetches or reads sector fund-flow snapshots, normalizes them with pandas
 - CSV snapshots remain the primary data source.
 - SQLite warehouse is optional and rebuildable from CSV.
 - Historical evidence is recovered from CSV snapshots to show file lineage, schema fingerprint consistency, captured_time coverage, and selected-date replay provenance.
+- Theme observation evidence shows which taxonomy definition, calculation mode, matched members, aggregate inputs and thresholds produced a displayed theme state.
 - Lightweight data contracts validate the practical snapshot shape, especially SAMPLE CSV structure, without blocking valid local cache data unnecessarily.
 
 ## Engineering Architecture Tradeoff
@@ -35,7 +36,8 @@ The current architecture is still modular: Streamlit is the UI shell, while data
 2. SAMPLE CSV files provide a reproducible public demonstration path.
 3. Normalization standardizes sector names, time points, and flow values.
 4. Theme mapping converts sector rows into fund-oriented theme rows.
-5. UI panels and briefs render observations from the active dataframe.
+5. Theme evidence traces preserve the actual matching and aggregation path.
+6. UI panels and briefs render observations from the active dataframe.
 
 ## Streamlit Cloud Deployment Explanation
 

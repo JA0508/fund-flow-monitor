@@ -223,6 +223,38 @@ v3.7 adds a read-only historical evidence layer on top of persisted CSV snapshot
 
 This layer does not change theme calculations, does not read from AKShare, does not write CSV or SQLite, and does not perform performance analysis or prediction. It exists to make historical replay provenance explicit.
 
+## Theme Observation Evidence Layer
+
+v3.8 adds factual calculation lineage for theme observations. It explains how normalized sector rows become a displayed theme state:
+
+```text
+normalized sector rows
+        |
+        v
+theme taxonomy definition + fingerprint
+        |
+        v
+canonical theme_pool matching and aggregation
+        |
+        v
+theme evidence trace
+        |
+        v
+Theme Radar / Multi-Day / Observation Brief provenance
+```
+
+The evidence path is attached to the canonical `theme_pool` calculation path. `build_theme_snapshot_with_trace()` reuses the same matching, selected-group and aggregation helpers as `build_theme_snapshot()`, then records the actual participating inputs. This avoids a separate reconstruction formula that could drift from the displayed result.
+
+Theme observation evidence includes taxonomy fingerprint, theme-definition fingerprint, calculation mode, matched members, excluded members with factual reasons, aggregation method, aggregation inputs, aggregate value, threshold table, derived state, source mode and historical evidence dimensions.
+
+Historical evidence is split into three factual dimensions:
+
+- history span: no history, single date or multi-date
+- intraday depth: no depth, single point per date, sparse intraday or dense intraday
+- coverage consistency: unknown, uneven or consistent
+
+This is analytical provenance. It is not model explainability, investment rationale, trading signal or prediction.
+
 ## If This Became Production-Grade
 
 A production-grade version would need additional systems that are intentionally out of scope here:

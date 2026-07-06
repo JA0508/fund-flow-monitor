@@ -189,6 +189,10 @@ from src.theme_history_viz import (  # noqa: E402
     prepare_theme_history_line_data,
     validate_theme_history_viz_text,
 )
+from src.theme_observation_evidence import (  # noqa: E402
+    resolve_theme_observation_evidence,
+    validate_theme_evidence_text,
+)
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist  # noqa: E402
 
 DEMO_CHECK_FIELDS = ("source", "sector_type", "mode", "data_mode")
@@ -987,6 +991,34 @@ def _verify_history_evidence() -> None:
     print("  historical evidence 检查只读 CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 
+def _verify_theme_observation_evidence() -> None:
+    taxonomy = load_theme_taxonomy(str(PROJECT_ROOT / "config/theme_taxonomy.json"))
+    theme = (get_theme_names(taxonomy) or ["半导体/芯片链"])[0]
+    sample_evidence = resolve_theme_observation_evidence(
+        theme,
+        source_mode="SAMPLE",
+        theme_mode="strict_representative",
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+        taxonomy=taxonomy,
+    )
+    forbidden_hits = validate_theme_evidence_text(str(sample_evidence))
+    data = sample_evidence.get("data_evidence", {})
+    print("Theme Observation Evidence 检查:")
+    print("  theme_observation_evidence_module_imported: True")
+    print(f"  inspect_theme_evidence.py exists: {(PROJECT_ROOT / 'tools/inspect_theme_evidence.py').exists()}")
+    print(f"  sample_theme_evidence_available: {sample_evidence.get('evidence_available')}")
+    print(f"  sample_theme_evidence_theme: {sample_evidence.get('theme_name')}")
+    print(f"  sample_theme_evidence_source_mode: {sample_evidence.get('source_mode')}")
+    print(f"  sample_theme_matched_member_count: {sample_evidence.get('matched_member_count')}")
+    print(f"  sample_theme_taxonomy_fingerprint: {str(sample_evidence.get('taxonomy_fingerprint') or '')[:12]}")
+    print(f"  sample_theme_definition_fingerprint: {str(sample_evidence.get('theme_definition_fingerprint') or '')[:12]}")
+    print(f"  sample_theme_history_span_state: {data.get('history_span_state')}")
+    print(f"  sample_theme_intraday_depth_state: {data.get('intraday_depth_state')}")
+    print(f"  sample_theme_coverage_consistency_state: {data.get('coverage_consistency_state')}")
+    print(f"  theme_observation_evidence_forbidden_hits: {forbidden_hits}")
+    print("  theme observation evidence 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -1088,6 +1120,7 @@ def main() -> int:
     _verify_snapshot_quality()
     _verify_collection_orchestration()
     _verify_history_evidence()
+    _verify_theme_observation_evidence()
     _verify_provider_boundary()
     _verify_local_warehouse()
     print("fund summary Top 3:")

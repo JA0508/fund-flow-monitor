@@ -3,6 +3,7 @@ import pandas as pd
 from src.theme_pool import (
     apply_theme_pool_to_ticks,
     build_theme_snapshot,
+    build_theme_snapshot_with_trace,
     classify_theme_status,
     map_to_theme,
 )
@@ -89,6 +90,45 @@ def test_breadth_uses_primary_and_related_as_observation_strength():
     assert row["theme_value_label"] == "观察强度"
 
 
+def test_theme_snapshot_with_trace_matches_canonical_strict_result():
+    latest = pd.DataFrame([_row("半导体", 10.0), _row("半导体设备", -4.0), _row("半导体材料", -3.0)])
+    themed = build_theme_snapshot(latest, theme_mode="strict_representative")
+    traced, traces = build_theme_snapshot_with_trace(latest, theme_mode="strict_representative")
+    row = themed[themed["sector_name"].eq("半导体/芯片链")].iloc[0]
+    traced_row = traced[traced["sector_name"].eq("半导体/芯片链")].iloc[0]
+    trace = traces["半导体/芯片链"]
+    assert traced_row["main_net_inflow_billion"] == row["main_net_inflow_billion"]
+    assert trace["aggregate_value"] == row["main_net_inflow_billion"]
+    assert trace["derived_state"] == row["theme_status"]
+    assert trace["used_member_count"] == 1
+    assert [item["member_name"] for item in trace["all_members"] if item["included"]] == ["半导体"]
+    assert any(item["exclusion_reason"] == "当前口径未纳入该匹配成员" for item in trace["all_members"])
+
+
+def test_theme_snapshot_with_trace_representative_and_breadth_inputs():
+    latest = pd.DataFrame([_row("计算机设备", 8.0), _row("软件开发", 3.0), _row("通信", -2.0)])
+    representative, representative_traces = build_theme_snapshot_with_trace(latest, theme_mode="representative")
+    rep_trace = representative_traces["AI算力/TMT"]
+    assert not representative.empty
+    assert rep_trace["match_strategy"] in {"primary_exact", "primary_contains", "related_exact_fallback", "related_contains_fallback"}
+    assert rep_trace["used_member_count"] >= 1
+
+    breadth, breadth_traces = build_theme_snapshot_with_trace(latest, theme_mode="breadth")
+    breadth_trace = breadth_traces["AI算力/TMT"]
+    assert breadth_trace["match_strategy"] == "breadth_all"
+    assert breadth_trace["aggregate_value"] == breadth[breadth["theme_name"].eq("AI算力/TMT")]["main_net_inflow_billion"].iloc[0]
+    assert breadth_trace["used_member_count"] >= rep_trace["used_member_count"]
+
+
+def test_theme_snapshot_trace_includes_thresholds_and_unmatched_members():
+    latest = pd.DataFrame([_row("半导体", 40.0)])
+    _, traces = build_theme_snapshot_with_trace(latest, theme_mode="strict_representative")
+    trace = traces["半导体/芯片链"]
+    assert trace["derived_state"] == "强流入"
+    assert any(item["status"] == "强流入" and item["lower_bound"] == 30.0 for item in trace["thresholds"])
+    assert trace["unmatched_member_count"] >= 1
+
+
 def test_apply_theme_pool_to_ticks_keeps_all_captured_times():
     ticks = pd.DataFrame(
         [
@@ -125,4 +165,3 @@ def test_rank_filters_keep_positive_and_negative_separate():
     outflow = filter_rank_rows(df, direction="out")
     assert inflow["sector_name"].tolist() == ["A"]
     assert outflow["sector_name"].tolist() == ["B"]
-

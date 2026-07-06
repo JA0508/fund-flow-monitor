@@ -5,6 +5,9 @@ from pathlib import Path
 
 from src.theme_taxonomy import (
     audit_theme_name_consistency,
+    build_taxonomy_fingerprint,
+    build_theme_definition_evidence,
+    build_theme_definition_fingerprint,
     build_concept_keyword_table,
     build_sector_to_theme_map,
     build_theme_definition_table,
@@ -60,3 +63,65 @@ def test_taxonomy_json_and_text_has_no_advice_words() -> None:
     text = json.dumps(taxonomy, ensure_ascii=False)
     for word in FORBIDDEN:
         assert word not in text
+
+
+def test_taxonomy_fingerprint_is_key_order_stable() -> None:
+    taxonomy_a = {
+        "version": "v-test",
+        "taxonomy_name": "测试主题库",
+        "themes": [
+            {
+                "theme_name": "A",
+                "primary_sectors": ["A1"],
+                "related_sectors": ["A2"],
+                "concept_keywords": [],
+            }
+        ],
+    }
+    taxonomy_b = {
+        "themes": [
+            {
+                "related_sectors": ["A2"],
+                "concept_keywords": [],
+                "primary_sectors": ["A1"],
+                "theme_name": "A",
+            }
+        ],
+        "taxonomy_name": "测试主题库",
+        "version": "v-test",
+    }
+    assert build_taxonomy_fingerprint(taxonomy_a) == build_taxonomy_fingerprint(taxonomy_b)
+
+
+def test_theme_definition_fingerprint_changes_with_definition() -> None:
+    base = {
+        "theme_name": "A",
+        "primary_sectors": ["A1"],
+        "related_sectors": ["A2"],
+        "concept_keywords": [],
+    }
+    changed = {**base, "related_sectors": ["A2", "A3"]}
+    assert build_theme_definition_fingerprint(base) != build_theme_definition_fingerprint(changed)
+
+
+def test_theme_definition_evidence_is_scoped_to_selected_theme() -> None:
+    taxonomy = {
+        "taxonomy_name": "测试主题库",
+        "version": "v-test",
+        "themes": [
+            {"theme_name": "A", "primary_sectors": ["A1"], "related_sectors": ["A2"], "concept_keywords": []},
+            {"theme_name": "B", "primary_sectors": ["B1"], "related_sectors": ["B2"], "concept_keywords": []},
+        ],
+    }
+    changed_other = {
+        **taxonomy,
+        "themes": [
+            {"theme_name": "A", "primary_sectors": ["A1"], "related_sectors": ["A2"], "concept_keywords": []},
+            {"theme_name": "B", "primary_sectors": ["B9"], "related_sectors": ["B2"], "concept_keywords": []},
+        ],
+    }
+    assert (
+        build_theme_definition_evidence(taxonomy, "A")["theme_definition_fingerprint"]
+        == build_theme_definition_evidence(changed_other, "A")["theme_definition_fingerprint"]
+    )
+    assert build_theme_definition_evidence(taxonomy, "A")["taxonomy_fingerprint"] != build_theme_definition_evidence(changed_other, "A")["taxonomy_fingerprint"]

@@ -218,3 +218,28 @@ v3.7 adds a historical evidence pass that reads existing CSV snapshots and repor
 - replay evidence for a selected trade date
 
 The coverage matrix uses `trade_date` as rows and minute-level `captured_time` buckets as columns by default. Values are snapshot counts, not market scores. This matrix is for lineage and replay coverage only; it is not a signal or model.
+
+## Theme Observation Evidence
+
+v3.8 connects the historical evidence layer to theme calculation lineage:
+
+```text
+CSV snapshot rows
+-> theme_taxonomy.json definition fingerprint
+-> canonical theme_pool matching
+-> selected calculation mode inputs
+-> aggregate value
+-> threshold mapping
+-> displayed theme state
+-> compact evidence trace
+```
+
+The evidence trace is generated from the same calculation helpers as the displayed theme result. It records which configured members matched, which rows were included by the selected mode, which rows were excluded, the aggregate input values and the threshold table used for the displayed state.
+
+For historical support, evidence keeps separate:
+
+- cross-date history span
+- intraday captured_time depth
+- coverage consistency across dates
+
+REAL and SAMPLE evidence are not silently combined. SAMPLE evidence remains synthetic demonstration evidence and must be read with that label visible.

@@ -122,6 +122,14 @@ THEME_MODE_LABELS = {
     "breadth": "观察强度",
 }
 
+THEME_STATUS_THRESHOLDS = [
+    {"status": "强流入", "status_level": "positive_strong", "lower_bound": 30.0, "upper_bound": None, "lower_inclusive": True, "upper_inclusive": False},
+    {"status": "弱流入", "status_level": "positive_weak", "lower_bound": 5.0, "upper_bound": 30.0, "lower_inclusive": True, "upper_inclusive": False},
+    {"status": "分歧/中性", "status_level": "neutral", "lower_bound": -5.0, "upper_bound": 5.0, "lower_inclusive": False, "upper_inclusive": False},
+    {"status": "弱流出", "status_level": "negative_weak", "lower_bound": -30.0, "upper_bound": -5.0, "lower_inclusive": False, "upper_inclusive": True},
+    {"status": "强流出", "status_level": "negative_strong", "lower_bound": None, "upper_bound": -30.0, "lower_inclusive": False, "upper_inclusive": True},
+]
+
 
 def normalize_sector_name(name: str) -> str:
     return "" if name is None else str(name).strip().replace(" ", "").upper()
@@ -204,6 +212,10 @@ def classify_theme_status(row) -> tuple[str, str]:
     return "强流出", "negative_strong"
 
 
+def get_theme_status_thresholds() -> list[dict]:
+    return [dict(item) for item in THEME_STATUS_THRESHOLDS]
+
+
 def _normalize_theme_mode(theme_mode: str) -> ThemeMode:
     if theme_mode == "breadth":
         return "breadth"
@@ -236,6 +248,112 @@ def _sectors_for_group(group: pd.DataFrame) -> list[str]:
     if group is None or group.empty:
         return []
     return group["sector_name"].dropna().astype(str).drop_duplicates().tolist()
+
+
+def _safe_trace_value(row: pd.Series, column: str):
+    value = row.get(column)
+    if pd.isna(value):
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def _member_trace_rows(
+    theme_def: dict,
+    matches: dict[str, pd.DataFrame],
+    used_group: pd.DataFrame,
+) -> list[dict]:
+    used_indices = set(used_group.index.tolist()) if used_group is not None and not used_group.empty else set()
+    role_frames = [
+        ("core", "exact", matches.get("primary_exact_df")),
+        ("related", "exact", matches.get("related_exact_df")),
+        ("core", "contains", matches.get("primary_contains_df")),
+        ("related", "contains", matches.get("related_contains_df")),
+    ]
+    rows: list[dict] = []
+    seen: set[object] = set()
+    for role, match_type, frame in role_frames:
+        if frame is None or frame.empty:
+            continue
+        for idx, row in frame.iterrows():
+            if idx in seen:
+                continue
+            seen.add(idx)
+            included = idx in used_indices
+            value = pd.to_numeric(pd.Series([row.get("main_net_inflow_billion")]), errors="coerce").iloc[0]
+            rows.append(
+                {
+                    "member_name": str(row.get("sector_name") or ""),
+                    "member_role": role,
+                    "match_type": match_type,
+                    "matched_source_row": str(row.get("sector_name") or ""),
+                    "input_value": None if pd.isna(value) else float(value),
+                    "normalized_value": None if pd.isna(value) else float(value),
+                    "included": bool(included),
+                    "exclusion_reason": "" if included else "当前口径未纳入该匹配成员",
+                    "sector_type": _safe_trace_value(row, "sector_type"),
+                    "captured_time": _safe_trace_value(row, "captured_time"),
+                    "trade_date": _safe_trace_value(row, "trade_date"),
+                }
+            )
+    configured = set(theme_def.get("primary_sectors", [])) | set(theme_def.get("related_sectors", []))
+    matched_names = {item["member_name"] for item in rows}
+    for member in sorted(configured - matched_names):
+        role = "core" if member in set(theme_def.get("primary_sectors", [])) else "related"
+        rows.append(
+            {
+                "member_name": member,
+                "member_role": role,
+                "match_type": "unmatched",
+                "matched_source_row": None,
+                "input_value": None,
+                "normalized_value": None,
+                "included": False,
+                "exclusion_reason": "当前快照未匹配到该配置成员",
+                "sector_type": None,
+                "captured_time": None,
+                "trade_date": None,
+            }
+        )
+    return rows
+
+
+def _build_trace_record(
+    theme_name: str,
+    theme_def: dict,
+    source_group: pd.DataFrame,
+    used_group: pd.DataFrame,
+    matches: dict[str, pd.DataFrame],
+    theme_mode: ThemeMode,
+    match_strategy: str,
+    theme_value_label: str,
+    row: dict,
+) -> dict:
+    members = _member_trace_rows(theme_def, matches, used_group)
+    included_values = [item["input_value"] for item in members if item.get("included") and item.get("input_value") is not None]
+    configured_count = len(set(theme_def.get("primary_sectors", [])) | set(theme_def.get("related_sectors", [])))
+    return {
+        "theme_name": theme_name,
+        "theme_mode": theme_mode,
+        "theme_value_label": theme_value_label,
+        "match_strategy": match_strategy,
+        "aggregation_method": "sum(main_net_inflow_billion) over selected matched members",
+        "aggregation_inputs": included_values,
+        "aggregate_value": float(row.get("main_net_inflow_billion") or 0),
+        "derived_state": row.get("theme_status"),
+        "derived_state_level": row.get("theme_status_level"),
+        "thresholds": get_theme_status_thresholds(),
+        "configured_member_count": configured_count,
+        "matched_member_count": int(len(source_group)) if source_group is not None else 0,
+        "used_member_count": int(len(used_group)) if used_group is not None else 0,
+        "unmatched_member_count": int(sum(1 for item in members if item.get("match_type") == "unmatched")),
+        "matched_members": [item for item in members if item.get("matched_source_row")],
+        "all_members": members,
+        "used_sectors": row.get("used_sectors"),
+        "source_sectors": row.get("source_sectors"),
+        "canonical_row": dict(row),
+    }
 
 
 def _join_sectors(group: pd.DataFrame) -> str:
@@ -325,6 +443,26 @@ def _build_rows_for_frame(df: pd.DataFrame, theme_mode: ThemeMode) -> list[dict]
     return rows
 
 
+def _build_rows_and_traces_for_frame(df: pd.DataFrame, theme_mode: ThemeMode) -> tuple[list[dict], list[dict]]:
+    rows = []
+    traces = []
+    remaining = df.copy()
+    for theme_name, theme_def in get_theme_definitions().items():
+        matches = split_theme_matches(remaining, theme_def)
+        source_group = matches["all_matched_df"]
+        if source_group.empty:
+            continue
+        used_group, match_strategy, label = _select_used_group(matches, theme_mode)
+        if used_group.empty:
+            remaining = remaining.drop(index=source_group.index, errors="ignore")
+            continue
+        row = _build_theme_row(theme_name, source_group, used_group, theme_mode, match_strategy, label)
+        rows.append(row)
+        traces.append(_build_trace_record(theme_name, theme_def, source_group, used_group, matches, theme_mode, match_strategy, label, row))
+        remaining = remaining.drop(index=source_group.index, errors="ignore")
+    return rows, traces
+
+
 def build_theme_snapshot(
     latest_df: pd.DataFrame,
     theme_mode: str = "strict_representative",
@@ -336,6 +474,21 @@ def build_theme_snapshot(
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows).sort_values("main_net_inflow_billion", ascending=False).reset_index(drop=True)
+
+
+def build_theme_snapshot_with_trace(
+    latest_df: pd.DataFrame,
+    theme_mode: str = "strict_representative",
+) -> tuple[pd.DataFrame, dict[str, dict]]:
+    if latest_df is None or latest_df.empty:
+        return pd.DataFrame(), {}
+    mode = _normalize_theme_mode(theme_mode)
+    rows, traces = _build_rows_and_traces_for_frame(_prepare_df(latest_df), mode)
+    if not rows:
+        return pd.DataFrame(), {}
+    out = pd.DataFrame(rows).sort_values("main_net_inflow_billion", ascending=False).reset_index(drop=True)
+    trace_map = {str(trace.get("theme_name")): trace for trace in traces}
+    return out, trace_map
 
 
 def apply_theme_pool_to_ticks(
