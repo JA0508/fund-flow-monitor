@@ -243,3 +243,26 @@ For historical support, evidence keeps separate:
 - coverage consistency across dates
 
 REAL and SAMPLE evidence are not silently combined. SAMPLE evidence remains synthetic demonstration evidence and must be read with that label visible.
+
+## Theme Taxonomy Calibration Audit
+
+v3.9 adds a read-only audit path for theme taxonomy calibration:
+
+```text
+config/theme_taxonomy.json
+-> normalized theme member definitions
+-> deterministic alias / canonical-name resolution
+-> overlap audit + source-universe coverage audit
+-> Data Explanation panel / audit_theme_taxonomy.py
+```
+
+The audit keeps `primary_sectors` and `related_sectors` compatible, but represents them internally as member definitions with role, strict-representative flag, mapping source, mapping method and rationale. It reports reused canonical members, ambiguous source rows, overlap pairs and per-theme calibration summaries.
+
+Coverage is calculated against the selected source universe:
+
+- SAMPLE coverage uses `sample_data/ticks` and remains synthetic demo evidence.
+- REAL coverage uses local `data/ticks` if available and remains local cache evidence.
+- SAMPLE and REAL coverage are not combined.
+- The coverage denominator is the number of unique normalized source names visible in the selected latest snapshot set.
+
+This audit does not modify the taxonomy, does not infer fuzzy matches, does not create formal industry labels and does not interpret coverage as market quality.

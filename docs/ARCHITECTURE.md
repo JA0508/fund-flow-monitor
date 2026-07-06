@@ -255,6 +255,19 @@ Historical evidence is split into three factual dimensions:
 
 This is analytical provenance. It is not model explainability, investment rationale, trading signal or prediction.
 
+## Theme Taxonomy Calibration Layer
+
+v3.9 adds a read-only semantic governance layer for `config/theme_taxonomy.json`. It keeps the legacy taxonomy schema compatible while exposing more explicit member metadata:
+
+- `primary_sectors` are treated as `core` members and strict-representative candidates.
+- `related_sectors` are treated as `related` members.
+- Each member can carry mapping source, mapping method, rationale, aliases and strict-representative status.
+- Alias resolution is deterministic and exact; ambiguous reused members are surfaced instead of silently selected.
+- Cross-theme overlap is reported with shared members and Jaccard-style overlap ratios.
+- Source-universe coverage is calculated separately for SAMPLE and REAL rows and uses the visible normalized source names as the denominator.
+
+This layer does not rewrite the taxonomy, does not call AKShare, does not write CSV or SQLite, and does not merge SAMPLE and REAL evidence. It exists to make mapping provenance and calibration gaps visible for manual review.
+
 ## If This Became Production-Grade
 
 A production-grade version would need additional systems that are intentionally out of scope here:

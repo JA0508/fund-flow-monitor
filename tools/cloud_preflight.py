@@ -42,10 +42,12 @@ REQUIRED_ASSETS = (
     "src/ingestion_metrics.py",
     "src/history_evidence.py",
     "src/theme_observation_evidence.py",
+    "src/theme_taxonomy_audit.py",
     "src/providers/akshare_sector_flow.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
     "tools/inspect_theme_evidence.py",
+    "tools/audit_theme_taxonomy.py",
 )
 
 

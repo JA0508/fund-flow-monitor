@@ -95,6 +95,8 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 - After local collection, `tools/inspect_history_evidence.py --source-mode REAL` should show snapshot-level lineage, schema fingerprint consistency and selected-date replay provenance without printing row-level private data.
 - `tools/inspect_theme_evidence.py --theme "半导体/芯片链" --source-mode SAMPLE --trace` should show taxonomy fingerprint, matched members, aggregation method and threshold mapping.
 - Theme Radar evidence panels should label SAMPLE evidence as synthetic demo evidence and should not frame evidence as investment rationale.
+- `python tools/audit_theme_taxonomy.py --source-mode SAMPLE --coverage --overlap --top-overlaps 10` should run as a read-only taxonomy calibration audit.
+- Taxonomy audit warnings such as reused members or ambiguous source names should be reviewed as mapping-governance notes, not app failures.
 - Missing real cache or missing collector logs on Streamlit Cloud is expected and should not be treated as a public demo failure.
 - Any AKShare failure should be documented as a live data source/network limitation, not replaced with fake real data.
 

@@ -79,6 +79,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 多日主题趋势：基于多个本地 CSV 日期的最后快照，观察主题资金状态的跨日期变化。
 - Historical Evidence：从本地 CSV 恢复文件 hash、schema fingerprint、数据契约状态和 captured_time 覆盖矩阵，用于解释回放来源。
 - Theme Observation Evidence：为主题状态提供计算 lineage，包括 taxonomy fingerprint、参与成员、聚合输入、阈值映射和 SAMPLE / REAL 来源标识。
+- Theme Taxonomy Audit：只读检查主题成员角色、严格代表、映射来源、跨主题重叠、别名歧义和 SAMPLE / REAL 覆盖口径。
 - 主题库配置化：通过 `config/theme_taxonomy.json` 管理主题定义、核心行业、相关行业和概念关键词。
 - 主题覆盖审计：检查当前快照覆盖率、高资金流未覆盖板块、重复映射和 watchlist / fund_profiles 一致性。
 - 观察简报：整合主题雷达、日内热点、多日趋势、持仓相关池和覆盖审计，支持标准简报 / 作品集演示简报 Markdown 下载。
@@ -475,6 +476,24 @@ config/theme_taxonomy.json
 - 覆盖审计只用于解释主题归并质量，不预测未来走势，不构成投资建议。
 - 主题覆盖审计不会触发 AKShare 抓取，也不会写入 CSV。
 
+v3.9 增加主题库校准和重叠审计：
+
+- `primary_sectors` 兼容为 `core` 成员和严格代表口径候选。
+- `related_sectors` 兼容为 `related` 成员。
+- 每个主题成员可追溯 `mapping_source`、`mapping_method` 和口径说明。
+- 别名解析只做确定性 exact / alias 匹配；多主题复用成员会标记为 ambiguous，不会静默选择一个主题。
+- source-universe coverage 的分母是当前数据源里可见的唯一标准化板块名数量，不是主题质量分数。
+- SAMPLE 和 REAL coverage 分开计算，不合并解释。
+
+只读 CLI：
+
+```bash
+python tools/audit_theme_taxonomy.py --source-mode SAMPLE --coverage --overlap --top-overlaps 10
+python tools/audit_theme_taxonomy.py --source-mode REAL --coverage
+```
+
+该审计不访问 AKShare，不写 CSV，不修改 `config/theme_taxonomy.json`，也不生成交易或预测结论。
+
 ## 13. Observation Brief
 
 v1.3 增加观察简报和统一解释层：
@@ -771,9 +790,10 @@ python tools/smoke_check.py
 python tools/verify_runtime.py
 python tools/collect_market_snapshot.py --no-network
 python tools/rebuild_local_warehouse.py --include-sample --dry-run
+python tools/audit_theme_taxonomy.py --source-mode SAMPLE --coverage --overlap --top-overlaps 10
 ```
 
-`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要、sample catalog、snapshot quality readiness、historical evidence readiness 和临时 SQLite warehouse readiness。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示、SAMPLE 样例链路、CSV 快照质量治理、historical replay provenance 和临时 warehouse 重建。`collect_market_snapshot.py --no-network` 不访问 AKShare，只验证手动采集脚本可导入和参数可用。`rebuild_local_warehouse.py --include-sample --dry-run` 只扫描 SAMPLE CSV，不创建 SQLite。`tools/inspect_history_evidence.py` 只读扫描 CSV 历史证据，不写 `data/ticks` 或 SQLite。
+`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要、sample catalog、snapshot quality readiness、historical evidence readiness、taxonomy audit readiness 和临时 SQLite warehouse readiness。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示、SAMPLE 样例链路、CSV 快照质量治理、historical replay provenance、taxonomy calibration audit 和临时 warehouse 重建。`collect_market_snapshot.py --no-network` 不访问 AKShare，只验证手动采集脚本可导入和参数可用。`rebuild_local_warehouse.py --include-sample --dry-run` 只扫描 SAMPLE CSV，不创建 SQLite。`tools/inspect_history_evidence.py` 和 `tools/audit_theme_taxonomy.py` 都是只读检查，不写 `data/ticks` 或 SQLite。
 
 ## 23. Known Limitations
 
@@ -782,6 +802,7 @@ python tools/rebuild_local_warehouse.py --include-sample --dry-run
 - 当前使用 CSV，不适合长期生产环境。
 - SQLite warehouse 是本地可重建索引，不是云数据库，也不是 CSV 的替代来源。
 - 主题映射仍是轻量规则，不等同于正式行业分类。
+- 主题库校准审计只能暴露重叠、歧义和覆盖口径；它不自动改写主题库，也不等同于正式行业分类校验。
 - 后续需要结合基金持仓、ETF 成分、行业分类体系继续校准主题池。
 - 广度观察可能包含上下级板块重叠，只能作为主题热度观察。
 - 概念资金流接口可能比行业接口更不稳定，因此当前只做低频辅助刷新。

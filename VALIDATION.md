@@ -1133,3 +1133,24 @@ The reason is simple: the concept fund-flow endpoint can occasionally fail with 
 - Documentation explains analytical provenance versus investment rationale.
 - Tests remain offline and deterministic.
 - Page and docs avoid trading, prediction, recommendation or investment-action wording.
+
+## v3.9 Theme Taxonomy Calibration Checks
+
+- `APP_VERSION` is `v3.9`.
+- `CHANGELOG.md` contains a `v3.9` entry.
+- `src/theme_taxonomy_audit.py` exists and can be imported.
+- `tools/audit_theme_taxonomy.py` exists and supports SAMPLE / REAL read-only audit.
+- Legacy `primary_sectors` and `related_sectors` remain compatible with the theme taxonomy loader.
+- Theme member definitions expose role, strict representative flag, canonical name, mapping source, mapping method, rationale and aliases.
+- Reused canonical members are reported as warnings or ambiguities, not silently assigned to one theme.
+- Alias collisions are reported as structural errors.
+- Cross-theme overlap audit reports shared members, overlap ratio and overlap state.
+- Source-universe coverage audit reports denominator semantics, mapped rows, ambiguous rows and unmapped rows.
+- SAMPLE coverage uses only `sample_data/ticks` and remains labeled as synthetic demo evidence.
+- REAL coverage uses local `data/ticks` only when available and does not affect public demo readiness.
+- Theme evidence contribution tables include canonical member, matched-by mode, alias usage, ambiguity status and mapping provenance.
+- Streamlit Data Explanation exposes a compact taxonomy audit panel without adding a new tab or changing theme calculations.
+- `tools/audit_theme_taxonomy.py` does not call AKShare, write CSV, write SQLite, mutate taxonomy or combine SAMPLE and REAL evidence.
+- `smoke_check.py`, `verify_runtime.py`, `cloud_preflight.py` and `release_check.py` include the taxonomy audit assets.
+- Tests remain offline and deterministic.
+- Page and docs avoid trading, prediction, recommendation or investment-action wording.

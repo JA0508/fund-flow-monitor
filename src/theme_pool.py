@@ -265,6 +265,11 @@ def _member_trace_rows(
     used_group: pd.DataFrame,
 ) -> list[dict]:
     used_indices = set(used_group.index.tolist()) if used_group is not None and not used_group.empty else set()
+    member_lookup = {
+        normalize_sector_name(item.get("canonical_name")): item
+        for item in theme_def.get("member_definitions", [])
+        if item.get("canonical_name")
+    }
     role_frames = [
         ("core", "exact", matches.get("primary_exact_df")),
         ("related", "exact", matches.get("related_exact_df")),
@@ -282,16 +287,27 @@ def _member_trace_rows(
             seen.add(idx)
             included = idx in used_indices
             value = pd.to_numeric(pd.Series([row.get("main_net_inflow_billion")]), errors="coerce").iloc[0]
+            canonical_name = str(row.get("sector_name") or "")
+            member_meta = member_lookup.get(normalize_sector_name(canonical_name), {})
             rows.append(
                 {
-                    "member_name": str(row.get("sector_name") or ""),
+                    "member_name": canonical_name,
+                    "canonical_member": canonical_name,
                     "member_role": role,
                     "match_type": match_type,
+                    "matched_by": "canonical_exact" if match_type == "exact" else "contains_match",
+                    "alias_used": None,
+                    "ambiguity_status": "resolved",
                     "matched_source_row": str(row.get("sector_name") or ""),
+                    "normalized_source_row": normalize_sector_name(row.get("sector_name")),
                     "input_value": None if pd.isna(value) else float(value),
                     "normalized_value": None if pd.isna(value) else float(value),
                     "included": bool(included),
                     "exclusion_reason": "" if included else "当前口径未纳入该匹配成员",
+                    "strict_representative": bool(member_meta.get("strict_representative", role == "core")),
+                    "mapping_source": member_meta.get("mapping_source") or "project_defined_theme_taxonomy",
+                    "mapping_method": member_meta.get("mapping_method") or "manual_domain_mapping",
+                    "mapping_rationale": member_meta.get("rationale") or "",
                     "sector_type": _safe_trace_value(row, "sector_type"),
                     "captured_time": _safe_trace_value(row, "captured_time"),
                     "trade_date": _safe_trace_value(row, "trade_date"),
@@ -304,13 +320,22 @@ def _member_trace_rows(
         rows.append(
             {
                 "member_name": member,
+                "canonical_member": member,
                 "member_role": role,
                 "match_type": "unmatched",
+                "matched_by": "unmatched",
+                "alias_used": None,
+                "ambiguity_status": "unmatched",
                 "matched_source_row": None,
+                "normalized_source_row": None,
                 "input_value": None,
                 "normalized_value": None,
                 "included": False,
                 "exclusion_reason": "当前快照未匹配到该配置成员",
+                "strict_representative": bool(member_lookup.get(normalize_sector_name(member), {}).get("strict_representative", role == "core")),
+                "mapping_source": member_lookup.get(normalize_sector_name(member), {}).get("mapping_source") or "project_defined_theme_taxonomy",
+                "mapping_method": member_lookup.get(normalize_sector_name(member), {}).get("mapping_method") or "manual_domain_mapping",
+                "mapping_rationale": member_lookup.get(normalize_sector_name(member), {}).get("rationale") or "",
                 "sector_type": None,
                 "captured_time": None,
                 "trade_date": None,

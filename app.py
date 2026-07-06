@@ -168,6 +168,7 @@ from src.theme_observation_evidence import (
     validate_theme_evidence_text,
 )
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
+from src.theme_taxonomy_audit import build_taxonomy_audit_report
 from src.theme_taxonomy import (
     audit_theme_name_consistency,
     build_concept_keyword_table,
@@ -238,6 +239,7 @@ from src.ui_components import (
     render_theme_status_timeline,
     render_theme_taxonomy_panel,
     render_theme_taxonomy_status,
+    render_theme_taxonomy_audit_panel,
     render_theme_radar_cards,
     render_theme_observation_contribution_table,
     render_theme_observation_evidence_cards,
@@ -841,6 +843,11 @@ def main() -> None:
     coverage_report = build_theme_coverage_report(coverage_latest_df, taxonomy)
     usage_report_df = build_theme_usage_report(strict_theme_df, taxonomy)
     overlap_warning_df = build_overlap_warning_report(taxonomy)
+    taxonomy_audit_report = build_taxonomy_audit_report(
+        taxonomy,
+        source_mode=active_source_mode,
+        data_dir=active_catalog_dir,
+    )
     holding_pool_df = build_holding_related_pool(fund_exposure_df, radar_theme_df)
     fund_summary_df = build_fund_summary(holding_pool_df)
     sample_profile_csv_df = load_fund_profiles_csv(SAMPLE_FUND_PROFILE_CSV)
@@ -1764,6 +1771,7 @@ def main() -> None:
             )
             render_snapshot_catalog_table(sample_catalog_df, title="SAMPLE 历史回放目录")
         render_theme_taxonomy_panel(taxonomy, taxonomy_warnings, taxonomy_consistency, taxonomy_definition_df)
+        render_theme_taxonomy_audit_panel(taxonomy_audit_report)
         render_theme_coverage_panel(coverage_report, usage_report_df, overlap_warning_df)
         st.markdown("#### 概念资金流辅助")
         st.markdown(

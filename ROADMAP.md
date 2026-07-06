@@ -67,7 +67,8 @@ Fund Flow Monitor 的长期目标是成为面向“养基宝 / 基金投资辅�
 - v3.6 完成 bounded real-data ingestion orchestration：采集窗口策略、有限次数 runner、collector audit metrics、cache coverage 标签和离线验证。
 - v3.7 完成 real historical coverage matrix and replay provenance：从本地 CSV 恢复 snapshot lineage、schema fingerprint、文件 hash、captured_time 覆盖矩阵和 selected-date replay evidence。
 - v3.8 完成 evidence-backed theme observation traces：主题库 fingerprint、主题定义 fingerprint、严格代表/代表/广度口径计算证据、状态阈值说明、历史覆盖三维状态和只读 CLI / Streamlit 证据面板。
-- v3.9 以后再考虑证据面板交互 polish、demo brief 图表截图引用、更细的数据质量规则、外部定时采集运维说明、DuckDB 可选分析后端。
+- v3.9 完成 theme taxonomy calibration and overlap audit：主题成员角色、映射来源、别名歧义、跨主题重叠、SAMPLE / REAL source-universe coverage 和只读校准 CLI。
+- v4.0 以后再考虑证据面板交互 polish、demo brief 图表截图引用、更细的数据质量规则、外部定时采集运维说明、DuckDB 可选分析后端。
 - 在 Streamlit MVP 验证稳定后，再考虑 FastAPI + React + ECharts 产品化重构。
 - 后端未来负责低频沉淀和统一 API。
 - 前端未来负责主题雷达、曲线、热力图和交互展示。

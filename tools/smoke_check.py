@@ -100,6 +100,7 @@ from src.theme_observation_evidence import (  # noqa: E402
     resolve_theme_observation_evidence,
     validate_theme_evidence_text,
 )
+from src.theme_taxonomy_audit import build_taxonomy_audit_report, validate_taxonomy_audit_text  # noqa: E402
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -158,6 +159,7 @@ REQUIRED_FILES = (
     "src/ingestion_metrics.py",
     "src/history_evidence.py",
     "src/theme_observation_evidence.py",
+    "src/theme_taxonomy_audit.py",
     "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
@@ -171,6 +173,7 @@ REQUIRED_FILES = (
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
     "tools/inspect_theme_evidence.py",
+    "tools/audit_theme_taxonomy.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -419,6 +422,11 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         data_dir=str(project_root / "sample_data/ticks"),
         taxonomy=taxonomy_for_evidence,
     )
+    taxonomy_audit = build_taxonomy_audit_report(
+        taxonomy_for_evidence,
+        source_mode="SAMPLE",
+        data_dir=str(project_root / "sample_data/ticks"),
+    )
     warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
@@ -545,6 +553,18 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_theme_evidence_matched_member_count": int(sample_theme_evidence.get("matched_member_count", 0) or 0),
             "sample_theme_evidence_taxonomy_fingerprint": str(sample_theme_evidence.get("taxonomy_fingerprint") or "")[:12],
             "sample_theme_evidence_forbidden_hits": validate_theme_evidence_text(str(sample_theme_evidence)),
+        },
+        "theme_taxonomy_audit": {
+            "theme_taxonomy_audit_module_imported": True,
+            "audit_theme_taxonomy_script_exists": (project_root / "tools/audit_theme_taxonomy.py").exists(),
+            "taxonomy_audit_label": taxonomy_audit.get("audit_label"),
+            "taxonomy_audit_theme_count": int(taxonomy_audit.get("theme_count", 0) or 0),
+            "taxonomy_audit_member_assignment_count": int(taxonomy_audit.get("member_assignment_count", 0) or 0),
+            "taxonomy_audit_unique_member_count": int(taxonomy_audit.get("unique_canonical_member_count", 0) or 0),
+            "taxonomy_audit_validation_errors": int((taxonomy_audit.get("validation") or {}).get("error_count", 0) or 0),
+            "taxonomy_audit_validation_warnings": int((taxonomy_audit.get("validation") or {}).get("warning_count", 0) or 0),
+            "taxonomy_audit_sample_coverage_rate": float((taxonomy_audit.get("coverage") or {}).get("mapping_coverage_rate", 0) or 0),
+            "taxonomy_audit_forbidden_hits": validate_taxonomy_audit_text(str(taxonomy_audit)),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -696,6 +716,14 @@ def main() -> int:
     print(f"sample theme evidence matched members: {theme_evidence['sample_theme_evidence_matched_member_count']}")
     print(f"sample theme taxonomy fingerprint: {theme_evidence['sample_theme_evidence_taxonomy_fingerprint']}")
     print(f"theme evidence forbidden hits: {theme_evidence['sample_theme_evidence_forbidden_hits']}")
+    taxonomy_audit = report["theme_taxonomy_audit"]
+    print(f"theme taxonomy audit module imported: {taxonomy_audit['theme_taxonomy_audit_module_imported']}")
+    print(f"audit_theme_taxonomy.py exists: {taxonomy_audit['audit_theme_taxonomy_script_exists']}")
+    print(f"taxonomy audit label: {taxonomy_audit['taxonomy_audit_label']}")
+    print(f"taxonomy audit themes/members/unique: {taxonomy_audit['taxonomy_audit_theme_count']} / {taxonomy_audit['taxonomy_audit_member_assignment_count']} / {taxonomy_audit['taxonomy_audit_unique_member_count']}")
+    print(f"taxonomy audit validation errors/warnings: {taxonomy_audit['taxonomy_audit_validation_errors']} / {taxonomy_audit['taxonomy_audit_validation_warnings']}")
+    print(f"taxonomy audit SAMPLE coverage rate: {taxonomy_audit['taxonomy_audit_sample_coverage_rate']}")
+    print(f"taxonomy audit forbidden hits: {taxonomy_audit['taxonomy_audit_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
@@ -793,6 +821,11 @@ def main() -> int:
         and report["theme_observation_evidence"]["sample_theme_evidence_available"]
         and report["theme_observation_evidence"]["sample_theme_evidence_source_mode"] == "SAMPLE"
         and not report["theme_observation_evidence"]["sample_theme_evidence_forbidden_hits"]
+        and report["theme_taxonomy_audit"]["theme_taxonomy_audit_module_imported"]
+        and report["theme_taxonomy_audit"]["audit_theme_taxonomy_script_exists"]
+        and report["theme_taxonomy_audit"]["taxonomy_audit_theme_count"] > 0
+        and report["theme_taxonomy_audit"]["taxonomy_audit_validation_errors"] == 0
+        and not report["theme_taxonomy_audit"]["taxonomy_audit_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
         and warehouse["warehouse_explorer_imported"]

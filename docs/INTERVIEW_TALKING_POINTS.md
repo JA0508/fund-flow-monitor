@@ -22,6 +22,7 @@ The app fetches or reads sector fund-flow snapshots, normalizes them with pandas
 - SQLite warehouse is optional and rebuildable from CSV.
 - Historical evidence is recovered from CSV snapshots to show file lineage, schema fingerprint consistency, captured_time coverage, and selected-date replay provenance.
 - Theme observation evidence shows which taxonomy definition, calculation mode, matched members, aggregate inputs and thresholds produced a displayed theme state.
+- Theme taxonomy audit checks member roles, overlap, alias ambiguity and source coverage while keeping mapping rules manually reviewable.
 - Lightweight data contracts validate the practical snapshot shape, especially SAMPLE CSV structure, without blocking valid local cache data unnecessarily.
 
 ## Engineering Architecture Tradeoff
@@ -37,7 +38,8 @@ The current architecture is still modular: Streamlit is the UI shell, while data
 3. Normalization standardizes sector names, time points, and flow values.
 4. Theme mapping converts sector rows into fund-oriented theme rows.
 5. Theme evidence traces preserve the actual matching and aggregation path.
-6. UI panels and briefs render observations from the active dataframe.
+6. Taxonomy audit reports mapping overlap and ambiguity separately from the displayed theme calculation.
+7. UI panels and briefs render observations from the active dataframe.
 
 ## Streamlit Cloud Deployment Explanation
 
@@ -74,6 +76,10 @@ CSV is easier to inspect, version around, and rebuild during MVP development. SQ
 ### What does the project prove?
 
 It proves the ability to design a trust-aware data dashboard: acquisition, normalization, theme mapping, visualization, documentation, public demo safety, and release checks are all connected.
+
+### How do you prevent theme mapping from becoming a black box?
+
+The taxonomy is local JSON, and v3.9 adds a deterministic audit layer. It reports each member's role and mapping provenance, highlights reused or ambiguous names, and calculates coverage against SAMPLE or local REAL source rows. The audit is for manual calibration review, not automatic remapping.
 
 ### How do you prevent public demo confusion?
 

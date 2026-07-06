@@ -8,6 +8,11 @@ from pathlib import Path
 
 import pandas as pd
 
+VALID_MEMBER_ROLES = {"core", "related"}
+VALID_MAPPING_METHODS = {"manual_domain_mapping", "config_migration", "source_derived", "unknown"}
+DEFAULT_MAPPING_SOURCE = "project_defined_theme_taxonomy"
+DEFAULT_MAPPING_METHOD = "manual_domain_mapping"
+
 
 DEFAULT_THEME_TAXONOMY = {
     "taxonomy_name": "养基宝基金主题观察池",
@@ -112,6 +117,111 @@ def _as_list(value: object) -> list[str]:
     return [str(item).strip() for item in value if str(item).strip()]
 
 
+def normalize_taxonomy_name(value: object) -> str:
+    return "" if value is None else str(value).strip().replace(" ", "").upper()
+
+
+def _normalize_member_definition(
+    value: object,
+    theme_name: str,
+    role: str,
+    strict_representative: bool = False,
+    inherited_rationale: str | None = None,
+) -> dict:
+    if isinstance(value, dict):
+        canonical_name = str(value.get("canonical_name") or value.get("member_name") or value.get("sector_name") or value.get("name") or "").strip()
+        role_value = str(value.get("role") or role or "").strip()
+        aliases = _as_list(value.get("aliases"))
+        mapping_source = str(value.get("mapping_source") or DEFAULT_MAPPING_SOURCE).strip()
+        mapping_method = str(value.get("mapping_method") or DEFAULT_MAPPING_METHOD).strip()
+        rationale = str(value.get("rationale") or inherited_rationale or "").strip()
+        enabled = bool(value.get("enabled", True))
+        strict = bool(value.get("strict_representative", strict_representative))
+        source_reference = str(value.get("source_reference") or "").strip()
+    else:
+        canonical_name = str(value or "").strip()
+        role_value = str(role or "").strip()
+        aliases = []
+        mapping_source = DEFAULT_MAPPING_SOURCE
+        mapping_method = DEFAULT_MAPPING_METHOD
+        rationale = str(inherited_rationale or "Inherited from legacy primary/related sector list in project taxonomy config.").strip()
+        enabled = True
+        strict = bool(strict_representative)
+        source_reference = ""
+    return {
+        "theme_name": theme_name,
+        "canonical_name": canonical_name,
+        "normalized_canonical_name": normalize_taxonomy_name(canonical_name),
+        "role": role_value,
+        "aliases": aliases,
+        "normalized_aliases": [normalize_taxonomy_name(alias) for alias in aliases],
+        "strict_representative": strict,
+        "mapping_source": mapping_source,
+        "mapping_method": mapping_method,
+        "rationale": rationale,
+        "source_reference": source_reference,
+        "enabled": enabled,
+    }
+
+
+def get_theme_member_definitions(taxonomy: dict, theme_name: str | None = None) -> list[dict]:
+    members: list[dict] = []
+    target = str(theme_name or "").strip()
+    for theme in get_taxonomy_themes(taxonomy):
+        name = str(theme.get("theme_name", "")).strip()
+        if target and name != target:
+            continue
+        inherited_rationale = str(theme.get("description") or "").strip()
+        explicit_members = theme.get("members")
+        if isinstance(explicit_members, list) and explicit_members:
+            for item in explicit_members:
+                role = str(item.get("role") if isinstance(item, dict) else "").strip() or "related"
+                members.append(_normalize_member_definition(item, name, role, inherited_rationale=inherited_rationale))
+            continue
+        for sector in _as_list(theme.get("primary_sectors")):
+            members.append(
+                _normalize_member_definition(
+                    sector,
+                    name,
+                    role="core",
+                    strict_representative=True,
+                    inherited_rationale=inherited_rationale,
+                )
+            )
+        for sector in _as_list(theme.get("related_sectors")):
+            members.append(
+                _normalize_member_definition(
+                    sector,
+                    name,
+                    role="related",
+                    strict_representative=False,
+                    inherited_rationale=inherited_rationale,
+                )
+            )
+    return members
+
+
+def build_theme_member_table(taxonomy: dict) -> pd.DataFrame:
+    columns = [
+        "theme_name",
+        "canonical_name",
+        "normalized_canonical_name",
+        "role",
+        "strict_representative",
+        "aliases",
+        "mapping_source",
+        "mapping_method",
+        "rationale",
+        "enabled",
+    ]
+    rows = get_theme_member_definitions(taxonomy)
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    out = pd.DataFrame(rows)
+    out["aliases"] = out["aliases"].map(lambda value: "，".join(value or []))
+    return out[columns]
+
+
 def _normalized_config_payload(value: object) -> object:
     if isinstance(value, dict):
         return {
@@ -150,12 +260,24 @@ def get_theme_definition(taxonomy: dict, theme_name: str) -> dict:
 
 
 def build_theme_definition_fingerprint(theme_definition: dict) -> str:
+    member_definitions = get_theme_member_definitions({"themes": [theme_definition]}) if theme_definition else []
     relevant = {
         "theme_name": theme_definition.get("theme_name"),
         "theme_group": theme_definition.get("theme_group"),
         "description": theme_definition.get("description"),
-        "primary_sectors": _as_list(theme_definition.get("primary_sectors")),
-        "related_sectors": _as_list(theme_definition.get("related_sectors")),
+        "members": [
+            {
+                "canonical_name": item.get("canonical_name"),
+                "role": item.get("role"),
+                "aliases": item.get("aliases"),
+                "strict_representative": item.get("strict_representative"),
+                "mapping_source": item.get("mapping_source"),
+                "mapping_method": item.get("mapping_method"),
+                "rationale": item.get("rationale"),
+            }
+            for item in member_definitions
+            if item.get("enabled", True)
+        ],
         "concept_keywords": _as_list(theme_definition.get("concept_keywords")),
         "aliases": _as_list(theme_definition.get("aliases")),
         "overlap_notes": theme_definition.get("overlap_notes"),
@@ -169,6 +291,11 @@ def build_theme_definition_evidence(
     taxonomy_source: str = "config/theme_taxonomy.json",
 ) -> dict:
     theme_definition = get_theme_definition(taxonomy, theme_name)
+    member_definitions = get_theme_member_definitions({"themes": [theme_definition]}) if theme_definition else []
+    core_members = [item["canonical_name"] for item in member_definitions if item.get("enabled", True) and item.get("role") == "core"]
+    related_members = [item["canonical_name"] for item in member_definitions if item.get("enabled", True) and item.get("role") == "related"]
+    strict_representatives = [item["canonical_name"] for item in member_definitions if item.get("enabled", True) and item.get("strict_representative")]
+    provenance_counts = dict(Counter(str(item.get("mapping_method") or "unknown") for item in member_definitions if item.get("enabled", True)))
     taxonomy_fingerprint = build_taxonomy_fingerprint(taxonomy or {})
     definition_fingerprint = (
         build_theme_definition_fingerprint(theme_definition)
@@ -184,8 +311,11 @@ def build_theme_definition_evidence(
         "taxonomy_version": (taxonomy or {}).get("version"),
         "taxonomy_fingerprint": taxonomy_fingerprint,
         "theme_definition_fingerprint": definition_fingerprint,
-        "core_members": _as_list(theme_definition.get("primary_sectors")),
-        "related_members": _as_list(theme_definition.get("related_sectors")),
+        "core_members": core_members,
+        "related_members": related_members,
+        "strict_representatives": strict_representatives,
+        "member_definitions": member_definitions,
+        "member_provenance_counts": provenance_counts,
         "aliases": _as_list(theme_definition.get("aliases")),
         "concept_keywords": _as_list(theme_definition.get("concept_keywords")),
         "calculation_modes": ["strict_representative", "representative", "breadth"],
@@ -257,6 +387,164 @@ def validate_theme_taxonomy(taxonomy: dict) -> list[str]:
     return warnings
 
 
+def build_alias_resolution_index(taxonomy: dict) -> dict[str, list[dict]]:
+    index: dict[str, list[dict]] = defaultdict(list)
+    for member in get_theme_member_definitions(taxonomy):
+        if not member.get("enabled", True):
+            continue
+        canonical = member.get("canonical_name", "")
+        entries = [(canonical, "canonical_exact")] + [(alias, "explicit_alias") for alias in member.get("aliases", [])]
+        for label, matched_by in entries:
+            normalized = normalize_taxonomy_name(label)
+            if not normalized:
+                continue
+            index[normalized].append(
+                {
+                    "theme_name": member.get("theme_name"),
+                    "canonical_member": canonical,
+                    "matched_by": matched_by,
+                    "alias_used": "" if matched_by == "canonical_exact" else label,
+                    "role": member.get("role"),
+                    "strict_representative": bool(member.get("strict_representative")),
+                    "mapping_source": member.get("mapping_source"),
+                    "mapping_method": member.get("mapping_method"),
+                    "mapping_rationale": member.get("rationale"),
+                }
+            )
+    return index
+
+
+def resolve_theme_member_alias(source_name: str, taxonomy: dict) -> dict:
+    normalized = normalize_taxonomy_name(source_name)
+    candidates = build_alias_resolution_index(taxonomy).get(normalized, [])
+    candidate_members = sorted({str(item.get("canonical_member") or "") for item in candidates if item.get("canonical_member")})
+    candidate_themes = sorted({str(item.get("theme_name") or "") for item in candidates if item.get("theme_name")})
+    if not candidates:
+        return {
+            "source_name": str(source_name or ""),
+            "normalized_source_name": normalized,
+            "canonical_member": None,
+            "matched_by": "unmatched",
+            "alias_used": None,
+            "ambiguity_status": "unmatched",
+            "candidate_members": [],
+            "candidate_themes": [],
+            "candidates": [],
+        }
+    if len(candidate_members) > 1 or len(candidate_themes) > 1:
+        return {
+            "source_name": str(source_name or ""),
+            "normalized_source_name": normalized,
+            "canonical_member": None,
+            "matched_by": "ambiguous",
+            "alias_used": None,
+            "ambiguity_status": "ambiguous",
+            "candidate_members": candidate_members,
+            "candidate_themes": candidate_themes,
+            "candidates": candidates,
+        }
+    candidate = candidates[0]
+    return {
+        "source_name": str(source_name or ""),
+        "normalized_source_name": normalized,
+        "canonical_member": candidate.get("canonical_member"),
+        "matched_by": candidate.get("matched_by"),
+        "alias_used": candidate.get("alias_used") or None,
+        "ambiguity_status": "resolved",
+        "candidate_members": candidate_members,
+        "candidate_themes": candidate_themes,
+        "candidates": candidates,
+        "role": candidate.get("role"),
+        "strict_representative": bool(candidate.get("strict_representative")),
+        "mapping_source": candidate.get("mapping_source"),
+        "mapping_method": candidate.get("mapping_method"),
+        "mapping_rationale": candidate.get("mapping_rationale"),
+    }
+
+
+def validate_theme_taxonomy_structured(taxonomy: dict) -> dict:
+    errors: list[str] = []
+    warnings: list[str] = []
+    if not isinstance(taxonomy, dict):
+        return {"is_valid": False, "errors": ["taxonomy 不是 JSON object。"], "warnings": []}
+    themes = get_taxonomy_themes(taxonomy)
+    if not themes:
+        errors.append("themes 不存在或为空。")
+    names = [str(theme.get("theme_name", "")).strip() for theme in themes if str(theme.get("theme_name", "")).strip()]
+    for name, count in Counter(names).items():
+        if count > 1:
+            errors.append(f"重复 theme ID/name: {name}。")
+    member_rows = get_theme_member_definitions(taxonomy)
+    by_theme: dict[str, list[dict]] = defaultdict(list)
+    for member in member_rows:
+        by_theme[str(member.get("theme_name") or "")].append(member)
+        if not member.get("canonical_name"):
+            errors.append(f"{member.get('theme_name') or '<unknown>'}: 存在空 canonical member。")
+        if member.get("role") not in VALID_MEMBER_ROLES:
+            errors.append(f"{member.get('theme_name')}: {member.get('canonical_name')} role 无效：{member.get('role')}。")
+        if member.get("mapping_method") not in VALID_MAPPING_METHODS:
+            warnings.append(f"{member.get('theme_name')}: {member.get('canonical_name')} mapping_method 未知：{member.get('mapping_method')}。")
+        if not member.get("rationale"):
+            warnings.append(f"{member.get('theme_name')}: {member.get('canonical_name')} 缺少 mapping rationale。")
+        if not member.get("mapping_source") or member.get("mapping_method") == "unknown":
+            warnings.append(f"{member.get('theme_name')}: {member.get('canonical_name')} mapping provenance 不完整。")
+    for theme_name, rows in by_theme.items():
+        enabled = [item for item in rows if item.get("enabled", True)]
+        if not enabled:
+            errors.append(f"{theme_name}: 空主题或全部成员 disabled。")
+            continue
+        names_in_theme = [item.get("normalized_canonical_name") for item in enabled]
+        for normalized, count in Counter(names_in_theme).items():
+            if normalized and count > 1:
+                errors.append(f"{theme_name}: 同一主题内重复成员 {normalized}。")
+        strict_members = [item for item in enabled if item.get("strict_representative")]
+        if not strict_members:
+            warnings.append(f"{theme_name}: 没有 strict representative。")
+        for item in strict_members:
+            if item.get("role") != "core":
+                warnings.append(f"{theme_name}: {item.get('canonical_name')} 是 strict representative 但 role 不是 core。")
+    member_to_themes: dict[str, set[str]] = defaultdict(set)
+    strict_to_themes: dict[str, set[str]] = defaultdict(set)
+    for member in member_rows:
+        if not member.get("enabled", True):
+            continue
+        normalized = member.get("normalized_canonical_name")
+        member_to_themes[normalized].add(str(member.get("theme_name")))
+        if member.get("strict_representative"):
+            strict_to_themes[normalized].add(str(member.get("theme_name")))
+    for normalized, theme_names in sorted(member_to_themes.items()):
+        if normalized and len(theme_names) > 1:
+            warnings.append(f"{normalized}: 成员出现在多个主题：{', '.join(sorted(theme_names))}。")
+    for normalized, theme_names in sorted(strict_to_themes.items()):
+        if normalized and len(theme_names) > 1:
+            warnings.append(f"{normalized}: strict representative 出现在多个主题：{', '.join(sorted(theme_names))}。")
+    alias_index = build_alias_resolution_index(taxonomy)
+    alias_collisions = {}
+    for alias, candidates in alias_index.items():
+        members = {item.get("canonical_member") for item in candidates}
+        themes_for_alias = {item.get("theme_name") for item in candidates}
+        matched_by_values = {item.get("matched_by") for item in candidates}
+        is_reused_canonical = matched_by_values == {"canonical_exact"} and len(members) == 1 and len(themes_for_alias) > 1
+        if is_reused_canonical:
+            warnings.append(f"{alias}: canonical member 被多个主题复用，解析源行时会标记为 ambiguous。")
+        elif len(members) > 1 or len(themes_for_alias) > 1:
+            alias_collisions[alias] = candidates
+            errors.append(f"{alias}: alias/canonical 解析到多个候选，必须显式处理歧义。")
+    load_warning = taxonomy.get("_load_warning")
+    if load_warning:
+        warnings.insert(0, str(load_warning))
+    return {
+        "is_valid": not errors,
+        "error_count": len(errors),
+        "warning_count": len(warnings),
+        "errors": errors,
+        "warnings": warnings,
+        "alias_collisions": alias_collisions,
+        "member_count": len(member_rows),
+        "unique_member_count": len({item.get("normalized_canonical_name") for item in member_rows if item.get("normalized_canonical_name")}),
+    }
+
+
 def build_theme_definition_table(taxonomy: dict) -> pd.DataFrame:
     rows = []
     for theme in get_taxonomy_themes(taxonomy):
@@ -278,14 +566,36 @@ def build_theme_definition_table(taxonomy: dict) -> pd.DataFrame:
 
 def build_sector_to_theme_map(taxonomy: dict) -> pd.DataFrame:
     rows = []
-    for theme in get_taxonomy_themes(taxonomy):
-        theme_name = str(theme.get("theme_name", "")).strip()
-        theme_group = str(theme.get("theme_group", "")).strip()
-        for sector in _as_list(theme.get("primary_sectors")):
-            rows.append({"sector_name": sector, "theme_name": theme_name, "sector_role": "primary", "theme_group": theme_group})
-        for sector in _as_list(theme.get("related_sectors")):
-            rows.append({"sector_name": sector, "theme_name": theme_name, "sector_role": "related", "theme_group": theme_group})
-    return pd.DataFrame(rows, columns=["sector_name", "theme_name", "sector_role", "theme_group"])
+    group_by_theme = {str(theme.get("theme_name", "")).strip(): str(theme.get("theme_group", "")).strip() for theme in get_taxonomy_themes(taxonomy)}
+    for member in get_theme_member_definitions(taxonomy):
+        role = member.get("role")
+        rows.append(
+            {
+                "sector_name": member.get("canonical_name"),
+                "theme_name": member.get("theme_name"),
+                "sector_role": "primary" if role == "core" else "related",
+                "member_role": role,
+                "strict_representative": bool(member.get("strict_representative")),
+                "theme_group": group_by_theme.get(str(member.get("theme_name") or ""), ""),
+                "mapping_source": member.get("mapping_source"),
+                "mapping_method": member.get("mapping_method"),
+                "rationale": member.get("rationale"),
+            }
+        )
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "sector_name",
+            "theme_name",
+            "sector_role",
+            "member_role",
+            "strict_representative",
+            "theme_group",
+            "mapping_source",
+            "mapping_method",
+            "rationale",
+        ],
+    )
 
 
 def build_concept_keyword_table(taxonomy: dict) -> pd.DataFrame:
@@ -304,9 +614,11 @@ def taxonomy_to_theme_definitions(taxonomy: dict) -> dict[str, dict[str, list[st
         name = str(theme.get("theme_name", "")).strip()
         if not name:
             continue
+        members = [item for item in get_theme_member_definitions({"themes": [theme]}) if item.get("enabled", True)]
         definitions[name] = {
-            "primary_sectors": _as_list(theme.get("primary_sectors")),
-            "related_sectors": _as_list(theme.get("related_sectors")),
+            "primary_sectors": [item["canonical_name"] for item in members if item.get("role") == "core"],
+            "related_sectors": [item["canonical_name"] for item in members if item.get("role") == "related"],
+            "member_definitions": members,
         }
     return definitions
 

@@ -189,6 +189,14 @@ v3.8 将历史证据层与主题计算层连接起来。项目新增确定性的
 
 Streamlit 的主题雷达和多日趋势区域提供紧凑证据面板；`tools/inspect_theme_evidence.py` 提供只读 CLI 检查。SAMPLE 证据始终标注为合成演示数据，不代表真实行情。
 
+## Theme Taxonomy Calibration
+
+v3.9 在主题证据层之后补上主题库语义治理。项目新增 `src/theme_taxonomy_audit.py` 和 `tools/audit_theme_taxonomy.py`，用于只读检查主题成员角色、严格代表口径、映射来源、别名歧义、跨主题重叠和 source-universe coverage。
+
+该能力保留 `primary_sectors` / `related_sectors` 旧配置兼容性，只把它们规范化为可解释的成员定义。复用成员会被标记为 warning 或 ambiguous，不会静默选择某个主题；SAMPLE 与 REAL coverage 分开计算，不合并解释。
+
+这仍然是项目定义的基金主题观察规则，不是正式行业分类体系，不自动改写主题库，也不产生任何交易建议或未来判断。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -209,6 +217,7 @@ Streamlit 的主题雷达和多日趋势区域提供紧凑证据面板；`tools/
 - SQLite warehouse 当前只作为可重建索引和基础查询层，核心页面仍走 CSV-first 数据流。
 - Historical Evidence 当前只做文件级和 captured_time 覆盖证据，不替代完整生产级 lineage / data catalog。
 - Theme Observation Evidence 当前解释规则化主题计算 lineage，不替代正式行业分类体系，也不产生任何交易建议或未来判断。
+- Theme Taxonomy Calibration 当前只做确定性规则审计，不做 fuzzy matching、embedding matching 或自动主题重写。
 
 ## 后续计划
 

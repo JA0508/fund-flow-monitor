@@ -48,6 +48,10 @@ def test_build_theme_observation_evidence_sample_warning_and_trace() -> None:
     table = build_theme_evidence_contribution_table(evidence)
     assert "半导体" in table["member_name"].tolist()
     assert bool(table[table["member_name"].eq("半导体")]["included"].iloc[0]) is True
+    included = table[table["member_name"].eq("半导体")].iloc[0]
+    assert included["canonical_member"] == "半导体"
+    assert included["matched_by"] == "canonical_exact"
+    assert included["mapping_method"] == "manual_domain_mapping"
 
 
 def test_theme_observation_evidence_observation_id_is_deterministic() -> None:

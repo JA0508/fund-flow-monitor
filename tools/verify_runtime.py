@@ -169,6 +169,7 @@ from src.theme_taxonomy import (  # noqa: E402
     load_theme_taxonomy,
     validate_theme_taxonomy,
 )
+from src.theme_taxonomy_audit import build_taxonomy_audit_report, validate_taxonomy_audit_text  # noqa: E402
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1019,6 +1020,33 @@ def _verify_theme_observation_evidence() -> None:
     print("  theme observation evidence 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 
+def _verify_theme_taxonomy_audit() -> None:
+    taxonomy = load_theme_taxonomy(str(PROJECT_ROOT / "config/theme_taxonomy.json"))
+    sample_report = build_taxonomy_audit_report(
+        taxonomy,
+        source_mode="SAMPLE",
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+    )
+    real_report = build_taxonomy_audit_report(
+        taxonomy,
+        source_mode="REAL",
+        data_dir=str(PROJECT_ROOT / "data/ticks"),
+    )
+    forbidden_hits = validate_taxonomy_audit_text(str(sample_report) + str(real_report))
+    print("Theme Taxonomy Audit 检查:")
+    print("  theme_taxonomy_audit_module_imported: True")
+    print(f"  audit_theme_taxonomy.py exists: {(PROJECT_ROOT / 'tools/audit_theme_taxonomy.py').exists()}")
+    print(f"  sample_taxonomy_audit_label: {sample_report.get('audit_label')}")
+    print(f"  sample_taxonomy_validation_errors: {(sample_report.get('validation') or {}).get('error_count')}")
+    print(f"  sample_taxonomy_member_assignments: {sample_report.get('member_assignment_count')}")
+    print(f"  sample_taxonomy_unique_members: {sample_report.get('unique_canonical_member_count')}")
+    print(f"  sample_taxonomy_mapping_coverage_rate: {(sample_report.get('coverage') or {}).get('mapping_coverage_rate')}")
+    print(f"  real_taxonomy_source_available: {(real_report.get('coverage') or {}).get('source_available')}")
+    print(f"  real_taxonomy_mapping_coverage_rate: {(real_report.get('coverage') or {}).get('mapping_coverage_rate')}")
+    print(f"  theme_taxonomy_audit_forbidden_hits: {forbidden_hits}")
+    print("  taxonomy audit 检查只读 SAMPLE/REAL CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -1121,6 +1149,7 @@ def main() -> int:
     _verify_collection_orchestration()
     _verify_history_evidence()
     _verify_theme_observation_evidence()
+    _verify_theme_taxonomy_audit()
     _verify_provider_boundary()
     _verify_local_warehouse()
     print("fund summary Top 3:")

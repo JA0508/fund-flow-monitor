@@ -1691,6 +1691,65 @@ def render_theme_coverage_panel(
     _render_simple_table(["主题", "分组", "主力净流入", "状态", "匹配策略", "来源数", "说明"], usage_rows, "暂无主题使用情况。")
 
 
+def render_theme_taxonomy_audit_panel(audit_report: dict, max_rows: int = 10) -> None:
+    st.markdown("#### 主题语义映射审计")
+    if not audit_report:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无主题语义映射审计。</div></div>", unsafe_allow_html=True)
+        return
+    validation = audit_report.get("validation", {})
+    coverage = audit_report.get("coverage", {})
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>审计状态</div><div class='trust-value'>{escape(str(audit_report.get('audit_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>主题数</div><div class='trust-value'>{int(audit_report.get('theme_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>成员赋值</div><div class='trust-value'>{int(audit_report.get('member_assignment_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>唯一成员</div><div class='trust-value'>{int(audit_report.get('unique_canonical_member_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>结构错误/提示</div><div class='trust-value'>{int(validation.get('error_count', 0) or 0)} / {int(validation.get('warning_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>来源宇宙</div><div class='trust-value'>{escape(str(coverage.get('source_mode', audit_report.get('source_mode', '--'))))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>映射覆盖</div><div class='trust-value'>{float(coverage.get('mapping_coverage_rate', 0) or 0):.1%}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>歧义源行</div><div class='trust-value'>{int(coverage.get('ambiguous_source_row_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(audit_report.get('audit_reason', '')))}<br>"
+        "覆盖率口径为 mapped unique normalized source rows / total unique normalized source rows；它不是投资质量评分。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    if validation.get("errors") or validation.get("warnings"):
+        with st.expander("查看 taxonomy validation errors / warnings", expanded=False):
+            for item in (validation.get("errors") or [])[:max_rows]:
+                st.markdown(f"- ERROR: {item}")
+            for item in (validation.get("warnings") or [])[:max_rows]:
+                st.markdown(f"- WARNING: {item}")
+    overlap_rows = []
+    for row in (audit_report.get("top_overlap_pairs") or [])[:max_rows]:
+        overlap_rows.append(
+            [
+                row.get("theme_left", "--"),
+                row.get("theme_right", "--"),
+                row.get("overlap_state", "--"),
+                row.get("jaccard_overlap", 0),
+                "，".join(row.get("shared_members") or []) or "--",
+            ]
+        )
+    _render_simple_table(["主题 A", "主题 B", "重叠状态", "Jaccard", "共享成员"], overlap_rows, "暂无跨主题重叠。")
+    calibration_rows = []
+    for row in (audit_report.get("calibration") or [])[:max_rows]:
+        calibration_rows.append(
+            [
+                row.get("theme_name", "--"),
+                row.get("member_count", 0),
+                row.get("core_count", 0),
+                row.get("related_count", 0),
+                row.get("strict_representative_count", 0),
+                row.get("matched_member_count", 0),
+                row.get("unmatched_member_count", 0),
+                "，".join(row.get("highest_overlap_neighbors") or []) or "--",
+            ]
+        )
+    _render_simple_table(["主题", "成员", "Core", "Related", "Strict", "匹配", "未匹配", "相邻重叠"], calibration_rows, "暂无主题校准摘要。")
+
+
 def _render_brief_list(items: list[str], empty_message: str = "暂无内容。") -> str:
     values = [escape(str(item)) for item in (items or []) if str(item).strip()]
     if not values:
@@ -1847,16 +1906,19 @@ def render_theme_observation_contribution_table(evidence: dict, max_rows: int = 
         rows.append(
             [
                 item.get("member_name") or "--",
+                item.get("canonical_member") or item.get("member_name") or "--",
                 item.get("member_role") or "--",
-                item.get("match_type") or "--",
+                item.get("matched_by") or item.get("match_type") or "--",
                 item.get("matched_source_row") or "--",
+                item.get("normalized_source_row") or "--",
                 format_billion(item.get("input_value")) if item.get("input_value") is not None else "--",
                 "是" if item.get("included") else "否",
+                item.get("mapping_method") or "--",
                 item.get("exclusion_reason") or "--",
             ]
         )
     _render_simple_table(
-        ["配置成员", "角色", "匹配方式", "来源行", "输入值", "参与聚合", "说明"],
+        ["配置成员", "Canonical", "角色", "匹配方式", "来源行", "规范名", "输入值", "参与聚合", "映射方法", "说明"],
         rows,
         "暂无成员贡献明细。",
     )

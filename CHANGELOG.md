@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v3.9
+
+- Theme taxonomy calibration and overlap audit.
+- Added `src/theme_taxonomy_audit.py` and `tools/audit_theme_taxonomy.py` for deterministic, read-only inspection of theme member roles, mapping provenance, cross-theme overlap and source-universe coverage.
+- Theme taxonomy normalization now exposes member roles, strict representative flags, mapping source/method/rationale and explicit alias resolution while keeping the legacy `primary_sectors` / `related_sectors` schema compatible.
+- Theme evidence traces now include canonical member names, exact/contains match type, alias usage, ambiguity status and mapping provenance without changing the existing theme calculation formula.
+- Streamlit Data Explanation now includes a compact taxonomy audit panel for validation warnings, overlap pairs, calibration summary and SAMPLE/REAL coverage denominator notes.
+- Smoke/runtime/cloud/release checks now verify taxonomy audit assets without requiring live AKShare, writing CSV, mutating taxonomy or combining SAMPLE and REAL evidence.
+- The audit describes mapping coverage and ambiguity only; it is not an investment-quality score, formal industry classification, prediction or trading rationale.
+
 ## v3.8
 
 - Evidence-backed theme observation traces.

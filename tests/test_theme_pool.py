@@ -103,6 +103,10 @@ def test_theme_snapshot_with_trace_matches_canonical_strict_result():
     assert trace["used_member_count"] == 1
     assert [item["member_name"] for item in trace["all_members"] if item["included"]] == ["半导体"]
     assert any(item["exclusion_reason"] == "当前口径未纳入该匹配成员" for item in trace["all_members"])
+    included = [item for item in trace["all_members"] if item["included"]][0]
+    assert included["canonical_member"] == "半导体"
+    assert included["matched_by"] == "canonical_exact"
+    assert included["mapping_method"] == "manual_domain_mapping"
 
 
 def test_theme_snapshot_with_trace_representative_and_breadth_inputs():
@@ -127,6 +131,7 @@ def test_theme_snapshot_trace_includes_thresholds_and_unmatched_members():
     assert trace["derived_state"] == "强流入"
     assert any(item["status"] == "强流入" and item["lower_bound"] == 30.0 for item in trace["thresholds"])
     assert trace["unmatched_member_count"] >= 1
+    assert all("mapping_source" in item for item in trace["all_members"])
 
 
 def test_apply_theme_pool_to_ticks_keeps_all_captured_times():

@@ -11,8 +11,12 @@ from src.theme_taxonomy import (
     build_concept_keyword_table,
     build_sector_to_theme_map,
     build_theme_definition_table,
+    build_theme_member_table,
+    get_theme_member_definitions,
     get_theme_names,
     load_theme_taxonomy,
+    resolve_theme_member_alias,
+    validate_theme_taxonomy_structured,
     validate_theme_taxonomy,
 )
 
@@ -49,6 +53,8 @@ def test_get_theme_names_and_tables_have_expected_columns() -> None:
     assert {"primary", "related"}.issubset(set(sector_map["sector_role"]))
     keywords = build_concept_keyword_table(taxonomy)
     assert {"theme_name", "concept_keyword", "theme_group"}.issubset(keywords.columns)
+    member_table = build_theme_member_table(taxonomy)
+    assert {"canonical_name", "role", "strict_representative", "mapping_method"}.issubset(member_table.columns)
 
 
 def test_audit_theme_name_consistency_detects_unregistered_themes() -> None:
@@ -125,3 +131,81 @@ def test_theme_definition_evidence_is_scoped_to_selected_theme() -> None:
         == build_theme_definition_evidence(changed_other, "A")["theme_definition_fingerprint"]
     )
     assert build_theme_definition_evidence(taxonomy, "A")["taxonomy_fingerprint"] != build_theme_definition_evidence(changed_other, "A")["taxonomy_fingerprint"]
+
+
+def test_legacy_taxonomy_members_get_explicit_roles() -> None:
+    taxonomy = {"themes": [{"theme_name": "A", "primary_sectors": ["A1"], "related_sectors": ["A2"], "concept_keywords": []}]}
+    members = get_theme_member_definitions(taxonomy)
+    by_name = {item["canonical_name"]: item for item in members}
+    assert by_name["A1"]["role"] == "core"
+    assert by_name["A1"]["strict_representative"] is True
+    assert by_name["A2"]["role"] == "related"
+    assert by_name["A2"]["mapping_method"] == "manual_domain_mapping"
+
+
+def test_explicit_member_shape_loads_and_resolves_alias() -> None:
+    taxonomy = {
+        "themes": [
+            {
+                "theme_name": "A",
+                "members": [
+                    {
+                        "canonical_name": "半导体",
+                        "role": "core",
+                        "aliases": ["芯片"],
+                        "strict_representative": True,
+                        "mapping_method": "manual_domain_mapping",
+                        "rationale": "项目配置中的显式测试映射。",
+                    }
+                ],
+            }
+        ]
+    }
+    result = resolve_theme_member_alias("芯片", taxonomy)
+    assert result["matched_by"] == "explicit_alias"
+    assert result["canonical_member"] == "半导体"
+    assert result["ambiguity_status"] == "resolved"
+
+
+def test_alias_collision_is_structural_error_and_not_silent() -> None:
+    taxonomy = {
+        "themes": [
+            {"theme_name": "A", "members": [{"canonical_name": "A1", "role": "core", "aliases": ["共同"], "rationale": "x"}]},
+            {"theme_name": "B", "members": [{"canonical_name": "B1", "role": "core", "aliases": ["共同"], "rationale": "x"}]},
+        ]
+    }
+    validation = validate_theme_taxonomy_structured(taxonomy)
+    assert validation["error_count"] >= 1
+    resolved = resolve_theme_member_alias("共同", taxonomy)
+    assert resolved["matched_by"] == "ambiguous"
+    assert resolved["ambiguity_status"] == "ambiguous"
+
+
+def test_reused_canonical_member_is_warning_not_error() -> None:
+    taxonomy = {
+        "themes": [
+            {"theme_name": "A", "primary_sectors": ["银行"], "related_sectors": [], "concept_keywords": []},
+            {"theme_name": "B", "primary_sectors": [], "related_sectors": ["银行"], "concept_keywords": []},
+        ]
+    }
+    validation = validate_theme_taxonomy_structured(taxonomy)
+    assert validation["error_count"] == 0
+    assert validation["warning_count"] >= 1
+    resolved = resolve_theme_member_alias("银行", taxonomy)
+    assert resolved["ambiguity_status"] == "ambiguous"
+
+
+def test_structured_validator_detects_invalid_role_and_duplicate_member() -> None:
+    taxonomy = {
+        "themes": [
+            {
+                "theme_name": "A",
+                "members": [
+                    {"canonical_name": "A1", "role": "core", "rationale": "x"},
+                    {"canonical_name": "A1", "role": "bad", "rationale": "x"},
+                ],
+            }
+        ]
+    }
+    validation = validate_theme_taxonomy_structured(taxonomy)
+    assert validation["error_count"] >= 2

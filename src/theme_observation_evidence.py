@@ -296,14 +296,27 @@ def build_theme_evidence_contribution_table(evidence: dict) -> pd.DataFrame:
         return pd.DataFrame()
     columns = [
         "member_name",
+        "canonical_member",
         "member_role",
         "match_type",
+        "matched_by",
+        "alias_used",
+        "ambiguity_status",
         "matched_source_row",
+        "normalized_source_row",
         "input_value",
         "included",
+        "strict_representative",
+        "mapping_source",
+        "mapping_method",
+        "mapping_rationale",
         "exclusion_reason",
     ]
-    return pd.DataFrame(rows)[columns]
+    frame = pd.DataFrame(rows)
+    for column in columns:
+        if column not in frame.columns:
+            frame[column] = None
+    return frame[columns]
 
 
 def render_theme_evidence_markdown(evidence: dict, heading_level: int = 2) -> str:

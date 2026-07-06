@@ -44,6 +44,7 @@ The project is CSV-first:
 - SQLite warehouse is derived from CSV and can be rebuilt locally.
 - Historical evidence is derived from CSV files and is used only for lineage, coverage and replay provenance.
 - Theme observation evidence links each displayed theme state back to taxonomy fingerprints, matched members, aggregation inputs and threshold mapping.
+- Theme taxonomy audit adds mapping provenance, overlap checks, alias ambiguity reporting and SAMPLE / REAL coverage semantics for manual calibration review.
 - Streamlit pages continue to work without SQLite.
 
 ## Engineering Architecture Notes
@@ -54,6 +55,7 @@ The project is CSV-first:
 - If the project later became production-grade, the natural path would be scheduled ingestion, stronger data quality rules, durable warehouse storage, API boundaries, monitoring, and compliance review.
 - v3.0 adds architecture and data-flow documentation plus lightweight data contracts, improving maintainability without changing the app's user-facing calculation logic.
 - v3.8 adds explainable analytics engineering: the app can show factual theme calculation lineage without turning that evidence into an investment rationale.
+- v3.9 adds semantic taxonomy governance: the project can audit theme member roles, reused names, overlap pairs and source-universe coverage without changing the calculation path.
 
 ## Runtime and Data Modes
 
@@ -95,6 +97,7 @@ In public demo runtime, the app defaults to SAMPLE when no real cache exists and
 - The key design choice is trust: every view shows whether the data is live, cached, historical, synthetic sample, or empty.
 - SAMPLE mode exists so public viewers can evaluate the app without real local cache or network-dependent upstream data.
 - SQLite is intentionally secondary: it is a rebuildable query index, while CSV remains the source of truth.
+- Theme taxonomy audit is intentionally read-only: it helps review mapping quality and ambiguity without pretending to be a formal industry taxonomy.
 
 ## GitHub / About Short Description
 

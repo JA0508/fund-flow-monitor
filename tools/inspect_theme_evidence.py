@@ -89,6 +89,11 @@ def _print_trace(evidence: dict) -> None:
             print(f"    - {warning}")
 
 
+def _display(value) -> str:
+    text = "" if value is None else str(value)
+    return "--" if text.lower() == "nan" or not text else text
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     evidence = inspect_theme_evidence(
@@ -112,8 +117,11 @@ def main(argv: list[str] | None = None) -> int:
             for row in table.to_dict(orient="records"):
                 print(
                     "  - "
-                    f"{row.get('member_name')} | role={row.get('member_role')} | match={row.get('match_type')} | "
-                    f"included={row.get('included')} | value={row.get('input_value')} | reason={row.get('exclusion_reason')}"
+                    f"{_display(row.get('member_name'))} | canonical={_display(row.get('canonical_member'))} | role={_display(row.get('member_role'))} | "
+                    f"matched_by={_display(row.get('matched_by') or row.get('match_type'))} | "
+                    f"source_row={_display(row.get('matched_source_row'))} | included={row.get('included')} | "
+                    f"value={_display(row.get('input_value'))} | method={_display(row.get('mapping_method'))} | "
+                    f"reason={_display(row.get('exclusion_reason'))}"
                 )
     if args.trace and args.json:
         _print_trace(evidence)
@@ -125,4 +133,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
