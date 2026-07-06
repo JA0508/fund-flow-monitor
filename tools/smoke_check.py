@@ -18,6 +18,11 @@ from src.data_contracts import (  # noqa: E402
     validate_data_contract_text,
     validate_snapshot_directory,
 )
+from src.collection_policy import (  # noqa: E402
+    decide_collection_eligibility,
+    get_default_collection_policy,
+    validate_collection_policy_text,
+)
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
 from src.fund_profile_importer import (  # noqa: E402
     build_profile_theme_exposure_table,
@@ -61,6 +66,13 @@ from src.release_readiness import (  # noqa: E402
     build_release_readiness_report,
     render_release_readiness_markdown,
     validate_release_readiness_text,
+)
+from src.ingestion_metrics import (  # noqa: E402
+    assess_real_cache_coverage,
+    build_collection_operations_status,
+    build_ingestion_metrics,
+    summarize_ingestion_metrics,
+    validate_ingestion_metrics_text,
 )
 from src.runtime_profile import (  # noqa: E402
     detect_public_demo_profile,
@@ -130,6 +142,8 @@ REQUIRED_FILES = (
     "src/release_readiness.py",
     "src/runtime_profile.py",
     "src/data_contracts.py",
+    "src/collection_policy.py",
+    "src/ingestion_metrics.py",
     "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
@@ -140,6 +154,7 @@ REQUIRED_FILES = (
     "tools/cloud_preflight.py",
     "tools/quality_gate.py",
     "tools/probe_akshare.py",
+    "tools/run_collection_session.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -361,6 +376,15 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     )
     real_cache_summary = build_real_cache_summary(str(project_root / "data/ticks"))
     collector_audit_summary = build_collector_audit_summary(str(project_root / "data/logs/collector_runs.jsonl"))
+    collection_policy = get_default_collection_policy()
+    collection_decision = decide_collection_eligibility(
+        collection_policy,
+        now=pd.Timestamp("2026-06-01 10:00:00", tz="Asia/Shanghai").to_pydatetime(),
+    )
+    ingestion_metrics = build_ingestion_metrics(str(project_root / "data/logs/collector_runs.jsonl"))
+    ingestion_summary_text = summarize_ingestion_metrics(ingestion_metrics)
+    cache_coverage = assess_real_cache_coverage(str(project_root / "data/ticks"))
+    operations_status = build_collection_operations_status(collection_decision, ingestion_metrics, cache_coverage)
     warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
@@ -444,6 +468,24 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "collector_audit_log_exists": bool(collector_audit_summary.get("log_exists")),
             "collector_latest_status": collector_audit_summary.get("latest_run_status"),
             "collector_malformed_line_count": int(collector_audit_summary.get("malformed_line_count", 0) or 0),
+        },
+        "ingestion_orchestration": {
+            "collection_policy_module_imported": True,
+            "collection_policy_status": collection_decision.get("policy_status"),
+            "collection_policy_eligible": bool(collection_decision.get("eligible")),
+            "collection_policy_forbidden_hits": validate_collection_policy_text(collection_decision.get("policy_reason", "")),
+            "ingestion_metrics_module_imported": True,
+            "ingestion_metrics_label": ingestion_metrics.get("metrics_label"),
+            "ingestion_metrics_total_runs": int(ingestion_metrics.get("total_runs", 0) or 0),
+            "ingestion_metrics_write_intent_run_count": int(ingestion_metrics.get("write_intent_run_count", 0) or 0),
+            "ingestion_metrics_forbidden_hits": validate_ingestion_metrics_text(ingestion_summary_text),
+            "real_cache_coverage_label": cache_coverage.get("coverage_label"),
+            "real_cache_coverage_threshold": int(cache_coverage.get("coverage_threshold", 0) or 0),
+            "collection_operations_label": operations_status.get("operations_label"),
+            "collection_operations_forbidden_hits": validate_ingestion_metrics_text(
+                str(operations_status.get("operations_label", "")) + " " + str(operations_status.get("operations_reason", ""))
+            ),
+            "run_collection_session_script_exists": (project_root / "tools/run_collection_session.py").exists(),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -565,6 +607,18 @@ def main() -> int:
     print(f"collector audit log exists: {snapshot_quality['collector_audit_log_exists']}")
     print(f"collector latest status: {snapshot_quality['collector_latest_status']}")
     print(f"collector malformed log lines: {snapshot_quality['collector_malformed_line_count']}")
+    ingestion = report["ingestion_orchestration"]
+    print(f"collection policy module imported: {ingestion['collection_policy_module_imported']}")
+    print(f"collection policy status/eligible: {ingestion['collection_policy_status']} / {ingestion['collection_policy_eligible']}")
+    print(f"collection policy forbidden hits: {ingestion['collection_policy_forbidden_hits']}")
+    print(f"ingestion metrics module imported: {ingestion['ingestion_metrics_module_imported']}")
+    print(f"ingestion metrics label: {ingestion['ingestion_metrics_label']}")
+    print(f"ingestion metrics total/write-intent runs: {ingestion['ingestion_metrics_total_runs']} / {ingestion['ingestion_metrics_write_intent_run_count']}")
+    print(f"ingestion metrics forbidden hits: {ingestion['ingestion_metrics_forbidden_hits']}")
+    print(f"real cache coverage label/threshold: {ingestion['real_cache_coverage_label']} / {ingestion['real_cache_coverage_threshold']}")
+    print(f"collection operations label: {ingestion['collection_operations_label']}")
+    print(f"collection operations forbidden hits: {ingestion['collection_operations_forbidden_hits']}")
+    print(f"run_collection_session.py exists: {ingestion['run_collection_session_script_exists']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
@@ -644,6 +698,14 @@ def main() -> int:
         and sample_profile["profile_count"] >= 5
         and sample_profile["error_count"] == 0
         and snapshot_quality["sample_file_count"] >= 1
+        and report["ingestion_orchestration"]["collection_policy_module_imported"]
+        and report["ingestion_orchestration"]["collection_policy_status"] == "eligible"
+        and not report["ingestion_orchestration"]["collection_policy_forbidden_hits"]
+        and report["ingestion_orchestration"]["ingestion_metrics_module_imported"]
+        and report["ingestion_orchestration"]["real_cache_coverage_threshold"] >= 1
+        and report["ingestion_orchestration"]["run_collection_session_script_exists"]
+        and not report["ingestion_orchestration"]["ingestion_metrics_forbidden_hits"]
+        and not report["ingestion_orchestration"]["collection_operations_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
         and warehouse["warehouse_explorer_imported"]

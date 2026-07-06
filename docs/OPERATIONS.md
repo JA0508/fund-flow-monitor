@@ -135,6 +135,32 @@ Collector run statuses include `success`, `dry_run`, `no_network`, `fetch_error`
 
 If AKShare or the network is unavailable, the collector should fail with a readable error and must not generate fake real data. Unit tests use mocked DataFrames and do not require live network access.
 
+For bounded repeated local collection, use the v3.6 session runner:
+
+```bash
+.venv/bin/python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-run --no-log --ignore-session
+.venv/bin/python tools/run_collection_session.py --max-runs 6 --interval-seconds 300 --respect-session --stop-on-contract-error
+```
+
+Session-runner notes:
+
+- `--max-runs` is mandatory in spirit: the runner always caps attempts and never loops forever.
+- `--respect-session` uses `src/collection_policy.py` to enforce local observation windows, minimum interval and max attempts.
+- `--ignore-session` is useful for dry-run diagnostics outside market hours.
+- `--dry-run` can exercise provider/normalization/contract logic without writing `data/ticks`.
+- `--no-log` avoids writing the local audit JSONL for validation.
+- The runner does not replace cron, launchd, Airflow or any external scheduler.
+- The runner does not use SAMPLE data when real collection fails.
+
+Ingestion metrics are read-only:
+
+```bash
+.venv/bin/python tools/smoke_check.py
+.venv/bin/python tools/verify_runtime.py
+```
+
+They summarize collector log statuses, malformed log lines, write-intent success rate and real cache coverage labels. The success-rate denominator excludes `dry_run` and `no_network` runs.
+
 After a successful local collection, verify evidence without exposing private cache:
 
 ```bash

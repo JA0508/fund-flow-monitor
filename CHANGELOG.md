@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v3.6
+
+- Bounded real-data ingestion orchestration.
+- Added `src/collection_policy.py` for lightweight local collection eligibility checks: trading-window style sessions, minimum interval and max attempts per session.
+- Added `src/ingestion_metrics.py` for read-only collector audit-log metrics, write-intent success-rate semantics and real cache coverage labels.
+- Added `tools/run_collection_session.py` as a finite manual runner around the existing one-shot collector; it does not create a scheduler, daemon or Streamlit loop.
+- Smoke/runtime/cloud/release checks now verify collection policy, ingestion metrics and bounded runner assets without requiring live AKShare.
+- Tests cover policy states, missing/malformed logs, success-rate denominator semantics, cache coverage labels and bounded runner stop conditions.
+- CSV-first, public SAMPLE fallback, provider diagnostics, no-advice/no-prediction boundaries and ignored real cache/log files remain unchanged.
+
 ## v3.5
 
 - AKShare live adapter resilience and schema-drift diagnostics.

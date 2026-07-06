@@ -245,6 +245,34 @@ Real data contracts are intentionally lightweight. They check required app colum
 
 The collector intentionally does not implement a long-running scheduler inside Streamlit. For repeated local collection during market hours, run the one-shot command manually or schedule it outside the app with tools such as cron, launchd, or another local scheduler.
 
+v3.6 adds a bounded local session runner around the same one-shot collector:
+
+```bash
+.venv/bin/python tools/run_collection_session.py --max-runs 3 --interval-seconds 60 --respect-session
+.venv/bin/python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-run --no-log --ignore-session
+```
+
+The runner is deliberately small:
+
+- It uses a finite `--max-runs`; it is not a daemon or scheduler.
+- It calls the existing one-shot collector, so provider diagnostics, data contracts, duplicate detection and CSV write protection stay in one place.
+- `--respect-session` checks a lightweight local collection policy before each attempt.
+- `--ignore-session` is for manual diagnostics only.
+- `--stop-on-success` stops after `success` or `dry_run`.
+- `--stop-on-contract-error` stops immediately if the normalized real snapshot fails the data contract.
+- `--no-log` passes through to the collector and avoids writing `data/logs/collector_runs.jsonl`.
+- `--dry-run` may call AKShare but does not write `data/ticks`.
+
+The policy in `src/collection_policy.py` is not an exchange calendar. It is a local safety guard with two observation windows, a minimum interval and a max-attempts cap. It can report:
+
+- `eligible`
+- `outside_session`
+- `too_soon_since_success`
+- `max_attempts_reached`
+- `disabled`
+
+The runner never substitutes SAMPLE data when real collection fails. SAMPLE remains a public demo path only.
+
 Example manual sequence:
 
 ```bash
@@ -253,6 +281,38 @@ Example manual sequence:
 ```
 
 Duplicate `captured_time + sector_type + sector_name` rows are skipped by default.
+
+## Ingestion Metrics
+
+`src/ingestion_metrics.py` reads the local collector audit log and summarizes run health without fetching data or writing files.
+
+Key fields include:
+
+- total valid log records and malformed-line count
+- status counts
+- success, failure, duplicate, dry-run and no-network counts
+- error-category counts
+- latest run time and latest success time
+- consecutive failure count
+- provider/API counts
+- real cache coverage label
+
+Success rate uses a write-intent denominator:
+
+```text
+success / write-intent runs; dry_run and no_network excluded
+```
+
+This keeps validation runs from inflating or depressing real write success rate. Missing logs are acceptable in public demo and CI.
+
+Real cache coverage labels are factual local evidence:
+
+- `no_real_data`: no readable real CSV cache.
+- `single_snapshot`: one real snapshot point, useful for chain validation only.
+- `limited_intraday_coverage`: real cache exists but does not meet the configured intraday captured-time threshold.
+- `usable_intraday_coverage`: today’s real cache meets the local threshold.
+
+These labels describe local cache coverage only. They are not market signals and do not imply any future direction.
 
 ## Troubleshooting
 

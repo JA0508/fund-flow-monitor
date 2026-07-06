@@ -70,14 +70,19 @@ Key modules:
 - `src/storage.py`
 - `src/snapshot_catalog.py`
 - `src/snapshot_quality.py`
+- `src/collection_policy.py`
+- `src/ingestion_metrics.py`
 - `tools/collect_market_snapshot.py`
 - `tools/collect_real_snapshot.py`
+- `tools/run_collection_session.py`
 
 Real local cache lives under `data/ticks/*.csv` and is intentionally ignored by git. `tools/collect_real_snapshot.py` is the clearer manual local collection entry point and delegates to the existing one-shot collector. The Streamlit UI does not silently create real market CSV files for public visitors.
 
 Collector run audit logs live under `data/logs/collector_runs.jsonl` by default. They record local run status and troubleshooting metadata for manual operations, and remain ignored runtime artifacts.
 
 `src/snapshot_catalog.py` provides the read-only evidence layer for local real cache coverage. It summarizes available real cache dates, latest snapshot path/date/time, file modified time, empty or malformed cache files, cache staleness, and the latest collector audit-log status. This evidence layer only reads local CSV/log files; it does not fetch AKShare, write CSV, write logs, or create a database.
+
+`tools/run_collection_session.py` is a bounded manual runner around the same one-shot collector. It uses `src/collection_policy.py` for local session/interval/attempt checks and `src/ingestion_metrics.py` for audit-log metrics. It is not a scheduler, daemon, backend service or Streamlit loop; it delegates actual provider fetch, validation and CSV writing to the existing collector path.
 
 ## Sample Data Layer
 

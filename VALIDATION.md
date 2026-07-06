@@ -10,6 +10,46 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.6 Bounded Real-data Ingestion Orchestration Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/smoke_check.py
+python tools/verify_runtime.py
+```
+
+Optional local operations checks:
+
+```bash
+python tools/collect_real_snapshot.py --no-network
+python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-run --no-log --ignore-session
+python tools/probe_akshare.py --json
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.6`.
+- `CHANGELOG.md` contains a `v3.6` entry.
+- `src/collection_policy.py` exists and is importable.
+- `src/ingestion_metrics.py` exists and is importable.
+- `tools/run_collection_session.py` exists and exposes a finite runner CLI.
+- Collection policy states include `eligible`, `outside_session`, `too_soon_since_success`, `max_attempts_reached` and `disabled`.
+- `run_collection_session.py` uses a bounded `for` loop with `--max-runs`; it must not run forever.
+- `run_collection_session.py --dry-run --no-log --ignore-session` must not write `data/ticks` or collector logs.
+- Ingestion metrics read `data/logs/collector_runs.jsonl` if present and tolerate missing or malformed logs.
+- Success-rate denominator excludes `dry_run` and `no_network`, and labels the denominator as write-intent runs.
+- Cache coverage labels include `no_real_data`, `single_snapshot`, `limited_intraday_coverage` and `usable_intraday_coverage`.
+- `smoke_check.py`, `verify_runtime.py`, `release_check.py` and `cloud_preflight.py` must not call live AKShare.
+- No tracked real `data/ticks/*.csv`, collector logs, provider diagnostics, SQLite files, secrets or virtual environments are allowed.
+- SAMPLE fallback remains public demo data and must not be used to mask failed real-data ingestion.
+
 ## v3.5 AKShare Provider Boundary Checks
 
 Run:

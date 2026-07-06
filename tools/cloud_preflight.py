@@ -38,7 +38,10 @@ REQUIRED_ASSETS = (
     "tools/probe_akshare.py",
     "src/runtime_profile.py",
     "src/data_contracts.py",
+    "src/collection_policy.py",
+    "src/ingestion_metrics.py",
     "src/providers/akshare_sector_flow.py",
+    "tools/run_collection_session.py",
 )
 
 

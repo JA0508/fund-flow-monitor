@@ -29,6 +29,9 @@ PUBLIC_FILES = (
     "docs/demo_briefs/README.md",
     "docs/demo_briefs/sample_observation_brief.md",
     "app.py",
+    "src/collection_policy.py",
+    "src/ingestion_metrics.py",
+    "tools/run_collection_session.py",
 )
 
 PUBLIC_DIRS = (
@@ -59,9 +62,12 @@ REQUIRED_PUBLIC_ASSETS = (
     "docs/OPERATIONS.md",
     "src/providers/akshare_sector_flow.py",
     "src/data_contracts.py",
+    "src/collection_policy.py",
+    "src/ingestion_metrics.py",
     "tools/probe_akshare.py",
     "tools/quality_gate.py",
     "tools/collect_real_snapshot.py",
+    "tools/run_collection_session.py",
     "LICENSE",
 )
 

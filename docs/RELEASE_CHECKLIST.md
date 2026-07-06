@@ -20,8 +20,9 @@ python -m compileall app.py src tests tools
 - `release_check.py` should report no tracked forbidden files.
 - `release_check.py` should report SAMPLE data contract status.
 - `smoke_check.py` / `verify_runtime.py` should report real cache evidence and collector audit-log visibility without requiring real cache in CI.
+- `smoke_check.py` / `verify_runtime.py` should report collection policy, ingestion metrics, real cache coverage labels and bounded runner readiness without calling live AKShare.
 - `cloud_preflight.py` should confirm `docs/ARCHITECTURE.md`, `docs/DATA_FLOW.md` and `docs/OPERATIONS.md` exist.
-- `release_check.py` and `cloud_preflight.py` should confirm `docs/REAL_DATA_INGESTION.md` and `tools/collect_real_snapshot.py` exist.
+- `release_check.py` and `cloud_preflight.py` should confirm `docs/REAL_DATA_INGESTION.md`, `tools/collect_real_snapshot.py`, `tools/run_collection_session.py`, `src/collection_policy.py` and `src/ingestion_metrics.py` exist.
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
 - Warnings should be reviewed manually before release.
 - Tests and compile checks must pass.
@@ -72,6 +73,7 @@ python tools/collect_real_snapshot.py --no-network
 python tools/collect_real_snapshot.py --dry-run --no-log
 python tools/probe_akshare.py
 python tools/probe_akshare.py --json
+python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-run --no-log --ignore-session
 ```
 
 - These checks may depend on live AKShare/network availability and should be interpreted separately from unit tests.
@@ -80,6 +82,9 @@ python tools/probe_akshare.py --json
 - `--dry-run` should not write `data/ticks`.
 - `--no-network` should not access AKShare and should not write `data/ticks`.
 - `--no-log` should suppress `data/logs/collector_runs.jsonl` for that run.
+- `run_collection_session.py` must use a bounded `--max-runs` and must not create a scheduler, daemon, Streamlit loop, CSV warehouse, or background service.
+- `run_collection_session.py --dry-run --no-log --ignore-session` should return a readable session summary and should not write `data/ticks` or `data/logs`.
+- Ingestion metrics should label success rate as `success / write-intent runs`, excluding `dry_run` and `no_network`.
 - A successful collector run without `--dry-run` may create ignored real CSV files under `data/ticks`; never stage those files.
 - Normal collector runs may create ignored audit logs under `data/logs/collector_runs.jsonl`; never stage those logs.
 - After local collection, the `数据说明` tab should show real cache coverage, latest cache date/time, staleness status, empty/malformed file counts, and latest collector run status.

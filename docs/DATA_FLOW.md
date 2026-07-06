@@ -131,6 +131,8 @@ Provider failures and data contract failures are separate. Network, timeout or u
 
 Collector runs are classified with explicit statuses such as `success`, `dry_run`, `no_network`, `fetch_error`, `empty_fetch`, `contract_error`, `duplicate_skipped` and `write_error`. Provider-level error categories include `network_error`, `timeout_error`, `provider_parse_error`, `empty_response`, `schema_drift`, `normalization_error` and `contract_error`. By default, the command appends a local JSONL audit entry to `data/logs/collector_runs.jsonl`; these logs are ignored and are not part of the public dataset.
 
+`tools/run_collection_session.py` can run the one-shot collector a finite number of times for local manual collection. It does not add a new data source and does not create a background scheduler. It reads `src/collection_policy.py` for local eligibility decisions and emits a session summary with status counts, failure categories and created snapshot paths. Actual CSV writes still go through `tools/collect_market_snapshot.py` and `src/storage.py`.
+
 The read-only cache evidence path uses `src/snapshot_catalog.py` to answer:
 
 - whether real local cache exists
@@ -139,6 +141,8 @@ The read-only cache evidence path uses `src/snapshot_catalog.py` to answer:
 - whether any cache files are empty or malformed
 - whether the latest cache appears fresh, stale, missing, or unknown
 - what the latest collector run status was, if a local audit log exists
+
+`src/ingestion_metrics.py` adds read-only ingestion run metrics on top of the audit log. Its success-rate denominator is write-intent runs: `dry_run` and `no_network` are excluded because they are validation modes, not real cache write attempts.
 
 This is data provenance and runtime observability, not a market signal. Missing real cache on Streamlit Cloud is expected because real `data/ticks` and `data/logs` are private local runtime artifacts.
 

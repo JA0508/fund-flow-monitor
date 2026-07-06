@@ -19,6 +19,18 @@ from src.data_contracts import (  # noqa: E402
     validate_data_contract_text,
     validate_snapshot_directory,
 )
+from src.collection_policy import (  # noqa: E402
+    decide_collection_eligibility,
+    get_default_collection_policy,
+    validate_collection_policy_text,
+)
+from src.ingestion_metrics import (  # noqa: E402
+    assess_real_cache_coverage,
+    build_collection_operations_status,
+    build_ingestion_metrics,
+    summarize_ingestion_metrics,
+    validate_ingestion_metrics_text,
+)
 from src.concept_flow import get_concept_latest_snapshot, summarize_concept_hotspots  # noqa: E402
 from src.brief_templates import (  # noqa: E402
     build_brief_compliance_report,
@@ -601,6 +613,61 @@ def _verify_snapshot_quality() -> None:
     print("  verify_runtime 不执行真实采集；如需手动检查可运行 python tools/collect_real_snapshot.py --dry-run。")
 
 
+def _verify_collection_orchestration() -> None:
+    print("Real-data collection orchestration readiness 检查:")
+    policy = get_default_collection_policy()
+    decision = decide_collection_eligibility(
+        policy,
+        now=pd.Timestamp("2026-06-01 10:00:00", tz="Asia/Shanghai").to_pydatetime(),
+    )
+    metrics = build_ingestion_metrics(str(PROJECT_ROOT / "data/logs/collector_runs.jsonl"))
+    metrics_summary = summarize_ingestion_metrics(metrics)
+    coverage = assess_real_cache_coverage(str(PROJECT_ROOT / "data/ticks"))
+    operations = build_collection_operations_status(decision, metrics, coverage)
+    runner_script = PROJECT_ROOT / "tools/run_collection_session.py"
+    runner_import_ok = False
+    runner_parser_ok = False
+    if runner_script.exists():
+        spec = importlib.util.spec_from_file_location("run_collection_session", runner_script)
+        runner_import_ok = spec is not None and spec.loader is not None
+        if runner_import_ok and spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            runner_import_ok = hasattr(module, "build_parser") and hasattr(module, "run_collection_session")
+            if runner_import_ok:
+                parser = module.build_parser()
+                args = parser.parse_args(["--max-runs", "3", "--interval-seconds", "0", "--dry-run", "--no-log", "--ignore-session"])
+                runner_parser_ok = (
+                    args.max_runs == 3
+                    and args.interval_seconds == 0
+                    and args.dry_run
+                    and args.no_log
+                    and args.respect_session is False
+                )
+    print(f"  collection_policy_module_imported: True")
+    print(f"  default_policy_sessions: {len(policy.get('sessions', []))}")
+    print(f"  default_policy_min_interval_seconds: {policy.get('min_interval_seconds')}")
+    print(f"  default_policy_max_attempts_per_session: {policy.get('max_attempts_per_session')}")
+    print(f"  policy_decision_status: {decision.get('policy_status')}")
+    print(f"  policy_decision_eligible: {decision.get('eligible')}")
+    print(f"  collection_policy_forbidden_hits: {validate_collection_policy_text(decision.get('policy_reason', ''))}")
+    print(f"  ingestion_metrics_module_imported: True")
+    print(f"  ingestion_metrics_label: {metrics.get('metrics_label')}")
+    print(f"  ingestion_metrics_total_runs: {metrics.get('total_runs')}")
+    print(f"  ingestion_metrics_write_intent_run_count: {metrics.get('write_intent_run_count')}")
+    print(f"  ingestion_metrics_success_rate: {metrics.get('success_rate')}")
+    print(f"  ingestion_metrics_denominator: {metrics.get('success_rate_denominator_semantics')}")
+    print(f"  ingestion_metrics_forbidden_hits: {validate_ingestion_metrics_text(metrics_summary)}")
+    print(f"  real_cache_coverage_label: {coverage.get('coverage_label')}")
+    print(f"  real_cache_coverage_threshold: {coverage.get('coverage_threshold')}")
+    print(f"  collection_operations_label: {operations.get('operations_label')}")
+    print(f"  collection_operations_forbidden_hits: {validate_ingestion_metrics_text(str(operations.get('operations_reason', '')))}")
+    print(f"  run_collection_session.py exists: {runner_script.exists()}")
+    print(f"  run_collection_session.py import: {runner_import_ok}")
+    print(f"  run_collection_session parser dry-run/no-log/ignore-session: {runner_parser_ok}")
+    print("  verify_runtime 不执行真实 AKShare 采集；runner 实际运行需手动调用。")
+
+
 def _verify_local_warehouse() -> None:
     print("SQLite warehouse readiness 检查:")
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -980,6 +1047,7 @@ def main() -> int:
     _verify_theme_taxonomy(latest, watchlist_themes, fund_exposure)
     _verify_fund_profile_csv(radar, taxonomy)
     _verify_snapshot_quality()
+    _verify_collection_orchestration()
     _verify_provider_boundary()
     _verify_local_warehouse()
     print("fund summary Top 3:")

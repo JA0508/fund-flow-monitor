@@ -28,9 +28,10 @@ Live demo: [https://fund-flow-monitor-ja0508.streamlit.app/](https://fund-flow-m
 ```bash
 python tools/collect_real_snapshot.py --dry-run
 python tools/collect_real_snapshot.py
+python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-run --no-log --ignore-session
 ```
 
-真实采集路径会通过项目统一的 AKShare provider adapter、controlled schema mapping、data contract 和 storage 层处理；公开 SAMPLE fallback 不会写入 `data/ticks`。采集器默认会把本次运行状态写入本地审计日志 `data/logs/collector_runs.jsonl`，该目录同样被 Git 忽略；需要纯校验时可使用 `--no-network` 或 `--dry-run --no-log`，也可运行 `python tools/probe_akshare.py --json` 查看 provider schema fingerprint 和失败分类。采集后可在 `数据说明` tab 查看真实缓存覆盖、freshness 和最新 collector 状态。详细说明见 [`docs/REAL_DATA_INGESTION.md`](docs/REAL_DATA_INGESTION.md)。
+真实采集路径会通过项目统一的 AKShare provider adapter、controlled schema mapping、data contract 和 storage 层处理；公开 SAMPLE fallback 不会写入 `data/ticks`。采集器默认会把本次运行状态写入本地审计日志 `data/logs/collector_runs.jsonl`，该目录同样被 Git 忽略；需要纯校验时可使用 `--no-network` 或 `--dry-run --no-log`，也可运行 `python tools/probe_akshare.py --json` 查看 provider schema fingerprint 和失败分类。v3.6 增加的 `run_collection_session.py` 只是有限次数手动 runner，不是调度器或后台服务；它复用 one-shot collector，并输出 session summary 和 ingestion metrics。采集后可在 `数据说明` tab 查看真实缓存覆盖、freshness 和最新 collector 状态。详细说明见 [`docs/REAL_DATA_INGESTION.md`](docs/REAL_DATA_INGESTION.md)。
 
 ## What to Look at in the Demo
 
