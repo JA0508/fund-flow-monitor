@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.history_evidence import (
+    build_historical_coverage_summary,
+    build_snapshot_manifest,
+    classify_historical_evidence_readiness,
+)
 from src.snapshot_catalog import load_snapshot_by_date
 from src.theme_pool import build_theme_snapshot
 from src.theme_radar import FORBIDDEN_ADVICE_WORDS
@@ -62,10 +67,12 @@ def build_daily_theme_snapshots(
     catalog_df: pd.DataFrame,
     data_dir: str = "data/ticks",
     mode: str = "strict_representative",
+    source_mode: str = "REAL",
 ) -> pd.DataFrame:
     if catalog_df is None or catalog_df.empty:
         empty = pd.DataFrame()
         empty.attrs["warnings"] = []
+        empty.attrs["provenance"] = build_multi_day_provenance(catalog_df, data_dir=data_dir, source_mode=source_mode)
         return empty
     rows = []
     warnings = []
@@ -73,6 +80,7 @@ def build_daily_theme_snapshots(
     if "snapshot_date" not in catalog.columns:
         empty = pd.DataFrame()
         empty.attrs["warnings"] = ["snapshot_catalog 缺少 snapshot_date 字段"]
+        empty.attrs["provenance"] = build_multi_day_provenance(catalog_df, data_dir=data_dir, source_mode=source_mode)
         return empty
     if "is_readable" in catalog.columns:
         catalog = catalog[catalog["is_readable"].fillna(False)]
@@ -119,12 +127,46 @@ def build_daily_theme_snapshots(
     if not rows:
         empty = pd.DataFrame()
         empty.attrs["warnings"] = warnings
+        empty.attrs["provenance"] = build_multi_day_provenance(catalog_df, data_dir=data_dir, source_mode=source_mode)
         return empty
     out = pd.DataFrame(rows)
     out["main_net_inflow_billion"] = pd.to_numeric(out["main_net_inflow_billion"], errors="coerce")
     out = out.dropna(subset=["snapshot_date", "theme_name", "main_net_inflow_billion"]).reset_index(drop=True)
     out.attrs["warnings"] = warnings
+    out.attrs["provenance"] = build_multi_day_provenance(catalog_df, data_dir=data_dir, source_mode=source_mode)
     return out
+
+
+def build_multi_day_provenance(
+    catalog_df: pd.DataFrame | None,
+    data_dir: str = "data/ticks",
+    source_mode: str = "REAL",
+    bucket_minutes: int = 1,
+) -> dict:
+    manifest = build_snapshot_manifest(data_dir=data_dir, source_mode=source_mode, bucket_minutes=bucket_minutes)
+    summary = build_historical_coverage_summary(manifest)
+    readiness = classify_historical_evidence_readiness(summary)
+    catalog_dates = (
+        int(catalog_df["snapshot_date"].dropna().astype(str).nunique())
+        if catalog_df is not None and not catalog_df.empty and "snapshot_date" in catalog_df.columns
+        else 0
+    )
+    return {
+        "source_mode": source_mode,
+        "data_dir": data_dir,
+        "catalog_date_count": catalog_dates,
+        "manifest_snapshot_count": int(summary.get("valid_snapshot_count", 0) or 0),
+        "trade_date_count": int(summary.get("trade_date_count", 0) or 0),
+        "earliest_trade_date": summary.get("earliest_trade_date"),
+        "latest_trade_date": summary.get("latest_trade_date"),
+        "provider_counts": summary.get("provider_counts", {}),
+        "api_counts": summary.get("api_counts", {}),
+        "schema_consistent": bool(summary.get("schema_consistent")),
+        "contract_pass_count": int(summary.get("contract_pass_count", 0) or 0),
+        "readiness_state": readiness.get("readiness_state"),
+        "readiness_label": readiness.get("readiness_label"),
+        "readiness_reason": readiness.get("readiness_reason"),
+    }
 
 
 def calculate_multi_day_theme_metrics(

@@ -10,6 +10,45 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.7 Historical Coverage and Replay Provenance Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/inspect_history_evidence.py --source-mode REAL
+python tools/inspect_history_evidence.py --data-dir sample_data/ticks --source-mode SAMPLE --matrix
+```
+
+Optional live provider sanity check:
+
+```bash
+python tools/probe_akshare.py --json
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.7`.
+- `CHANGELOG.md` contains a `v3.7` entry.
+- `src/history_evidence.py` exists and is importable.
+- `tools/inspect_history_evidence.py` exists and can inspect REAL or SAMPLE CSV directories without network or writes.
+- Snapshot evidence records include deterministic `snapshot_id`, file hash, relative path, trade date, captured_time coverage, provider/API metadata when present, schema fingerprint and data contract status.
+- Coverage matrix buckets captured_time by minute by default and reports counts per `trade_date` x `captured_time_bucket`.
+- Readiness states are limited to evidence coverage labels such as `no_real_history`, `single_snapshot`, `single_day_intraday`, `limited_multi_day` and `multi_day_ready`.
+- Replay evidence for a selected date reports snapshot IDs, captured_time range, provider/API counts, schema consistency and contract pass count without exposing row-level data.
+- Streamlit multi-day and data explanation tabs show Historical Evidence as a read-only panel and do not replace existing multi-day trend calculations.
+- SAMPLE evidence must stay labeled as `SAMPLE` / synthetic demo data and must not be described as real market history.
+- Tests, smoke checks, runtime verification, cloud preflight and release checks must not call live AKShare or require real `data/ticks`.
+- No tracked real `data/ticks/*.csv`, collector logs, provider diagnostics, SQLite files, secrets or virtual environments are allowed.
+- Historical evidence must not include performance-analysis, prediction or advice language.
+
 ## v3.6 Bounded Real-data Ingestion Orchestration Checks
 
 Run:

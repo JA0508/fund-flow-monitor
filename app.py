@@ -72,6 +72,13 @@ from src.insight_brief import (
     summarize_theme_radar_for_brief,
     validate_brief_text,
 )
+from src.history_evidence import (
+    build_coverage_matrix,
+    build_historical_coverage_summary,
+    build_snapshot_manifest,
+    classify_historical_evidence_readiness,
+    resolve_replay_evidence,
+)
 from src.local_warehouse import (
     audit_warehouse,
     connect_warehouse,
@@ -184,6 +191,8 @@ from src.ui_components import (
     render_fund_summary_cards,
     render_holding_related_table,
     render_header,
+    render_historical_evidence_notes,
+    render_historical_evidence_summary_cards,
     render_hotspot_cards,
     render_intraday_hotspot_overview,
     render_intraday_hotspot_table,
@@ -198,6 +207,8 @@ from src.ui_components import (
     render_snapshot_catalog_table,
     render_snapshot_quality_cards,
     render_snapshot_quality_notes,
+    render_coverage_matrix,
+    render_replay_evidence_card,
     render_warehouse_date_table,
     render_warehouse_explorer_notes,
     render_warehouse_explorer_summary_cards,
@@ -370,6 +381,14 @@ def main() -> None:
     latest_snapshot_date = get_latest_snapshot_date(snapshot_catalog_df)
     sample_catalog_df = build_sample_snapshot_catalog()
     latest_sample_date = get_latest_sample_date(sample_catalog_df)
+    real_history_manifest_df = build_snapshot_manifest("data/ticks", source_mode="REAL")
+    sample_history_manifest_df = build_snapshot_manifest(SAMPLE_DIR, source_mode="SAMPLE")
+    real_history_summary = build_historical_coverage_summary(real_history_manifest_df)
+    sample_history_summary = build_historical_coverage_summary(sample_history_manifest_df)
+    real_history_readiness = classify_historical_evidence_readiness(real_history_summary)
+    sample_history_readiness = classify_historical_evidence_readiness(sample_history_summary)
+    real_coverage_matrix_df = build_coverage_matrix(real_history_manifest_df)
+    sample_coverage_matrix_df = build_coverage_matrix(sample_history_manifest_df)
     snapshot_quality_report = build_snapshot_quality_report()
     warehouse_path = get_default_warehouse_path()
     warehouse_exists = Path(warehouse_path).exists()
@@ -837,6 +856,7 @@ def main() -> None:
         active_catalog_df,
         data_dir=active_catalog_dir,
         mode=multi_day_mode,
+        source_mode="SAMPLE" if sample_mode else "REAL",
     )
     multi_day_date_count = (
         int(daily_theme_df["snapshot_date"].nunique())
@@ -1026,6 +1046,36 @@ def main() -> None:
             with st.expander("多日分化主题", expanded=False):
                 render_multi_day_trend_cards("多日分化主题", multi_day_sections["mixed_trends"], max_cards=6)
             render_multi_day_trend_table(multi_day_trend_pool_df, max_rows=30)
+        st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
+        active_history_manifest_df = sample_history_manifest_df if sample_mode else real_history_manifest_df
+        active_history_summary = sample_history_summary if sample_mode else real_history_summary
+        active_history_readiness = sample_history_readiness if sample_mode else real_history_readiness
+        active_coverage_matrix_df = sample_coverage_matrix_df if sample_mode else real_coverage_matrix_df
+        render_historical_evidence_notes(
+            "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
+            "它不会访问 AKShare，不会写 CSV，不会写 SQLite，也不做绩效评估或预测。"
+        )
+        if sample_mode:
+            render_compact_notice(
+                "SAMPLE 历史证据说明",
+                "当前历史证据来自 sample_data/ticks 合成演示数据，仅用于展示 lineage / coverage / provenance 流程，不代表真实行情。",
+                tone="warning",
+            )
+        render_historical_evidence_summary_cards(
+            active_history_summary,
+            active_history_readiness,
+            title="当前数据源历史覆盖证据",
+        )
+        if selected_snapshot_date:
+            replay_evidence = resolve_replay_evidence(
+                selected_snapshot_date,
+                active_history_manifest_df,
+                source_mode="SAMPLE" if sample_mode else "REAL",
+                mode="SAMPLE" if sample_mode else ("HISTORY" if is_history_replay else data_status),
+            )
+            render_replay_evidence_card(replay_evidence)
+        with st.expander("查看 captured_time 覆盖矩阵", expanded=show_debug_details):
+            render_coverage_matrix(active_coverage_matrix_df, title="当前数据源 captured_time 覆盖矩阵")
         st.markdown("<div class='radar-section-title'>Warehouse 主题历史观察（只读）</div>", unsafe_allow_html=True)
         st.markdown(
             "<div class='concept-note'>该区域基于本地 SQLite warehouse 中已有的 sector-level 历史索引，"
@@ -1460,6 +1510,18 @@ def main() -> None:
             "- EMPTY 表示暂无可用真实缓存，可等待正常抓取或启用 DEMO 进行 UI 测试。\n"
             "- 历史回放只用于观察已保存的资金流状态。"
         )
+        st.markdown("#### 历史覆盖与回放证据")
+        st.markdown(
+            "- 历史证据层从已保存 CSV 快照中恢复文件哈希、schema fingerprint、provider/api/source 元数据、数据契约状态和 captured_time 覆盖。\n"
+            "- 这些证据只用于解释数据 lineage、coverage 和 replay provenance，不代表实时行情，不做预测，也不构成投资建议。\n"
+            "- REAL 与 SAMPLE 分开扫描；SAMPLE 证据仅来自 `sample_data/ticks` 合成演示数据。"
+        )
+        render_historical_evidence_summary_cards(real_history_summary, real_history_readiness, title="REAL 本地缓存历史证据")
+        render_historical_evidence_summary_cards(sample_history_summary, sample_history_readiness, title="SAMPLE 样例历史证据")
+        with st.expander("查看 REAL captured_time 覆盖矩阵", expanded=show_debug_details):
+            render_coverage_matrix(real_coverage_matrix_df, title="REAL captured_time 覆盖矩阵")
+        with st.expander("查看 SAMPLE captured_time 覆盖矩阵", expanded=show_debug_details):
+            render_coverage_matrix(sample_coverage_matrix_df, title="SAMPLE captured_time 覆盖矩阵")
         render_snapshot_quality_cards(snapshot_quality_report)
         st.markdown("#### 本地真实缓存新鲜度")
         st.markdown(

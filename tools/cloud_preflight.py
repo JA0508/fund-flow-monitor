@@ -40,8 +40,10 @@ REQUIRED_ASSETS = (
     "src/data_contracts.py",
     "src/collection_policy.py",
     "src/ingestion_metrics.py",
+    "src/history_evidence.py",
     "src/providers/akshare_sector_flow.py",
     "tools/run_collection_session.py",
+    "tools/inspect_history_evidence.py",
 )
 
 

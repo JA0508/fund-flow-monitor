@@ -1168,6 +1168,76 @@ def render_snapshot_catalog_table(catalog_df: pd.DataFrame, title: str = "CSV �
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_historical_evidence_summary_cards(summary: dict, readiness: dict, title: str = "历史覆盖证据") -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(title)}</div>", unsafe_allow_html=True)
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>覆盖状态</div><div class='trust-value'>{escape(str(summary.get('coverage_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>证据就绪</div><div class='trust-value'>{escape(str(readiness.get('readiness_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>有效快照 / 总数</div><div class='trust-value'>{int(summary.get('valid_snapshot_count', 0) or 0)} / {int(summary.get('total_snapshot_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>交易日数</div><div class='trust-value'>{int(summary.get('trade_date_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>日期范围</div><div class='trust-value'>{escape(str(summary.get('earliest_trade_date') or '--'))} → {escape(str(summary.get('latest_trade_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Schema 一致</div><div class='trust-value'>{'是' if summary.get('schema_consistent') else '否'}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>契约通过 / 失败</div><div class='trust-value'>{int(summary.get('contract_pass_count', 0) or 0)} / {int(summary.get('contract_fail_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>空 / 异常文件</div><div class='trust-value'>{int(summary.get('empty_snapshot_count', 0) or 0)} / {int(summary.get('malformed_snapshot_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(summary.get('coverage_reason', '')))}</div>"
+        f"<div class='trust-copy'>{escape(str(readiness.get('readiness_reason', '')))}</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_replay_evidence_card(replay_evidence: dict) -> None:
+    st.markdown("<div class='radar-section-title'>历史回放证据</div>", unsafe_allow_html=True)
+    provider_counts = replay_evidence.get("provider_counts") or {}
+    api_counts = replay_evidence.get("api_counts") or {}
+    providers = "，".join(f"{key}:{value}" for key, value in provider_counts.items()) or "--"
+    apis = "，".join(f"{key}:{value}" for key, value in api_counts.items()) or "--"
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>回放日期</div><div class='trust-value'>{escape(str(replay_evidence.get('selected_trade_date') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>证据状态</div><div class='trust-value'>{escape(str(replay_evidence.get('evidence_state', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>快照文件</div><div class='trust-value'>{int(replay_evidence.get('snapshot_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>时间范围</div><div class='trust-value'>{escape(str(replay_evidence.get('captured_time_start') or '--'))} → {escape(str(replay_evidence.get('captured_time_end') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>时间点数量</div><div class='trust-value'>{int(replay_evidence.get('captured_time_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Schema 一致</div><div class='trust-value'>{'是' if replay_evidence.get('schema_consistent') else '否'}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>契约通过</div><div class='trust-value'>{int(replay_evidence.get('contract_pass_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>来源类型</div><div class='trust-value'>{escape(str(replay_evidence.get('source_mode') or '--'))}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>Provider：{escape(providers)}；API：{escape(apis)}。历史回放证据只说明已保存 CSV 的来源和覆盖，不构成投资建议。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    warnings = replay_evidence.get("warnings") or []
+    if warnings:
+        with st.expander("查看历史回放证据提示", expanded=False):
+            st.markdown("<div class='concept-note'>" + "<br>".join(escape(str(item)) for item in warnings[:12]) + "</div>", unsafe_allow_html=True)
+
+
+def render_coverage_matrix(matrix_df: pd.DataFrame, title: str = "历史覆盖矩阵", max_rows: int = 40) -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(title)}</div>", unsafe_allow_html=True)
+    if matrix_df is None or matrix_df.empty:
+        st.markdown("<div class='rank-panel'><div class='rank-empty'>暂无历史覆盖矩阵。</div></div>", unsafe_allow_html=True)
+        return
+    headers = [str(col) for col in matrix_df.columns]
+    rows = []
+    for _, row in matrix_df.head(max_rows).iterrows():
+        rows.append([row.get(col, "--") if row.get(col, None) is not None else "--" for col in matrix_df.columns])
+    _render_simple_table(headers, rows, "暂无历史覆盖矩阵。")
+    if len(matrix_df) > max_rows:
+        st.markdown(
+            f"<div class='concept-note'>仅展示前 {max_rows} 行，共 {len(matrix_df)} 行。覆盖矩阵只读展示，不写 CSV。</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_historical_evidence_notes(text: str) -> None:
+    st.markdown(f"<div class='concept-note'>{escape(str(text))}</div>", unsafe_allow_html=True)
+
+
 def render_warehouse_status_cards(summary: dict, audit: dict | None = None) -> None:
     audit = audit or {}
     st.markdown("<div class='radar-section-title'>本地 SQLite Warehouse（可重建索引）</div>", unsafe_allow_html=True)

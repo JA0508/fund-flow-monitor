@@ -212,6 +212,17 @@ This project is a portfolio-grade Streamlit MVP, not a production financial data
 
 SQLite is included only as a rebuildable local query index for historical exploration. The app can run without it.
 
+## Historical Evidence Layer
+
+v3.7 adds a read-only historical evidence layer on top of persisted CSV snapshots:
+
+- `src/history_evidence.py` scans `sector_flow_YYYY-MM-DD.csv` files and reconstructs snapshot evidence records.
+- Evidence records include relative file path, deterministic snapshot ID, file hash, schema fingerprint, provider/API metadata when present, data contract status, captured_time coverage and source mode.
+- `tools/inspect_history_evidence.py` provides a local CLI for coverage and replay provenance checks.
+- The Streamlit multi-day tab and data explanation tab show evidence summaries and captured_time coverage matrices.
+
+This layer does not change theme calculations, does not read from AKShare, does not write CSV or SQLite, and does not perform performance analysis or prediction. It exists to make historical replay provenance explicit.
+
 ## If This Became Production-Grade
 
 A production-grade version would need additional systems that are intentionally out of scope here:

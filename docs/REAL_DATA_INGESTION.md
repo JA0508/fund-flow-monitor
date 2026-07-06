@@ -314,6 +314,22 @@ Real cache coverage labels are factual local evidence:
 
 These labels describe local cache coverage only. They are not market signals and do not imply any future direction.
 
+## Inspecting Historical Evidence
+
+After collecting local real CSV snapshots, inspect replay provenance with:
+
+```bash
+.venv/bin/python tools/inspect_history_evidence.py --source-mode REAL
+```
+
+To inspect the public SAMPLE package:
+
+```bash
+.venv/bin/python tools/inspect_history_evidence.py --data-dir sample_data/ticks --source-mode SAMPLE --matrix
+```
+
+The command reports file-level lineage, captured_time coverage, schema fingerprint consistency and data contract status. It does not call AKShare, does not write `data/ticks`, does not create SQLite, and does not expose row-level private data in the summary.
+
 ## Troubleshooting
 
 If AKShare fails:

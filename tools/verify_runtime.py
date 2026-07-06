@@ -31,6 +31,14 @@ from src.ingestion_metrics import (  # noqa: E402
     summarize_ingestion_metrics,
     validate_ingestion_metrics_text,
 )
+from src.history_evidence import (  # noqa: E402
+    build_coverage_matrix,
+    build_historical_coverage_summary,
+    build_snapshot_manifest,
+    classify_historical_evidence_readiness,
+    resolve_replay_evidence,
+    validate_history_evidence_text,
+)
 from src.concept_flow import get_concept_latest_snapshot, summarize_concept_hotspots  # noqa: E402
 from src.brief_templates import (  # noqa: E402
     build_brief_compliance_report,
@@ -948,6 +956,37 @@ def _verify_provider_boundary() -> None:
     print("  provider boundary 检查不访问 AKShare，不写 data/ticks。")
 
 
+def _verify_history_evidence() -> None:
+    real_manifest = build_snapshot_manifest(PROJECT_ROOT / "data/ticks", source_mode="REAL")
+    sample_manifest = build_snapshot_manifest(PROJECT_ROOT / "sample_data/ticks", source_mode="SAMPLE")
+    real_summary = build_historical_coverage_summary(real_manifest)
+    sample_summary = build_historical_coverage_summary(sample_manifest)
+    real_readiness = classify_historical_evidence_readiness(real_summary)
+    sample_readiness = classify_historical_evidence_readiness(sample_summary)
+    sample_matrix = build_coverage_matrix(sample_manifest)
+    sample_date = sample_summary.get("latest_trade_date")
+    sample_replay = resolve_replay_evidence(sample_date, sample_manifest, source_mode="SAMPLE", mode="SAMPLE")
+    forbidden_hits = validate_history_evidence_text(
+        str(real_readiness.get("readiness_reason", ""))
+        + " "
+        + str(sample_readiness.get("readiness_reason", ""))
+    )
+    print("Historical Evidence / Replay Provenance 检查:")
+    print(f"  history_evidence_module_imported: True")
+    print(f"  inspect_history_evidence.py exists: {(PROJECT_ROOT / 'tools/inspect_history_evidence.py').exists()}")
+    print(f"  real_manifest_row_count: {len(real_manifest)}")
+    print(f"  real_history_readiness_state: {real_readiness.get('readiness_state')}")
+    print(f"  real_history_valid_snapshot_count: {real_summary.get('valid_snapshot_count')}")
+    print(f"  sample_manifest_row_count: {len(sample_manifest)}")
+    print(f"  sample_history_readiness_state: {sample_readiness.get('readiness_state')}")
+    print(f"  sample_history_valid_snapshot_count: {sample_summary.get('valid_snapshot_count')}")
+    print(f"  sample_coverage_matrix_shape: {tuple(sample_matrix.shape)}")
+    print(f"  sample_replay_evidence_state: {sample_replay.get('evidence_state')}")
+    print(f"  sample_replay_captured_time_count: {sample_replay.get('captured_time_count')}")
+    print(f"  history_evidence_forbidden_hits: {forbidden_hits}")
+    print("  historical evidence 检查只读 CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -1048,6 +1087,7 @@ def main() -> int:
     _verify_fund_profile_csv(radar, taxonomy)
     _verify_snapshot_quality()
     _verify_collection_orchestration()
+    _verify_history_evidence()
     _verify_provider_boundary()
     _verify_local_warehouse()
     print("fund summary Top 3:")

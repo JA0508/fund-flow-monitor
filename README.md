@@ -77,6 +77,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 日内热点池：基于本地 CSV 多个 captured_time，解释主题资金流的日内变化、持续性和分化。
 - 历史快照回放：选择已有 CSV 日期，回看当日曲线、主题雷达、日内热点、持仓相关池和排行榜。
 - 多日主题趋势：基于多个本地 CSV 日期的最后快照，观察主题资金状态的跨日期变化。
+- Historical Evidence：从本地 CSV 恢复文件 hash、schema fingerprint、数据契约状态和 captured_time 覆盖矩阵，用于解释回放来源。
 - 主题库配置化：通过 `config/theme_taxonomy.json` 管理主题定义、核心行业、相关行业和概念关键词。
 - 主题覆盖审计：检查当前快照覆盖率、高资金流未覆盖板块、重复映射和 watchlist / fund_profiles 一致性。
 - 观察简报：整合主题雷达、日内热点、多日趋势、持仓相关池和覆盖审计，支持标准简报 / 作品集演示简报 Markdown 下载。
@@ -770,7 +771,7 @@ python tools/collect_market_snapshot.py --no-network
 python tools/rebuild_local_warehouse.py --include-sample --dry-run
 ```
 
-`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要、sample catalog、snapshot quality readiness 和临时 SQLite warehouse readiness。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示、SAMPLE 样例链路、CSV 快照质量治理和临时 warehouse 重建。`collect_market_snapshot.py --no-network` 不访问 AKShare，只验证手动采集脚本可导入和参数可用。`rebuild_local_warehouse.py --include-sample --dry-run` 只扫描 SAMPLE CSV，不创建 SQLite。
+`tools/smoke_check.py` 不进行网络抓取，只检查 Python 版本、关键依赖、关键文件、watchlist、快照目录、本地 CSV 摘要、sample catalog、snapshot quality readiness、historical evidence readiness 和临时 SQLite warehouse readiness。`tools/verify_runtime.py` 会进一步检查 AKShare 可用性、CSV 缓存、历史回放候选日期、主题池、主题雷达、分歧提示、SAMPLE 样例链路、CSV 快照质量治理、historical replay provenance 和临时 warehouse 重建。`collect_market_snapshot.py --no-network` 不访问 AKShare，只验证手动采集脚本可导入和参数可用。`rebuild_local_warehouse.py --include-sample --dry-run` 只扫描 SAMPLE CSV，不创建 SQLite。`tools/inspect_history_evidence.py` 只读扫描 CSV 历史证据，不写 `data/ticks` 或 SQLite。
 
 ## 23. Known Limitations
 
@@ -787,6 +788,7 @@ python tools/rebuild_local_warehouse.py --include-sample --dry-run
 - 日内热点池依赖本地 CSV 快照数量，快照过少时无法判断日内变化。
 - 历史回放只读取单日 CSV，暂未提供多日趋势对比或跨日回放动画。
 - 多日趋势目前只基于每个 CSV 日期的最后快照，暂未提供多日趋势折线图或更复杂的统计。
+- Historical Evidence 只说明 CSV lineage、coverage 和 replay provenance，不提供绩效评估、风险指标或交易结论。
 - 主题库仍是轻量人工规则，需要后续结合基金持仓、ETF 成分和行业分类体系持续校准。
 - 观察简报是基于当前页面结果的规则化摘要，不调用大模型，不生成预测结论。
 - SAMPLE 样例数据是人工合成的演示包，只用于复现页面功能，不代表真实行情。

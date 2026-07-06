@@ -175,6 +175,12 @@ v3.0 / v3.1 作为作品集材料准备阶段，新增 portfolio presentation、
 
 v3.5 聚焦 AKShare live provider boundary 加固。项目新增轻量 AKShare adapter，用显式字段映射、schema fingerprint 和 provider diagnostics 区分网络/超时、上游解析、schema drift、项目规范化和数据契约失败。`tools/probe_akshare.py` 可在不写真实缓存的情况下输出安全诊断摘要。该能力增强真实数据工程可信度，但不新增行情接口、不预测未来走势、不提供投资建议，也不让 CI 依赖 live AKShare。
 
+## Historical Evidence and Replay Provenance
+
+v3.7 增加 `src/history_evidence.py` 和 `tools/inspect_history_evidence.py`，用于从已保存 CSV 快照中恢复历史覆盖证据和回放来源说明。证据包括文件 hash、相对路径、确定性 snapshot_id、trade_date、captured_time 覆盖、provider/API/source/data_mode 元数据、schema fingerprint 和数据契约状态。
+
+该能力只服务于 lineage、coverage 和 replay provenance：它解释“这个历史回放来自哪些 CSV、覆盖哪些日期和时间点、结构是否一致、契约是否通过”。它不做历史绩效评估，不预测未来走势，不提供投资建议，也不改变现有主题雷达、多日趋势、warehouse 或观察简报的核心计算。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -193,6 +199,7 @@ v3.5 聚焦 AKShare live provider boundary 加固。项目新增轻量 AKShare a
 - 本地采集脚本是手动一次性工具，只提供有限网络/超时重试；暂未提供调度、节流队列、数据库治理或正式数据血缘追踪。
 - CSV 快照质量检查是基础审计，不替代生产级数据质量系统。
 - SQLite warehouse 当前只作为可重建索引和基础查询层，核心页面仍走 CSV-first 数据流。
+- Historical Evidence 当前只做文件级和 captured_time 覆盖证据，不替代完整生产级 lineage / data catalog。
 
 ## 后续计划
 

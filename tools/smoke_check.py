@@ -24,6 +24,14 @@ from src.collection_policy import (  # noqa: E402
     validate_collection_policy_text,
 )
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
+from src.history_evidence import (  # noqa: E402
+    build_coverage_matrix,
+    build_historical_coverage_summary,
+    build_snapshot_manifest,
+    classify_historical_evidence_readiness,
+    resolve_replay_evidence,
+    validate_history_evidence_text,
+)
 from src.fund_profile_importer import (  # noqa: E402
     build_profile_theme_exposure_table,
     load_fund_profiles_csv,
@@ -144,6 +152,7 @@ REQUIRED_FILES = (
     "src/data_contracts.py",
     "src/collection_policy.py",
     "src/ingestion_metrics.py",
+    "src/history_evidence.py",
     "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
@@ -155,6 +164,7 @@ REQUIRED_FILES = (
     "tools/quality_gate.py",
     "tools/probe_akshare.py",
     "tools/run_collection_session.py",
+    "tools/inspect_history_evidence.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -385,6 +395,15 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     ingestion_summary_text = summarize_ingestion_metrics(ingestion_metrics)
     cache_coverage = assess_real_cache_coverage(str(project_root / "data/ticks"))
     operations_status = build_collection_operations_status(collection_decision, ingestion_metrics, cache_coverage)
+    history_manifest = build_snapshot_manifest(str(project_root / "data/ticks"), source_mode="REAL")
+    sample_history_manifest = build_snapshot_manifest(str(project_root / "sample_data/ticks"), source_mode="SAMPLE")
+    history_summary = build_historical_coverage_summary(history_manifest)
+    sample_history_summary = build_historical_coverage_summary(sample_history_manifest)
+    history_readiness = classify_historical_evidence_readiness(history_summary)
+    sample_history_readiness = classify_historical_evidence_readiness(sample_history_summary)
+    sample_coverage_matrix = build_coverage_matrix(sample_history_manifest)
+    sample_replay_date = sample_history_summary.get("latest_trade_date")
+    sample_replay = resolve_replay_evidence(sample_replay_date, sample_history_manifest, source_mode="SAMPLE", mode="SAMPLE")
     warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
@@ -486,6 +505,21 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
                 str(operations_status.get("operations_label", "")) + " " + str(operations_status.get("operations_reason", ""))
             ),
             "run_collection_session_script_exists": (project_root / "tools/run_collection_session.py").exists(),
+        },
+        "history_evidence": {
+            "history_evidence_module_imported": True,
+            "inspect_history_evidence_script_exists": (project_root / "tools/inspect_history_evidence.py").exists(),
+            "real_history_readiness_state": history_readiness.get("readiness_state"),
+            "real_history_valid_snapshot_count": int(history_summary.get("valid_snapshot_count", 0) or 0),
+            "sample_history_readiness_state": sample_history_readiness.get("readiness_state"),
+            "sample_history_valid_snapshot_count": int(sample_history_summary.get("valid_snapshot_count", 0) or 0),
+            "sample_coverage_matrix_shape": tuple(sample_coverage_matrix.shape),
+            "sample_replay_evidence_state": sample_replay.get("evidence_state"),
+            "history_evidence_forbidden_hits": validate_history_evidence_text(
+                str(history_readiness.get("readiness_reason", ""))
+                + " "
+                + str(sample_history_readiness.get("readiness_reason", ""))
+            ),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -619,6 +653,16 @@ def main() -> int:
     print(f"collection operations label: {ingestion['collection_operations_label']}")
     print(f"collection operations forbidden hits: {ingestion['collection_operations_forbidden_hits']}")
     print(f"run_collection_session.py exists: {ingestion['run_collection_session_script_exists']}")
+    history_evidence = report["history_evidence"]
+    print(f"history evidence module imported: {history_evidence['history_evidence_module_imported']}")
+    print(f"inspect_history_evidence.py exists: {history_evidence['inspect_history_evidence_script_exists']}")
+    print(f"real history readiness: {history_evidence['real_history_readiness_state']}")
+    print(f"real history valid snapshots: {history_evidence['real_history_valid_snapshot_count']}")
+    print(f"sample history readiness: {history_evidence['sample_history_readiness_state']}")
+    print(f"sample history valid snapshots: {history_evidence['sample_history_valid_snapshot_count']}")
+    print(f"sample coverage matrix shape: {history_evidence['sample_coverage_matrix_shape']}")
+    print(f"sample replay evidence state: {history_evidence['sample_replay_evidence_state']}")
+    print(f"history evidence forbidden hits: {history_evidence['history_evidence_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
@@ -706,6 +750,11 @@ def main() -> int:
         and report["ingestion_orchestration"]["run_collection_session_script_exists"]
         and not report["ingestion_orchestration"]["ingestion_metrics_forbidden_hits"]
         and not report["ingestion_orchestration"]["collection_operations_forbidden_hits"]
+        and report["history_evidence"]["history_evidence_module_imported"]
+        and report["history_evidence"]["inspect_history_evidence_script_exists"]
+        and report["history_evidence"]["sample_history_valid_snapshot_count"] >= 2
+        and report["history_evidence"]["sample_replay_evidence_state"] == "available"
+        and not report["history_evidence"]["history_evidence_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
         and warehouse["warehouse_explorer_imported"]

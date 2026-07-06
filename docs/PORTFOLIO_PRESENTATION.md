@@ -14,6 +14,7 @@ The project adds an interpretation layer on top of raw industry/concept fund-flo
 
 - Theme radar for fund-oriented sectors such as semiconductor chain, AI/TMT, new energy, medicine, consumer, dividend defense, military, and securities finance.
 - Intraday hotspot and multi-day observation panels based on saved CSV snapshots.
+- Historical evidence panel for CSV snapshot lineage, schema fingerprint consistency, captured_time coverage and replay provenance.
 - Holding-related pool based on local manual theme exposure configuration.
 - Observation brief export and static SAMPLE demo brief.
 - Clear data-state labels for LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY.
@@ -41,6 +42,7 @@ The project is CSV-first:
 - Local real snapshots live under ignored `data/ticks/*.csv`.
 - Reproducible SAMPLE snapshots live under tracked `sample_data/ticks/*.csv`.
 - SQLite warehouse is derived from CSV and can be rebuilt locally.
+- Historical evidence is derived from CSV files and is used only for lineage, coverage and replay provenance.
 - Streamlit pages continue to work without SQLite.
 
 ## Engineering Architecture Notes

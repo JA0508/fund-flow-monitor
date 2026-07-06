@@ -205,3 +205,16 @@ Freshness and trust should be interpreted from the visible data mode:
 ## Practical Reasoning Guide
 
 Use SAMPLE when reviewing the project as a public portfolio artifact. Use CACHE/HISTORY when running locally with private real CSV snapshots. Rebuild SQLite only when historical query panels are useful. Treat CSV as the source of truth in this MVP.
+
+## Historical Coverage and Replay Provenance
+
+v3.7 adds a historical evidence pass that reads existing CSV snapshots and reports:
+
+- how many snapshot files are readable, empty or malformed
+- which trade dates and captured_time buckets are covered
+- provider/API/source/data_mode metadata if the CSV includes it
+- schema fingerprint counts recovered from CSV columns
+- data contract pass/fail counts
+- replay evidence for a selected trade date
+
+The coverage matrix uses `trade_date` as rows and minute-level `captured_time` buckets as columns by default. Values are snapshot counts, not market scores. This matrix is for lineage and replay coverage only; it is not a signal or model.

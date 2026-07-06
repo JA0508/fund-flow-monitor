@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v3.7
+
+- Real historical coverage matrix and replay provenance.
+- Added `src/history_evidence.py` to recover snapshot-level lineage from persisted CSV cache: file hash, schema fingerprint, provider/API metadata, data contract status, captured_time coverage and deterministic snapshot IDs.
+- Added `tools/inspect_history_evidence.py` for read-only local inspection of REAL or SAMPLE CSV history, including optional coverage matrix and selected-date replay evidence.
+- Multi-day theme snapshots now carry lightweight provenance attrs without changing theme calculations.
+- Streamlit multi-day and data explanation panels now show read-only Historical Evidence summaries and captured_time coverage matrices for REAL and SAMPLE sources.
+- Smoke/runtime/cloud/release checks now verify the historical evidence assets and SAMPLE replay provenance without requiring live AKShare or local real cache.
+- Historical evidence is limited to lineage, coverage and replay provenance; it does not perform backtesting, return analysis, prediction or investment advice.
+
 ## v3.6
 
 - Bounded real-data ingestion orchestration.

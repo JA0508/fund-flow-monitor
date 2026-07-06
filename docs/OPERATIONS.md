@@ -234,6 +234,17 @@ FUND_FLOW_PUBLIC_DEMO=1 .venv/bin/python tools/cloud_preflight.py
 
 4. Open the app in SAMPLE mode and confirm the public demo still reads naturally.
 
+## Historical Evidence Checks
+
+Run the read-only history evidence inspector when validating real cache coverage or SAMPLE replay provenance:
+
+```bash
+.venv/bin/python tools/inspect_history_evidence.py --source-mode REAL
+.venv/bin/python tools/inspect_history_evidence.py --data-dir sample_data/ticks --source-mode SAMPLE --matrix
+```
+
+The inspector only reads CSV snapshots and prints coverage/provenance summaries. It must not be used as a performance or trading analysis tool.
+
 ## Manual Release Checks
 
 After pushing:
