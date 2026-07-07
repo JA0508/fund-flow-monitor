@@ -10,6 +10,43 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.13 Cross-Theme Relationship Evidence Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode strict_representative --json
+python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode strict_representative --top-semantic-overlap --limit 10
+python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode strict_representative --top-state-alignment --limit 10
+python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode strict_representative --top-structural-contrast --limit 10
+python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode strict_representative --pair "AI算力/TMT::半导体/芯片链" --co-transitions
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.13`.
+- `CHANGELOG.md` contains a `v3.13` entry.
+- `src/theme_relationships.py` exists and is importable.
+- `tools/inspect_theme_relationships.py` exists and can inspect SAMPLE without network or writes.
+- Pair grain is `theme_pair × trade_date × captured_time_bucket × calculation_mode × source_mode × taxonomy_fingerprint`.
+- Theme pairs are deterministic unordered pairs; `(A, B)` and `(B, A)` are the same pair.
+- Pair alignment uses canonical bucket observations only, with exact `trade_date` and `captured_time_bucket` matches; no nearest-time match, forward fill or interpolation is allowed.
+- Alignment gaps remain visible in summaries instead of being silently dropped.
+- Exact headline-state agreement and same-sign observed share are reported separately with explicit denominators.
+- Structural-regime alignment reuses v3.12 signatures and exposes headline-aligned but regime-different observations.
+- Semantic overlap reuses v3.9 taxonomy overlap evidence and remains separate from observed dynamic alignment.
+- Co-transition evidence is reported as observed counts/shares on aligned historical steps, not as future-oriented relationship evidence.
+- No overall relationship score, mechanism claim, temporal-order model, trading signal or investment recommendation is introduced.
+- SAMPLE and REAL source modes remain explicitly separated.
+
 ## v3.7 Historical Coverage and Replay Provenance Checks
 
 Run:

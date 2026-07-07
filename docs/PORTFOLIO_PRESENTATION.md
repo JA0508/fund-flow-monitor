@@ -102,6 +102,7 @@ In public demo runtime, the app defaults to SAMPLE when no real cache exists and
 - SAMPLE mode exists so public viewers can evaluate the app without real local cache or network-dependent upstream data.
 - SQLite is intentionally secondary: it is a rebuildable query index, while CSV remains the source of truth.
 - Theme taxonomy audit is intentionally read-only: it helps review mapping quality and ambiguity without pretending to be a formal industry taxonomy.
+- Cross-theme relationship evidence is intentionally multi-dimensional: semantic overlap, observed headline alignment and structural contrast stay separate instead of becoming one opaque relationship score.
 
 ## GitHub / About Short Description
 

@@ -322,3 +322,45 @@ Episode boundaries are based on adjacent canonical observations. The project rep
 State-equivalent analysis asks a narrow descriptive question: for the same headline state, how many structural signatures have been observed? The denominator for observed shares is the canonical observations inside that headline-state group. These shares are not future-oriented measures.
 
 The CLI and Streamlit panel remain read-only: no AKShare calls, no CSV writes, no SQLite writes and no taxonomy mutation.
+
+## Cross-Theme Semantic-Dynamic Relationship Evidence
+
+v3.13 combines two existing governed evidence paths:
+
+```text
+theme_taxonomy.json
+-> v3.9 cross-theme semantic overlap audit
+
+canonical bucket observations
+-> v3.12 structural regime signatures
+-> exact aligned theme-pair observations
+-> headline agreement / structural contrast / observed co-transition counts
+```
+
+The pairwise grain is:
+
+```text
+theme_pair × trade_date × captured_time_bucket × calculation_mode × source_mode × taxonomy_fingerprint
+```
+
+Only exact canonical bucket alignment is allowed. A pair observation is aligned only when both themes have canonical observations in the same trade date, captured-time bucket, calculation mode, source mode and taxonomy lineage. Missing buckets are counted as alignment gaps. The pipeline does not forward-fill, interpolate, nearest-match or compare raw physical events.
+
+Headline evidence uses categorical state facts:
+
+- exact-state agreement count/share
+- same-sign observed count/share
+- opposing-sign observed count/share
+- state-pair contingency table
+
+Structural evidence compares v3.12 categorical regime signatures:
+
+- same signature count/share
+- headline aligned but regime different count/share
+- scope-structure agreement
+- member-structure agreement
+
+Co-transition evidence compares adjacent aligned canonical observations and reports observed simultaneous changes. The denominator is explicitly documented as aligned consecutive transition steps where at least one theme changed the measured dimension.
+
+Semantic evidence comes from the existing v3.9 overlap audit: shared members, member union count, Jaccard overlap, shared strict representatives and overlap state. The relationship layer does not duplicate the Jaccard formula.
+
+The output stays multi-dimensional by design. It does not create an opaque score, does not infer a mechanism and does not treat observed agreement as a forecast.

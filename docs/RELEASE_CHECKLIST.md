@@ -124,6 +124,7 @@ streamlit run app.py
 - SAMPLE status is visible and not presented as real market data.
 - Theme radar displays normally.
 - Theme history chart displays normally after SAMPLE warehouse rebuild.
+- Cross-theme relationship evidence displays aligned observation counts, semantic overlap, same-sign observed share and structural contrast without showing a relationship score.
 - Warehouse Explorer displays SAMPLE data and read-only consistency information.
 - Observation brief can be generated and downloaded.
 - No local path, secret, account data, or real private cache content is visible.
@@ -155,3 +156,4 @@ streamlit run app.py
 - SAMPLE and DEMO do not represent real market quotes.
 - The project does not connect to broker accounts or read personal holdings.
 - The project does not provide trading actions, fund recommendations, or future predictions.
+- Cross-theme relationship evidence remains descriptive and does not collapse semantic overlap and observed dynamic alignment into one score.

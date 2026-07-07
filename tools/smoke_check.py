@@ -113,6 +113,12 @@ from src.theme_regimes import (  # noqa: E402
     render_theme_regime_brief_section,
     validate_theme_regime_text,
 )
+from src.theme_relationships import (  # noqa: E402
+    build_theme_relationship_evidence,
+    build_theme_relationships_from_cube,
+    render_theme_relationship_brief_section,
+    validate_theme_relationship_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -464,6 +470,21 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         cube_df=dynamics_cube,
     )
     theme_regime_section = render_theme_regime_brief_section(theme_regime_evidence)
+    relationship_themes = [item for item in get_theme_names(taxonomy_for_evidence) if item != evidence_theme]
+    relationship_peer = relationship_themes[0] if relationship_themes else evidence_theme
+    theme_relationship_bundle = build_theme_relationships_from_cube(
+        dynamics_cube,
+        calculation_mode="strict_representative",
+        source_mode="SAMPLE",
+        taxonomy=taxonomy_for_evidence,
+    )
+    theme_relationship_evidence = build_theme_relationship_evidence(
+        theme_relationship_bundle.get("pair_observations"),
+        evidence_theme,
+        relationship_peer,
+        taxonomy=taxonomy_for_evidence,
+    )
+    theme_relationship_section = render_theme_relationship_brief_section(theme_relationship_evidence)
     observation_grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(project_root / "sample_data/ticks"),
@@ -637,6 +658,14 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_theme_regime_latest_signature": theme_regime_evidence.get("latest_regime_signature"),
             "sample_theme_regime_headline_preserving_count": int((theme_regime_evidence.get("transition_trace") or {}).get("headline_preserving_structural_change_count", 0) or 0),
             "theme_regime_forbidden_hits": validate_theme_regime_text(theme_regime_section),
+            "theme_relationships_module_imported": True,
+            "inspect_theme_relationships_script_exists": (project_root / "tools/inspect_theme_relationships.py").exists(),
+            "sample_theme_relationship_pair": theme_relationship_evidence.get("theme_pair"),
+            "sample_theme_relationship_aligned_count": int(theme_relationship_evidence.get("aligned_observation_count", 0) or 0),
+            "sample_theme_relationship_alignment_gaps": int(theme_relationship_evidence.get("alignment_gap_count", 0) or 0),
+            "sample_theme_relationship_same_sign_share": (theme_relationship_evidence.get("headline_state_evidence") or {}).get("same_sign_share"),
+            "sample_theme_relationship_structural_contrast_count": (theme_relationship_evidence.get("structural_regime_evidence") or {}).get("headline_aligned_regime_different_count"),
+            "theme_relationship_forbidden_hits": validate_theme_relationship_text(theme_relationship_section),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -815,6 +844,12 @@ def main() -> int:
     print(f"sample theme regime latest signature: {theme_dynamics['sample_theme_regime_latest_signature']}")
     print(f"sample theme regime headline-preserving changes: {theme_dynamics['sample_theme_regime_headline_preserving_count']}")
     print(f"theme regime forbidden hits: {theme_dynamics['theme_regime_forbidden_hits']}")
+    print(f"inspect_theme_relationships.py exists: {theme_dynamics['inspect_theme_relationships_script_exists']}")
+    print(f"sample theme relationship pair: {theme_dynamics['sample_theme_relationship_pair']}")
+    print(f"sample theme relationship aligned/gaps: {theme_dynamics['sample_theme_relationship_aligned_count']} / {theme_dynamics['sample_theme_relationship_alignment_gaps']}")
+    print(f"sample theme relationship same-sign share: {theme_dynamics['sample_theme_relationship_same_sign_share']}")
+    print(f"sample theme relationship structural contrast count: {theme_dynamics['sample_theme_relationship_structural_contrast_count']}")
+    print(f"theme relationship forbidden hits: {theme_dynamics['theme_relationship_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")

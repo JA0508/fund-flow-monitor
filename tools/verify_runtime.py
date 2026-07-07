@@ -182,6 +182,12 @@ from src.theme_regimes import (  # noqa: E402
     render_theme_regime_brief_section,
     validate_theme_regime_text,
 )
+from src.theme_relationships import (  # noqa: E402
+    build_theme_relationship_evidence,
+    build_theme_relationships_from_cube,
+    render_theme_relationship_brief_section,
+    validate_theme_relationship_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1086,6 +1092,21 @@ def _verify_theme_dynamics() -> None:
     )
     regime_section = render_theme_regime_brief_section(regime_evidence)
     regime_forbidden_hits = validate_theme_regime_text(regime_section)
+    relationship_peer = next((item for item in get_theme_names(taxonomy) if item != theme), theme)
+    relationship_bundle = build_theme_relationships_from_cube(
+        cube,
+        calculation_mode="strict_representative",
+        source_mode="SAMPLE",
+        taxonomy=taxonomy,
+    )
+    relationship_evidence = build_theme_relationship_evidence(
+        relationship_bundle.get("pair_observations"),
+        theme,
+        relationship_peer,
+        taxonomy=taxonomy,
+    )
+    relationship_section = render_theme_relationship_brief_section(relationship_evidence)
+    relationship_forbidden_hits = validate_theme_relationship_text(relationship_section)
     grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
@@ -1123,6 +1144,13 @@ def _verify_theme_dynamics() -> None:
     print(f"  sample_theme_regime_latest_signature: {regime_evidence.get('latest_regime_signature')}")
     print(f"  sample_theme_regime_headline_preserving_count: {(regime_evidence.get('transition_trace') or {}).get('headline_preserving_structural_change_count')}")
     print(f"  sample_theme_regime_forbidden_hits: {regime_forbidden_hits}")
+    print(f"  inspect_theme_relationships.py exists: {(PROJECT_ROOT / 'tools/inspect_theme_relationships.py').exists()}")
+    print(f"  sample_theme_relationship_pair: {relationship_evidence.get('theme_pair')}")
+    print(f"  sample_theme_relationship_aligned_count: {relationship_evidence.get('aligned_observation_count')}")
+    print(f"  sample_theme_relationship_alignment_gaps: {relationship_evidence.get('alignment_gap_count')}")
+    print(f"  sample_theme_relationship_same_sign_share: {(relationship_evidence.get('headline_state_evidence') or {}).get('same_sign_share')}")
+    print(f"  sample_theme_relationship_structural_contrast_count: {(relationship_evidence.get('structural_regime_evidence') or {}).get('headline_aligned_regime_different_count')}")
+    print(f"  sample_theme_relationship_forbidden_hits: {relationship_forbidden_hits}")
     print("  theme dynamics 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 

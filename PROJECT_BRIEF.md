@@ -215,6 +215,12 @@ v3.12 在 canonical observations 之上增加结构状态签名。它不再只�
 
 该能力继续复用 v3.10 / v3.11 的既有规则：headline state 来自 canonical observation，scope 结构来自 `build_scope_divergence_table()`，member 结构来自主题 trace 已计算出的成员结构。它不做聚类、不做黑箱评分、不计算策略收益，也不把已观测结构切换写成未来判断。CLI `tools/inspect_theme_regimes.py` 和 Streamlit 多日趋势面板均为只读检查。
 
+## Cross-Theme Relationship Evidence
+
+v3.13 将项目从单主题结构证据推进到跨主题语义-动态关系证据。该层以 aligned canonical bucket observations 为基础，对确定性无序主题对计算 semantic overlap、headline-state agreement、same-sign observed share、structural-regime alignment、headline-aligned but regime-different observations 和 observed co-transition counts。
+
+该能力复用 v3.9 taxonomy overlap audit 和 v3.12 structural regime signatures，不重新实现主题重叠公式，也不创建黑箱关系分数。它的目标是回答“两个主题在同一 canonical 观察点上是否表现相似，以及 headline 相似时内部结构是否也相同”，而不是推断未来关系或交易价值。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -237,6 +243,7 @@ v3.12 在 canonical observations 之上增加结构状态签名。它不再只�
 - Theme Observation Evidence 当前解释规则化主题计算 lineage，不替代正式行业分类体系，也不产生任何交易建议或未来判断。
 - Theme Taxonomy Calibration 当前只做确定性规则审计，不做 fuzzy matching、embedding matching 或自动主题重写。
 - Structural Regime Signatures 当前只描述已缓存 canonical observations 中的结构状态，不提供连续时长推断、自动金融 regime 发现或未来判断。
+- Cross-Theme Relationship Evidence 当前只描述 aligned canonical observations 中的主题对关系，不提供关系预测、组合优化、交易信号或机制解释。
 
 ## 后续计划
 

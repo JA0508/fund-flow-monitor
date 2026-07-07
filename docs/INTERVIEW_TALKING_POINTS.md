@@ -89,6 +89,10 @@ The taxonomy is local JSON, and v3.9 adds a deterministic audit layer. It report
 
 It gives each theme observation an explicit grain and then summarizes observed state paths, latest-per-date evolution, cross-scope divergence and member-level divergence. It is useful for explaining how the dashboard arrived at a historical observation, but it is still read-only evidence rather than a model or trading rule.
 
+### What does cross-theme relationship evidence add?
+
+It compares two themes only when their canonical observations are exactly aligned on date, time bucket, calculation mode, source mode and taxonomy lineage. The output keeps semantic overlap, headline-state agreement, same-sign observed share, structural-regime alignment and observed co-transition counts as separate evidence dimensions. I intentionally avoided a single relationship score because that would hide the denominators and lineage assumptions.
+
 ### Why not just drop duplicate theme dynamics rows?
 
 The apparent duplicates can be valid captured events that share the same analytical minute bucket. v3.11 separates physical snapshot-event grain from bucketed analytical grain, audits bucket collisions, and then applies an explicit `latest_valid_snapshot_in_bucket` materialization policy while preserving all contributing event IDs. That is more honest than silently dropping rows.

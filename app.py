@@ -178,6 +178,12 @@ from src.theme_regimes import (
     render_theme_regime_brief_section,
     validate_theme_regime_text,
 )
+from src.theme_relationships import (
+    build_theme_relationship_evidence,
+    build_theme_relationships_from_cube,
+    render_theme_relationship_brief_section,
+    validate_theme_relationship_text,
+)
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
 from src.theme_taxonomy_audit import build_taxonomy_audit_report
 from src.theme_taxonomy import (
@@ -257,6 +263,7 @@ from src.ui_components import (
     render_theme_observation_threshold_table,
     render_theme_dynamics_evidence_panel,
     render_theme_regime_evidence_panel,
+    render_theme_relationship_evidence_panel,
 )
 from src.utils import get_china_now
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
@@ -1220,6 +1227,62 @@ def main() -> None:
                             tone="warning",
                         )
                     render_theme_regime_evidence_panel(regime_evidence)
+                    st.markdown("<div class='radar-section-title'>主题关系证据 / Cross-Theme Relationship Evidence</div>", unsafe_allow_html=True)
+                    if len(dynamics_theme_options) < 2:
+                        st.markdown(
+                            "<div class='rank-panel'><div class='rank-empty'>当前至少需要两个主题才能构建 cross-theme relationship evidence。</div></div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        r_col1, r_col2 = st.columns(2)
+                        with r_col1:
+                            relationship_theme_a = st.selectbox(
+                                "Theme A",
+                                dynamics_theme_options,
+                                index=0,
+                                key="relationship_theme_a",
+                            )
+                        theme_b_options = [item for item in dynamics_theme_options if item != relationship_theme_a]
+                        with r_col2:
+                            relationship_theme_b = st.selectbox(
+                                "Theme B",
+                                theme_b_options,
+                                index=0,
+                                key="relationship_theme_b",
+                            )
+                        relationship_bundle = build_theme_relationships_from_cube(
+                            dynamics_cube_df,
+                            calculation_mode=dynamics_mode,
+                            source_mode=active_source_mode,
+                            taxonomy=taxonomy,
+                        )
+                        relationship_evidence = build_theme_relationship_evidence(
+                            relationship_bundle.get("pair_observations"),
+                            relationship_theme_a,
+                            relationship_theme_b,
+                            taxonomy=taxonomy,
+                        )
+                        if active_source_mode == "SAMPLE":
+                            render_compact_notice(
+                                "SAMPLE 主题关系证据说明",
+                                "当前 cross-theme relationship evidence 来自 sample_data/ticks 合成演示数据。它只描述 aligned canonical observations，不代表真实行情。",
+                                tone="warning",
+                            )
+                        render_theme_relationship_evidence_panel(relationship_evidence)
+                        topology = relationship_bundle.get("topology_summary")
+                        if topology is not None and not topology.empty:
+                            with st.expander("Cross-theme topology factual rows", expanded=False):
+                                columns = [
+                                    "theme_pair",
+                                    "aligned_observations",
+                                    "alignment_gaps",
+                                    "taxonomy_jaccard",
+                                    "same_sign_observed_share",
+                                    "exact_state_observed_share",
+                                    "same_regime_observed_share",
+                                    "headline_aligned_regime_different_count",
+                                ]
+                                st.dataframe(topology[[column for column in columns if column in topology.columns]].head(12), hide_index=True)
         st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
         render_historical_evidence_notes(
             "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
@@ -1527,6 +1590,28 @@ def main() -> None:
                 brief_regime_section = render_theme_regime_brief_section(brief_regime_evidence)
                 if not validate_theme_regime_text(brief_regime_section):
                     extra_brief_sections.append(brief_regime_section)
+                relationship_theme_candidates = (
+                    radar_theme_df["theme_name"].dropna().astype(str).tolist()
+                    if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
+                    else []
+                )
+                relationship_theme_candidates = [item for item in dict.fromkeys(relationship_theme_candidates) if item != brief_provenance_theme]
+                if relationship_theme_candidates:
+                    brief_relationship_bundle = build_theme_relationships_from_cube(
+                        brief_dynamics_cube,
+                        calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                        source_mode=active_source_mode,
+                        taxonomy=taxonomy,
+                    )
+                    brief_relationship_evidence = build_theme_relationship_evidence(
+                        brief_relationship_bundle.get("pair_observations"),
+                        brief_provenance_theme,
+                        relationship_theme_candidates[0],
+                        taxonomy=taxonomy,
+                    )
+                    brief_relationship_section = render_theme_relationship_brief_section(brief_relationship_evidence)
+                    if not validate_theme_relationship_text(brief_relationship_section):
+                        extra_brief_sections.append(brief_relationship_section)
             except Exception:
                 pass
         theme_history_brief_section = ""

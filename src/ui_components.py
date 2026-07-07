@@ -2167,6 +2167,94 @@ def render_theme_regime_evidence_panel(evidence: dict) -> None:
                 st.write(f"- {warning}")
 
 
+def render_theme_relationship_evidence_panel(evidence: dict) -> None:
+    if not evidence or not evidence.get("relationship_available"):
+        st.markdown(
+            "<div class='rank-panel'><div class='rank-empty'>当前主题对暂无足够 aligned canonical observations。该区域只读取 canonical bucket observations，不触发实时抓取。</div></div>",
+            unsafe_allow_html=True,
+        )
+        for warning in (evidence or {}).get("warnings", [])[:5]:
+            st.caption(str(warning))
+        return
+
+    semantic = evidence.get("semantic_overlap") or {}
+    headline = evidence.get("headline_state_evidence") or {}
+    structural = evidence.get("structural_regime_evidence") or {}
+    transitions = evidence.get("co_transition_evidence") or {}
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>Theme pair</div><div class='trust-value'>{escape(str(evidence.get('theme_pair') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Aligned obs</div><div class='trust-value'>{int(evidence.get('aligned_observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Alignment gaps</div><div class='trust-value'>{int(evidence.get('alignment_gap_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Taxonomy Jaccard</div><div class='trust-value'>{semantic.get('jaccard_overlap', 0.0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Same-sign share</div><div class='trust-value'>{headline.get('same_sign_share', 0.0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Exact-state share</div><div class='trust-value'>{headline.get('exact_headline_state_agreement_share', 0.0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Same-regime share</div><div class='trust-value'>{structural.get('same_regime_signature_share', 0.0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Headline aligned / regime different</div><div class='trust-value'>{structural.get('headline_aligned_regime_different_count', 0)}</div></div>"
+        "</div>"
+        "<div class='trust-copy'>关系证据基于 exact aligned canonical observations。"
+        "Semantic overlap 与 observed dynamic alignment 分开展示，不合成为黑箱关系分数。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+    semantic_rows = [
+        ["shared members", semantic.get("shared_member_count", 0), ", ".join(map(str, semantic.get("shared_members") or [])) or "--"],
+        ["shared strict representatives", semantic.get("shared_strict_count", 0), ", ".join(map(str, semantic.get("shared_strict_representatives") or [])) or "--"],
+        ["overlap state", semantic.get("overlap_state", "--"), "来自 v3.9 taxonomy overlap audit"],
+    ]
+    _render_simple_table(["Semantic evidence", "Value", "Detail"], semantic_rows, "暂无 semantic overlap evidence。")
+
+    state_rows = [
+        [item.get("theme_a_state"), item.get("theme_b_state"), item.get("aligned_observation_count")]
+        for item in headline.get("joint_state_table", [])
+    ]
+    _render_simple_table(["Theme A headline", "Theme B headline", "Aligned obs"], state_rows, "暂无 headline contingency evidence。")
+
+    structural_rows = [
+        ["same regime signature", structural.get("same_regime_signature_count", 0), structural.get("same_regime_signature_share", 0.0), structural.get("denominator_note", "")],
+        [
+            "headline aligned but regime different",
+            structural.get("headline_aligned_regime_different_count", 0),
+            structural.get("headline_aligned_regime_different_share", 0.0),
+            structural.get("headline_aligned_regime_different_denominator_note", ""),
+        ],
+        ["same scope structure", structural.get("same_scope_structure_count", 0), structural.get("same_scope_structure_share", 0.0), structural.get("denominator_note", "")],
+        ["same member structure", structural.get("same_member_structure_count", 0), structural.get("same_member_structure_share", 0.0), structural.get("denominator_note", "")],
+    ]
+    _render_simple_table(["Structural evidence", "Count", "observed share", "Denominator"], structural_rows, "暂无 structural relationship evidence。")
+
+    transition_rows = [
+        ["aligned transition steps", transitions.get("aligned_transition_step_count", 0), "--", "相邻 aligned canonical observations"],
+        ["simultaneous headline changes", transitions.get("simultaneous_headline_change_count", 0), transitions.get("simultaneous_headline_change_share", 0.0), transitions.get("denominator_note", "")],
+        ["simultaneous structural changes", transitions.get("simultaneous_structural_change_count", 0), transitions.get("simultaneous_structural_change_share", 0.0), transitions.get("denominator_note", "")],
+        ["headline-preserving structural changes", transitions.get("simultaneous_headline_preserving_structural_change_count", 0), "--", "双方 headline 均未变但结构签名同时变化"],
+    ]
+    _render_simple_table(["Co-transition evidence", "Count", "observed share", "Denominator"], transition_rows, "暂无 co-transition evidence。")
+
+    examples = structural.get("recent_headline_aligned_regime_different_examples") or []
+    if examples:
+        example_rows = [
+            [
+                item.get("trade_date"),
+                item.get("captured_time_bucket"),
+                item.get("theme_a_headline_state"),
+                item.get("theme_a_regime_signature"),
+                item.get("theme_b_regime_signature"),
+            ]
+            for item in examples
+        ]
+        with st.expander("Recent headline-aligned / regime-different examples", expanded=False):
+            _render_simple_table(["Date", "Bucket", "Headline", "Theme A signature", "Theme B signature"], example_rows, "暂无 examples。")
+
+    warnings = evidence.get("warnings") or []
+    if warnings:
+        with st.expander("Relationship lineage warnings", expanded=False):
+            for warning in warnings[:10]:
+                st.write(f"- {warning}")
+
+
 def render_app_footer() -> None:
     st.markdown(
         f"<div class='footer-note'>{escape(APP_CN_NAME)} · {escape(APP_VERSION)} · Streamlit MVP<br>"

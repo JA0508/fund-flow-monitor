@@ -336,6 +336,48 @@ State-equivalent structural analysis groups observations by headline state and r
 
 REAL and SAMPLE, different theme-definition fingerprints and incompatible taxonomy fingerprints are not silently combined. When multiple lineages appear, the series is grouped or warning-labeled.
 
+## Cross-Theme Relationship Evidence Layer
+
+v3.13 adds a read-only cross-theme relationship layer. It answers a narrow descriptive question: when two governed themes are observed at the same canonical time bucket, how do their semantic overlap, headline state, structural regime signature and observed transitions compare?
+
+The pairwise analytical grain is:
+
+```text
+theme_pair
+trade_date
+captured_time_bucket
+calculation_mode
+source_mode
+taxonomy_fingerprint
+```
+
+`theme_pair` is deterministic and unordered, so `(AI算力/TMT, 半导体/芯片链)` and `(半导体/芯片链, AI算力/TMT)` are the same pair. Pair facts preserve both theme-definition fingerprints and both canonical observation IDs.
+
+Alignment is exact:
+
+- same trade date
+- same captured-time bucket
+- same calculation mode
+- same source mode
+- compatible taxonomy lineage
+- canonical bucket observations only
+
+There is no nearest-time matching, forward fill, interpolation or synthetic observation. Missing observations remain visible as alignment gaps.
+
+The layer reports multiple separate evidence dimensions:
+
+- semantic overlap from the v3.9 taxonomy overlap audit
+- exact headline-state agreement
+- same-sign observed share
+- opposing-sign observed share
+- structural-regime alignment from v3.12 signatures
+- headline-aligned but regime-different observations
+- observed simultaneous headline and structural changes
+
+These dimensions are not collapsed into a single relationship score. Semantic overlap and observed dynamic alignment are kept side by side because they answer different questions. The topology summary is a deterministic edge-list/table, not a graph model.
+
+This is not a mechanism engine, temporal-order model, trading signal, portfolio optimizer or correlation dashboard. Observed shares use aligned canonical pair observations as denominators and describe historical cache evidence only.
+
 ## If This Became Production-Grade
 
 A production-grade version would need additional systems that are intentionally out of scope here:

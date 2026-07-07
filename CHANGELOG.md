@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v3.13
+
+- Cross-Theme Alignment Topology and Semantic-Dynamic Contrast.
+- Added `src/theme_relationships.py` to build deterministic unordered theme-pair evidence from aligned canonical bucket observations.
+- Added `tools/inspect_theme_relationships.py` for read-only SAMPLE / REAL pair inspection and factual topology tables without calling AKShare or writing cache files.
+- Pair evidence distinguishes semantic taxonomy overlap, exact headline-state agreement, same-sign observed share, structural-regime alignment and observed co-transition counts.
+- Reuses v3.9 taxonomy overlap audit and v3.12 structural regime signatures instead of creating a second overlap formula or a black-box relationship score.
+- Streamlit Multi-Day evidence now includes a compact Cross-Theme Relationship Evidence panel and optional topology table.
+- Observation Brief exports can include concise relationship evidence with explicit denominator wording.
+- The layer remains descriptive: no mechanism claim, no temporal-order model, no correlation-based trading signal, no future-oriented relationship forecast and no investment recommendation.
+
 ## v3.12
 
 - Structural Regime Signatures and State-Equivalent Divergence.
