@@ -167,6 +167,12 @@ from src.theme_observation_evidence import (
     render_brief_provenance_section,
     validate_theme_evidence_text,
 )
+from src.theme_dynamics import (
+    build_theme_dynamics_evidence,
+    build_theme_observation_cube,
+    render_theme_dynamics_brief_section,
+    validate_theme_dynamics_text,
+)
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
 from src.theme_taxonomy_audit import build_taxonomy_audit_report
 from src.theme_taxonomy import (
@@ -244,6 +250,7 @@ from src.ui_components import (
     render_theme_observation_contribution_table,
     render_theme_observation_evidence_cards,
     render_theme_observation_threshold_table,
+    render_theme_dynamics_evidence_panel,
 )
 from src.utils import get_china_now
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
@@ -1133,6 +1140,64 @@ def main() -> None:
                     )
                     render_theme_observation_evidence_cards(trend_evidence)
                     render_theme_observation_contribution_table(trend_evidence)
+            st.markdown("<div class='radar-section-title'>主题动态证据 / Theme Dynamics Evidence</div>", unsafe_allow_html=True)
+            dynamics_theme_options = (
+                multi_day_trend_pool_df["theme_name"].dropna().astype(str).tolist()
+                if not multi_day_trend_pool_df.empty and "theme_name" in multi_day_trend_pool_df.columns
+                else radar_theme_df["theme_name"].dropna().astype(str).tolist()
+                if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
+                else []
+            )
+            dynamics_theme_options = list(dict.fromkeys(dynamics_theme_options))
+            if not dynamics_theme_options:
+                st.markdown(
+                    "<div class='rank-panel'><div class='rank-empty'>当前暂无可构建动态证据的主题。</div></div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                with st.expander("查看主题动态证据（只读）", expanded=False):
+                    d_col1, d_col2 = st.columns(2)
+                    with d_col1:
+                        dynamics_theme = st.selectbox(
+                            "动态证据主题",
+                            dynamics_theme_options,
+                            index=0,
+                            key="theme_dynamics_theme",
+                        )
+                    with d_col2:
+                        dynamics_mode_label = st.selectbox(
+                            "动态证据口径",
+                            ("严格代表口径", "代表口径", "广度观察"),
+                            index=("严格代表口径", "代表口径", "广度观察").index(multi_day_mode_label)
+                            if multi_day_mode_label in ("严格代表口径", "代表口径", "广度观察")
+                            else 0,
+                            key="theme_dynamics_mode_label",
+                        )
+                    dynamics_mode = {
+                        "严格代表口径": "strict_representative",
+                        "代表口径": "representative",
+                        "广度观察": "breadth",
+                    }[dynamics_mode_label]
+                    dynamics_cube_df = build_theme_observation_cube(
+                        taxonomy=taxonomy,
+                        source_mode=active_source_mode,
+                        data_dir=active_catalog_dir,
+                    )
+                    dynamics_evidence = build_theme_dynamics_evidence(
+                        dynamics_cube_df,
+                        theme_name=dynamics_theme,
+                        source_mode=active_source_mode,
+                        calculation_mode=dynamics_mode,
+                        taxonomy=taxonomy,
+                        data_dir=active_catalog_dir,
+                    )
+                    if active_source_mode == "SAMPLE":
+                        render_compact_notice(
+                            "SAMPLE 动态证据说明",
+                            "当前主题动态证据来自 sample_data/ticks 合成演示数据，不代表真实行情。",
+                            tone="warning",
+                        )
+                    render_theme_dynamics_evidence_panel(dynamics_evidence)
         st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
         render_historical_evidence_notes(
             "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
@@ -1412,6 +1477,25 @@ def main() -> None:
             brief_provenance_section = render_brief_provenance_section(brief_provenance_evidence)
             if not validate_theme_evidence_text(brief_provenance_section):
                 extra_brief_sections.append(brief_provenance_section)
+            try:
+                brief_dynamics_cube = build_theme_observation_cube(
+                    taxonomy=taxonomy,
+                    source_mode=active_source_mode,
+                    data_dir=active_catalog_dir,
+                )
+                brief_dynamics_evidence = build_theme_dynamics_evidence(
+                    brief_dynamics_cube,
+                    theme_name=brief_provenance_theme,
+                    source_mode=active_source_mode,
+                    calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                    taxonomy=taxonomy,
+                    data_dir=active_catalog_dir,
+                )
+                brief_dynamics_section = render_theme_dynamics_brief_section(brief_dynamics_evidence)
+                if not validate_theme_dynamics_text(brief_dynamics_section):
+                    extra_brief_sections.append(brief_dynamics_section)
+            except Exception:
+                pass
         theme_history_brief_section = ""
         theme_history_brief_compliance = {
             "forbidden_hits": [],

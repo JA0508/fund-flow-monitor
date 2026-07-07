@@ -18,6 +18,7 @@ Live demo: [https://fund-flow-monitor-ja0508.streamlit.app/](https://fund-flow-m
 4. 再看 `多日趋势` 中的 warehouse theme history 图表，理解历史快照如何形成主题级观察。
 5. 查看 `持仓相关池`，理解基金/ETF 主题暴露模板如何与主题雷达合并。
 6. 下载 `观察简报`，或直接阅读 [`SAMPLE Demo Brief`](docs/demo_briefs/sample_observation_brief.md)。
+7. 如需更细证据，可运行 `tools/inspect_theme_dynamics.py` 查看主题状态路径和结构分歧。
 
 公开展示边界始终保持不变：SAMPLE / DEMO 不代表真实行情；项目不接真实账户，不读取真实个人持仓，不提供交易功能，不预测未来走势。
 
@@ -68,6 +69,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - `LIVE / CACHE / HISTORY / SAMPLE / DEMO / EMPTY` 数据状态：区分本轮实时抓取、真实缓存、历史回放、合成样例数据、模拟数据和空缓存。
 - 演示样例数据模式：仓库内置 `sample_data/ticks/` 合成 CSV，新用户无网络、无真实缓存时也能体验主要功能。
 - 基金观察池：将相近行业/概念归并为基金投资相关主题。
+- 主题动态证据：基于 CSV 快照构建 theme observation cube，展示已观测状态路径、跨口径分歧和成员结构分歧。
 - 三种主题口径：严格代表口径、代表口径、广度观察。
 - 今日资金温度：基于主题资金状态计算整体主题资金冷热。
 - 关注主题雷达：按 `config/watchlist.json` 展示自选主题状态。

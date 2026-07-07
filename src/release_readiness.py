@@ -34,10 +34,12 @@ PUBLIC_FILES = (
     "src/history_evidence.py",
     "src/theme_observation_evidence.py",
     "src/theme_taxonomy_audit.py",
+    "src/theme_dynamics.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
     "tools/inspect_theme_evidence.py",
     "tools/audit_theme_taxonomy.py",
+    "tools/inspect_theme_dynamics.py",
 )
 
 PUBLIC_DIRS = (
@@ -73,6 +75,7 @@ REQUIRED_PUBLIC_ASSETS = (
     "src/history_evidence.py",
     "src/theme_observation_evidence.py",
     "src/theme_taxonomy_audit.py",
+    "src/theme_dynamics.py",
     "tools/probe_akshare.py",
     "tools/quality_gate.py",
     "tools/collect_real_snapshot.py",
@@ -80,6 +83,7 @@ REQUIRED_PUBLIC_ASSETS = (
     "tools/inspect_history_evidence.py",
     "tools/inspect_theme_evidence.py",
     "tools/audit_theme_taxonomy.py",
+    "tools/inspect_theme_dynamics.py",
     "LICENSE",
 )
 

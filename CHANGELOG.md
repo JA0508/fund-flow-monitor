@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v3.10
+
+- Theme Dynamics Cube, state transition trace and structural divergence.
+- Added `src/theme_dynamics.py` and `tools/inspect_theme_dynamics.py` for deterministic, read-only inspection of theme observation facts across trade date, captured time bucket, calculation mode, source mode and taxonomy fingerprints.
+- Theme dynamics reuses the canonical `theme_pool` trace path and records state paths, historical occupancy shares, latest-per-date evolution, cross-scope divergence and member-level structural divergence without changing the displayed theme calculation formula.
+- Streamlit Multi-Day and Observation Brief surfaces can show compact theme dynamics evidence for SAMPLE or local REAL cache when available.
+- Smoke/runtime/cloud/release checks now verify theme dynamics assets and SAMPLE read-only evidence without requiring live AKShare or writing CSV/SQLite.
+- The dynamics layer describes observed historical cache states only; it is not a forecast, backtest, trading rationale or investment recommendation.
+
 ## v3.9
 
 - Theme taxonomy calibration and overlap audit.

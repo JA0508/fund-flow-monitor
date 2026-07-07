@@ -101,6 +101,12 @@ from src.theme_observation_evidence import (  # noqa: E402
     validate_theme_evidence_text,
 )
 from src.theme_taxonomy_audit import build_taxonomy_audit_report, validate_taxonomy_audit_text  # noqa: E402
+from src.theme_dynamics import (  # noqa: E402
+    build_theme_dynamics_evidence,
+    build_theme_observation_cube,
+    render_theme_dynamics_brief_section,
+    validate_theme_dynamics_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -160,6 +166,7 @@ REQUIRED_FILES = (
     "src/history_evidence.py",
     "src/theme_observation_evidence.py",
     "src/theme_taxonomy_audit.py",
+    "src/theme_dynamics.py",
     "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
@@ -174,6 +181,7 @@ REQUIRED_FILES = (
     "tools/inspect_history_evidence.py",
     "tools/inspect_theme_evidence.py",
     "tools/audit_theme_taxonomy.py",
+    "tools/inspect_theme_dynamics.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -427,6 +435,19 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         source_mode="SAMPLE",
         data_dir=str(project_root / "sample_data/ticks"),
     )
+    dynamics_cube = build_theme_observation_cube(
+        taxonomy=taxonomy_for_evidence,
+        source_mode="SAMPLE",
+        data_dir=str(project_root / "sample_data/ticks"),
+    )
+    theme_dynamics_evidence = build_theme_dynamics_evidence(
+        dynamics_cube,
+        theme_name=evidence_theme,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        taxonomy=taxonomy_for_evidence,
+    )
+    theme_dynamics_section = render_theme_dynamics_brief_section(theme_dynamics_evidence)
     warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
@@ -565,6 +586,18 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "taxonomy_audit_validation_warnings": int((taxonomy_audit.get("validation") or {}).get("warning_count", 0) or 0),
             "taxonomy_audit_sample_coverage_rate": float((taxonomy_audit.get("coverage") or {}).get("mapping_coverage_rate", 0) or 0),
             "taxonomy_audit_forbidden_hits": validate_taxonomy_audit_text(str(taxonomy_audit)),
+        },
+        "theme_dynamics": {
+            "theme_dynamics_module_imported": True,
+            "inspect_theme_dynamics_script_exists": (project_root / "tools/inspect_theme_dynamics.py").exists(),
+            "sample_theme_dynamics_available": bool(theme_dynamics_evidence.get("dynamics_available")),
+            "sample_theme_dynamics_theme": theme_dynamics_evidence.get("theme_name"),
+            "sample_theme_dynamics_observation_count": int(theme_dynamics_evidence.get("observation_count", 0) or 0),
+            "sample_theme_dynamics_date_count": int(theme_dynamics_evidence.get("trade_date_count", 0) or 0),
+            "sample_theme_dynamics_state_path": (theme_dynamics_evidence.get("state_transition_trace") or {}).get("state_path_text"),
+            "sample_theme_dynamics_scope_state": (theme_dynamics_evidence.get("scope_divergence_summary") or {}).get("scope_divergence_state"),
+            "sample_theme_dynamics_member_state": (theme_dynamics_evidence.get("latest_member_structural_divergence") or {}).get("structural_state"),
+            "theme_dynamics_forbidden_hits": validate_theme_dynamics_text(theme_dynamics_section),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -724,6 +757,15 @@ def main() -> int:
     print(f"taxonomy audit validation errors/warnings: {taxonomy_audit['taxonomy_audit_validation_errors']} / {taxonomy_audit['taxonomy_audit_validation_warnings']}")
     print(f"taxonomy audit SAMPLE coverage rate: {taxonomy_audit['taxonomy_audit_sample_coverage_rate']}")
     print(f"taxonomy audit forbidden hits: {taxonomy_audit['taxonomy_audit_forbidden_hits']}")
+    theme_dynamics = report["theme_dynamics"]
+    print(f"theme dynamics module imported: {theme_dynamics['theme_dynamics_module_imported']}")
+    print(f"inspect_theme_dynamics.py exists: {theme_dynamics['inspect_theme_dynamics_script_exists']}")
+    print(f"sample theme dynamics available: {theme_dynamics['sample_theme_dynamics_available']}")
+    print(f"sample theme dynamics theme: {theme_dynamics['sample_theme_dynamics_theme']}")
+    print(f"sample theme dynamics observations/dates: {theme_dynamics['sample_theme_dynamics_observation_count']} / {theme_dynamics['sample_theme_dynamics_date_count']}")
+    print(f"sample theme dynamics state path: {theme_dynamics['sample_theme_dynamics_state_path']}")
+    print(f"sample theme dynamics scope/member state: {theme_dynamics['sample_theme_dynamics_scope_state']} / {theme_dynamics['sample_theme_dynamics_member_state']}")
+    print(f"theme dynamics forbidden hits: {theme_dynamics['theme_dynamics_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
@@ -826,6 +868,12 @@ def main() -> int:
         and report["theme_taxonomy_audit"]["taxonomy_audit_theme_count"] > 0
         and report["theme_taxonomy_audit"]["taxonomy_audit_validation_errors"] == 0
         and not report["theme_taxonomy_audit"]["taxonomy_audit_forbidden_hits"]
+        and report["theme_dynamics"]["theme_dynamics_module_imported"]
+        and report["theme_dynamics"]["inspect_theme_dynamics_script_exists"]
+        and report["theme_dynamics"]["sample_theme_dynamics_available"]
+        and report["theme_dynamics"]["sample_theme_dynamics_observation_count"] > 0
+        and report["theme_dynamics"]["sample_theme_dynamics_date_count"] >= 2
+        and not report["theme_dynamics"]["theme_dynamics_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
         and warehouse["warehouse_explorer_imported"]

@@ -1940,6 +1940,118 @@ def render_theme_observation_threshold_table(evidence: dict) -> None:
     _render_simple_table(["状态", "状态层级", "下界", "上界"], rows, "暂无阈值表。")
 
 
+def render_theme_dynamics_evidence_panel(evidence: dict) -> None:
+    if not evidence or not evidence.get("dynamics_available"):
+        st.markdown(
+            "<div class='rank-panel'><div class='rank-empty'>当前主题暂无可用动态证据。该区域只读取已有 CSV 快照，不触发实时抓取。</div></div>",
+            unsafe_allow_html=True,
+        )
+        for warning in (evidence or {}).get("warnings", [])[:5]:
+            st.caption(str(warning))
+        return
+    trace = evidence.get("state_transition_trace", {})
+    scope = evidence.get("scope_divergence_summary", {})
+    member = evidence.get("latest_member_structural_divergence", {})
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>主题</div><div class='trust-value'>{escape(str(evidence.get('theme_name', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>来源</div><div class='trust-value'>{escape(str(evidence.get('source_mode', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>口径</div><div class='trust-value'>{escape(str(evidence.get('calculation_mode_label', '--')))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>观测点</div><div class='trust-value'>{int(evidence.get('observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>覆盖日期</div><div class='trust-value'>{int(evidence.get('trade_date_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>时间桶</div><div class='trust-value'>{int(evidence.get('captured_time_bucket_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>taxonomy</div><div class='trust-value'>{escape(str(evidence.get('taxonomy_fingerprint', ''))[:12])}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>theme def</div><div class='trust-value'>{escape(str(evidence.get('theme_definition_fingerprint', ''))[:12])}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>状态路径：{escape(str(trace.get('state_path_text') or '--'))}<br>"
+        f"状态占用分母：已缓存主题观测点；该比例只描述历史样本占用。"
+        "</div></div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+    states = trace.get("state_path") or []
+    if states:
+        x_values = list(range(1, len(states) + 1))
+        y_values = []
+        for state in states:
+            if state == "强流入":
+                y_values.append(2)
+            elif state == "弱流入":
+                y_values.append(1)
+            elif state == "弱流出":
+                y_values.append(-1)
+            elif state == "强流出":
+                y_values.append(-2)
+            else:
+                y_values.append(0)
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=y_values,
+                mode="lines+markers",
+                line=dict(color="#f0c65a", width=2, shape="hv"),
+                marker=dict(size=7, color="#26e07f"),
+                text=states,
+                hovertemplate="观测点 %{x}<br>状态 %{text}<extra></extra>",
+            )
+        )
+        fig.update_layout(
+            template="plotly_dark",
+            height=220,
+            margin=dict(l=10, r=10, t=28, b=20),
+            title="Observed State Path（历史已缓存状态）",
+            paper_bgcolor="#050505",
+            plot_bgcolor="#050505",
+            yaxis=dict(
+                tickmode="array",
+                tickvals=[-2, -1, 0, 1, 2],
+                ticktext=["强流出", "弱流出", "分歧/中性", "弱流入", "强流入"],
+                zeroline=True,
+                zerolinecolor="rgba(255,255,255,.25)",
+            ),
+            xaxis=dict(title="observation order"),
+            showlegend=False,
+        )
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+    rows = [
+        ["正向观测", trace.get("positive_state_count", 0), trace.get("positive_state_share", 0)],
+        ["中性观测", trace.get("neutral_state_count", 0), trace.get("neutral_state_share", 0)],
+        ["负向观测", trace.get("negative_state_count", 0), trace.get("negative_state_share", 0)],
+    ]
+    _render_simple_table(["状态组", "观测数", "observed share"], rows, "暂无状态占用。")
+
+    scope_rows = []
+    for mode in ("strict_representative", "representative", "breadth"):
+        scope_rows.append(
+            [
+                mode,
+                scope.get(f"{mode}_state") or "--",
+                format_billion(scope.get(f"{mode}_aggregate_value")) if scope.get(f"{mode}_aggregate_value") is not None else "--",
+            ]
+        )
+    _render_simple_table(["Scope", "State", "Aggregate"], scope_rows, "暂无 scope divergence。")
+    st.markdown(
+        f"<div class='small-note'>Scope divergence：{escape(str(scope.get('scope_divergence_state') or '--'))}。该标签只描述同一快照下口径是否一致。</div>",
+        unsafe_allow_html=True,
+    )
+    member_rows = [
+        ["included", member.get("included_member_count", 0)],
+        ["positive", member.get("positive_member_count", 0)],
+        ["neutral", member.get("neutral_member_count", 0)],
+        ["negative", member.get("negative_member_count", 0)],
+        ["structure", member.get("member_sign_agreement") or "--"],
+    ]
+    _render_simple_table(["Member metric", "Value"], member_rows, "暂无 member divergence。")
+    warnings = evidence.get("warnings") or []
+    if warnings:
+        with st.expander("Theme dynamics lineage warnings", expanded=False):
+            for warning in warnings[:10]:
+                st.write(f"- {warning}")
+
+
 def render_app_footer() -> None:
     st.markdown(
         f"<div class='footer-note'>{escape(APP_CN_NAME)} · {escape(APP_VERSION)} · Streamlit MVP<br>"

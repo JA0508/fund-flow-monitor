@@ -266,3 +266,21 @@ Coverage is calculated against the selected source universe:
 - The coverage denominator is the number of unique normalized source names visible in the selected latest snapshot set.
 
 This audit does not modify the taxonomy, does not infer fuzzy matches, does not create formal industry labels and does not interpret coverage as market quality.
+
+## Theme Dynamics Cube
+
+v3.10 adds a theme-level dynamics pass:
+
+```text
+CSV snapshot rows
+-> canonical theme_pool trace for each captured_time and mode
+-> theme observation cube
+-> state transition trace / cross-date evolution / scope divergence / member structural divergence
+-> Multi-Day evidence panel / inspect_theme_dynamics.py / brief section
+```
+
+The cube keeps SAMPLE and REAL source modes separate and includes taxonomy and theme-definition fingerprints in the observation grain. This prevents rows from different mapping versions or data sources from being interpreted as one continuous series.
+
+The cross-date view uses the latest captured-time bucket per trade date. Intraday buckets remain available for state-path evidence, but they are not counted as separate trading days. Occupancy shares use the observed cache rows as the denominator and are not confidence, forecast or performance statistics.
+
+`tools/inspect_theme_dynamics.py` is read-only. It does not fetch AKShare, does not write CSV or SQLite and does not mutate `config/theme_taxonomy.json`.

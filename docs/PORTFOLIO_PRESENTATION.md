@@ -45,6 +45,7 @@ The project is CSV-first:
 - Historical evidence is derived from CSV files and is used only for lineage, coverage and replay provenance.
 - Theme observation evidence links each displayed theme state back to taxonomy fingerprints, matched members, aggregation inputs and threshold mapping.
 - Theme taxonomy audit adds mapping provenance, overlap checks, alias ambiguity reporting and SAMPLE / REAL coverage semantics for manual calibration review.
+- Theme dynamics adds an observation cube, state path trace, cross-scope divergence and member structural divergence for historical cache review.
 - Streamlit pages continue to work without SQLite.
 
 ## Engineering Architecture Notes
@@ -56,6 +57,7 @@ The project is CSV-first:
 - v3.0 adds architecture and data-flow documentation plus lightweight data contracts, improving maintainability without changing the app's user-facing calculation logic.
 - v3.8 adds explainable analytics engineering: the app can show factual theme calculation lineage without turning that evidence into an investment rationale.
 - v3.9 adds semantic taxonomy governance: the project can audit theme member roles, reused names, overlap pairs and source-universe coverage without changing the calculation path.
+- v3.10 adds theme dynamics evidence: state transition paths and structural divergence are derived from observed CSV snapshots only, without forecasting or changing the theme formula.
 
 ## Runtime and Data Modes
 

@@ -1154,3 +1154,24 @@ The reason is simple: the concept fund-flow endpoint can occasionally fail with 
 - `smoke_check.py`, `verify_runtime.py`, `cloud_preflight.py` and `release_check.py` include the taxonomy audit assets.
 - Tests remain offline and deterministic.
 - Page and docs avoid trading, prediction, recommendation or investment-action wording.
+
+## v3.10 Theme Dynamics Checks
+
+- `APP_VERSION` is `v3.10`.
+- `CHANGELOG.md` contains a `v3.10` entry.
+- `src/theme_dynamics.py` exists and can be imported.
+- `tools/inspect_theme_dynamics.py` exists and supports SAMPLE / REAL read-only inspection.
+- Theme observation fact grain includes `theme_name`, `trade_date`, `captured_time_bucket`, `calculation_mode`, `source_mode`, `taxonomy_fingerprint` and `theme_definition_fingerprint`.
+- Theme dynamics reuses canonical theme-pool trace output instead of duplicating the matching or state formula.
+- Duplicate observation grains are surfaced as warnings and not silently overwritten.
+- State transition trace reports observed state path, transition counts, historical occupancy shares and longest observed streaks using cached observations as the denominator.
+- Cross-date evolution uses latest snapshot per trade date and does not treat every intraday point as a separate day.
+- Scope divergence compares strict representative, representative and breadth modes only when source mode and fingerprints align.
+- Member structural divergence uses already-included member traces and does not rematch source rows.
+- SAMPLE dynamics is explicitly labeled as synthetic demo evidence.
+- REAL dynamics uses local `data/ticks` only when available and remains local cache evidence.
+- Streamlit Multi-Day and Observation Brief sections expose compact factual dynamics evidence without replacing existing calculations.
+- `tools/inspect_theme_dynamics.py` does not call AKShare, write CSV, write SQLite, mutate taxonomy or combine SAMPLE and REAL evidence.
+- `smoke_check.py`, `verify_runtime.py`, `cloud_preflight.py` and `release_check.py` include the theme dynamics assets.
+- Tests remain offline and deterministic.
+- Page and docs avoid trading, prediction, recommendation or investment-action wording.

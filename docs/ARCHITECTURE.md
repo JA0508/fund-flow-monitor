@@ -268,6 +268,24 @@ v3.9 adds a read-only semantic governance layer for `config/theme_taxonomy.json`
 
 This layer does not rewrite the taxonomy, does not call AKShare, does not write CSV or SQLite, and does not merge SAMPLE and REAL evidence. It exists to make mapping provenance and calibration gaps visible for manual review.
 
+## Theme Dynamics Layer
+
+v3.10 adds a read-only observation fact layer on top of the existing theme evidence path. It uses an explicit grain:
+
+```text
+theme_name
+trade_date
+captured_time_bucket
+calculation_mode
+source_mode
+taxonomy_fingerprint
+theme_definition_fingerprint
+```
+
+The layer builds a theme dynamics cube from existing CSV snapshots, then derives state transition traces, latest-per-date evolution, cross-scope divergence and member structural divergence. It reuses `build_theme_snapshot_with_trace()` so the matching, aggregation and state-threshold logic stays aligned with the displayed Theme Radar and Multi-Day panels.
+
+This layer is deliberately descriptive: it reads SAMPLE or local REAL cache, preserves source-mode and fingerprint boundaries, surfaces duplicate grains as warnings, and does not call AKShare, write CSV, write SQLite or mutate the taxonomy. State paths and occupancy shares describe observed cached samples only; they are not forecasts, backtests or investment rationales.
+
 ## If This Became Production-Grade
 
 A production-grade version would need additional systems that are intentionally out of scope here:

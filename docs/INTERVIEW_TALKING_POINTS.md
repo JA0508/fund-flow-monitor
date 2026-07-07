@@ -39,6 +39,7 @@ The current architecture is still modular: Streamlit is the UI shell, while data
 4. Theme mapping converts sector rows into fund-oriented theme rows.
 5. Theme evidence traces preserve the actual matching and aggregation path.
 6. Taxonomy audit reports mapping overlap and ambiguity separately from the displayed theme calculation.
+7. Theme dynamics traces observed state paths and structural divergence from cached snapshots without turning them into predictions.
 7. UI panels and briefs render observations from the active dataframe.
 
 ## Streamlit Cloud Deployment Explanation
@@ -80,6 +81,10 @@ It proves the ability to design a trust-aware data dashboard: acquisition, norma
 ### How do you prevent theme mapping from becoming a black box?
 
 The taxonomy is local JSON, and v3.9 adds a deterministic audit layer. It reports each member's role and mapping provenance, highlights reused or ambiguous names, and calculates coverage against SAMPLE or local REAL source rows. The audit is for manual calibration review, not automatic remapping.
+
+### What does the theme dynamics layer add?
+
+It gives each theme observation an explicit grain and then summarizes observed state paths, latest-per-date evolution, cross-scope divergence and member-level divergence. It is useful for explaining how the dashboard arrived at a historical observation, but it is still read-only evidence rather than a model or trading rule.
 
 ### How do you prevent public demo confusion?
 

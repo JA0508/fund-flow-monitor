@@ -197,6 +197,12 @@ v3.9 在主题证据层之后补上主题库语义治理。项目新增 `src/the
 
 这仍然是项目定义的基金主题观察规则，不是正式行业分类体系，不自动改写主题库，也不产生任何交易建议或未来判断。
 
+## Theme Dynamics Cube
+
+v3.10 在主题证据层之上增加主题动态观测 cube。它以 `theme_name + trade_date + captured_time_bucket + calculation_mode + source_mode + taxonomy_fingerprint + theme_definition_fingerprint` 作为显式观测粒度，记录同一主题在已缓存快照中的状态路径、latest-per-date 演化、三种口径之间的分歧和成员结构分歧。
+
+该能力继续复用 `theme_pool` 的 canonical trace，不重新发明主题匹配或状态阈值。CLI `tools/inspect_theme_dynamics.py` 和 Streamlit 多日趋势面板均为只读检查：不访问 AKShare，不写 CSV，不写 SQLite，不合并 SAMPLE 与 REAL，也不把历史状态路径写成预测或投资判断。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

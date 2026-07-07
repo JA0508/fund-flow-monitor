@@ -170,6 +170,12 @@ from src.theme_taxonomy import (  # noqa: E402
     validate_theme_taxonomy,
 )
 from src.theme_taxonomy_audit import build_taxonomy_audit_report, validate_taxonomy_audit_text  # noqa: E402
+from src.theme_dynamics import (  # noqa: E402
+    build_theme_dynamics_evidence,
+    build_theme_observation_cube,
+    render_theme_dynamics_brief_section,
+    validate_theme_dynamics_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1047,6 +1053,41 @@ def _verify_theme_taxonomy_audit() -> None:
     print("  taxonomy audit 检查只读 SAMPLE/REAL CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 
+def _verify_theme_dynamics() -> None:
+    taxonomy = load_theme_taxonomy(str(PROJECT_ROOT / "config/theme_taxonomy.json"))
+    theme = "半导体/芯片链" if "半导体/芯片链" in get_theme_names(taxonomy) else (get_theme_names(taxonomy) or [""])[0]
+    cube = build_theme_observation_cube(
+        taxonomy=taxonomy,
+        source_mode="SAMPLE",
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+    )
+    evidence = build_theme_dynamics_evidence(
+        cube,
+        theme_name=theme,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        taxonomy=taxonomy,
+    )
+    section = render_theme_dynamics_brief_section(evidence)
+    forbidden_hits = validate_theme_dynamics_text(section)
+    trace = evidence.get("state_transition_trace") or {}
+    scope = evidence.get("scope_divergence_summary") or {}
+    member = evidence.get("latest_member_structural_divergence") or {}
+    print("Theme Dynamics / State Transition 检查:")
+    print("  theme_dynamics_module_imported: True")
+    print(f"  inspect_theme_dynamics.py exists: {(PROJECT_ROOT / 'tools/inspect_theme_dynamics.py').exists()}")
+    print(f"  sample_theme_dynamics_available: {evidence.get('dynamics_available')}")
+    print(f"  sample_theme_dynamics_theme: {evidence.get('theme_name')}")
+    print(f"  sample_theme_dynamics_observation_count: {evidence.get('observation_count')}")
+    print(f"  sample_theme_dynamics_date_count: {evidence.get('trade_date_count')}")
+    print(f"  sample_theme_dynamics_time_bucket_count: {evidence.get('captured_time_bucket_count')}")
+    print(f"  sample_theme_dynamics_state_path: {trace.get('state_path_text')}")
+    print(f"  sample_theme_dynamics_scope_state: {scope.get('scope_divergence_state')}")
+    print(f"  sample_theme_dynamics_member_state: {member.get('structural_state')}")
+    print(f"  sample_theme_dynamics_forbidden_hits: {forbidden_hits}")
+    print("  theme dynamics 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
+
+
 def main() -> int:
     ak_version, has_api = _akshare_info()
     latest_file = find_latest_tick_file()
@@ -1150,6 +1191,7 @@ def main() -> int:
     _verify_history_evidence()
     _verify_theme_observation_evidence()
     _verify_theme_taxonomy_audit()
+    _verify_theme_dynamics()
     _verify_provider_boundary()
     _verify_local_warehouse()
     print("fund summary Top 3:")
