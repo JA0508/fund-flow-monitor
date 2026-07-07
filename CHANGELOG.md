@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v3.11
+
+- Analytical Grain Integrity and Canonical Observation Materialization.
+- Split theme dynamics into explicit raw event observation grain and bucketed analytical observation grain.
+- Added bucket collision analysis so multiple valid captured events in one time bucket are not mislabeled as ordinary duplicates.
+- Materialized canonical bucket observations with the centralized `latest_valid_snapshot_in_bucket` policy while preserving contributing event lineage.
+- Added `tools/inspect_observation_grain.py` for read-only SAMPLE / REAL grain audits, collision summaries and canonical materialization evidence.
+- Theme dynamics state paths, occupancy shares, streaks and scope divergence now default to canonical bucket observations with explicit denominator wording.
+- Streamlit evidence panels, smoke/runtime/cloud/release checks and docs now surface dynamics basis, materialization policy and bucket-collision evidence without changing theme calculation formulas.
+- The layer remains descriptive and offline-safe: no AKShare fetch, no CSV/SQLite writes, no prediction and no investment recommendation.
+
 ## v3.10
 
 - Theme Dynamics Cube, state transition trace and structural divergence.

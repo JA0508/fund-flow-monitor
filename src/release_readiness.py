@@ -40,6 +40,7 @@ PUBLIC_FILES = (
     "tools/inspect_theme_evidence.py",
     "tools/audit_theme_taxonomy.py",
     "tools/inspect_theme_dynamics.py",
+    "tools/inspect_observation_grain.py",
 )
 
 PUBLIC_DIRS = (
@@ -84,6 +85,7 @@ REQUIRED_PUBLIC_ASSETS = (
     "tools/inspect_theme_evidence.py",
     "tools/audit_theme_taxonomy.py",
     "tools/inspect_theme_dynamics.py",
+    "tools/inspect_observation_grain.py",
     "LICENSE",
 )
 

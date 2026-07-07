@@ -58,6 +58,7 @@ The project is CSV-first:
 - v3.8 adds explainable analytics engineering: the app can show factual theme calculation lineage without turning that evidence into an investment rationale.
 - v3.9 adds semantic taxonomy governance: the project can audit theme member roles, reused names, overlap pairs and source-universe coverage without changing the calculation path.
 - v3.10 adds theme dynamics evidence: state transition paths and structural divergence are derived from observed CSV snapshots only, without forecasting or changing the theme formula.
+- v3.11 adds analytical grain integrity: raw snapshot events, bucketed analytical observations, time-bucket collisions and canonical materialization are explicit, so valid same-minute captures are not silently dropped or mislabeled as ordinary duplicates.
 
 ## Runtime and Data Modes
 

@@ -23,6 +23,7 @@ The app fetches or reads sector fund-flow snapshots, normalizes them with pandas
 - Historical evidence is recovered from CSV snapshots to show file lineage, schema fingerprint consistency, captured_time coverage, and selected-date replay provenance.
 - Theme observation evidence shows which taxonomy definition, calculation mode, matched members, aggregate inputs and thresholds produced a displayed theme state.
 - Theme taxonomy audit checks member roles, overlap, alias ambiguity and source coverage while keeping mapping rules manually reviewable.
+- Theme dynamics separates raw snapshot-event observations from bucketed analytical observations, audits time-bucket collisions, and materializes canonical bucket observations while preserving contributing lineage.
 - Lightweight data contracts validate the practical snapshot shape, especially SAMPLE CSV structure, without blocking valid local cache data unnecessarily.
 
 ## Engineering Architecture Tradeoff
@@ -40,7 +41,8 @@ The current architecture is still modular: Streamlit is the UI shell, while data
 5. Theme evidence traces preserve the actual matching and aggregation path.
 6. Taxonomy audit reports mapping overlap and ambiguity separately from the displayed theme calculation.
 7. Theme dynamics traces observed state paths and structural divergence from cached snapshots without turning them into predictions.
-7. UI panels and briefs render observations from the active dataframe.
+8. Analytical grain materialization selects the latest valid snapshot inside a bucket and preserves non-selected event IDs for audit.
+9. UI panels and briefs render observations from the active dataframe.
 
 ## Streamlit Cloud Deployment Explanation
 
@@ -85,6 +87,10 @@ The taxonomy is local JSON, and v3.9 adds a deterministic audit layer. It report
 ### What does the theme dynamics layer add?
 
 It gives each theme observation an explicit grain and then summarizes observed state paths, latest-per-date evolution, cross-scope divergence and member-level divergence. It is useful for explaining how the dashboard arrived at a historical observation, but it is still read-only evidence rather than a model or trading rule.
+
+### Why not just drop duplicate theme dynamics rows?
+
+The apparent duplicates can be valid captured events that share the same analytical minute bucket. v3.11 separates physical snapshot-event grain from bucketed analytical grain, audits bucket collisions, and then applies an explicit `latest_valid_snapshot_in_bucket` materialization policy while preserving all contributing event IDs. That is more honest than silently dropping rows.
 
 ### How do you prevent public demo confusion?
 

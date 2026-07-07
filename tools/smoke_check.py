@@ -107,6 +107,7 @@ from src.theme_dynamics import (  # noqa: E402
     render_theme_dynamics_brief_section,
     validate_theme_dynamics_text,
 )
+from tools.inspect_observation_grain import build_observation_grain_report  # noqa: E402
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -182,6 +183,7 @@ REQUIRED_FILES = (
     "tools/inspect_theme_evidence.py",
     "tools/audit_theme_taxonomy.py",
     "tools/inspect_theme_dynamics.py",
+    "tools/inspect_observation_grain.py",
     "tools/rebuild_local_warehouse.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
@@ -448,6 +450,12 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         taxonomy=taxonomy_for_evidence,
     )
     theme_dynamics_section = render_theme_dynamics_brief_section(theme_dynamics_evidence)
+    observation_grain_report = build_observation_grain_report(
+        source_mode="SAMPLE",
+        data_dir=str(project_root / "sample_data/ticks"),
+        theme=evidence_theme,
+        mode="strict_representative",
+    )
     warehouse_status = check_warehouse_status(project_root)
     presentation_statuses = ["LIVE", "CACHE", "HISTORY", "SAMPLE", "DEMO", "EMPTY"]
     status_badges = [build_status_badge_config(status) for status in presentation_statuses]
@@ -590,12 +598,21 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         "theme_dynamics": {
             "theme_dynamics_module_imported": True,
             "inspect_theme_dynamics_script_exists": (project_root / "tools/inspect_theme_dynamics.py").exists(),
+            "inspect_observation_grain_script_exists": (project_root / "tools/inspect_observation_grain.py").exists(),
             "sample_theme_dynamics_available": bool(theme_dynamics_evidence.get("dynamics_available")),
             "sample_theme_dynamics_theme": theme_dynamics_evidence.get("theme_name"),
             "sample_theme_dynamics_observation_count": int(theme_dynamics_evidence.get("observation_count", 0) or 0),
             "sample_theme_dynamics_date_count": int(theme_dynamics_evidence.get("trade_date_count", 0) or 0),
+            "sample_theme_dynamics_basis": theme_dynamics_evidence.get("dynamics_basis"),
+            "sample_theme_dynamics_materialization_policy": theme_dynamics_evidence.get("materialization_policy"),
+            "sample_theme_dynamics_raw_event_count": int(theme_dynamics_evidence.get("raw_event_observation_count", 0) or 0),
+            "sample_theme_dynamics_canonical_count": int(theme_dynamics_evidence.get("canonical_observation_count", 0) or 0),
+            "sample_observation_grain_raw_count": int(observation_grain_report.get("raw_event_count", 0) or 0),
+            "sample_observation_grain_canonical_count": int(observation_grain_report.get("canonical_observation_count", 0) or 0),
+            "sample_observation_grain_collided_buckets": int((observation_grain_report.get("bucket_collision_summary") or {}).get("collided_bucket_count", 0) or 0),
             "sample_theme_dynamics_state_path": (theme_dynamics_evidence.get("state_transition_trace") or {}).get("state_path_text"),
             "sample_theme_dynamics_scope_state": (theme_dynamics_evidence.get("scope_divergence_summary") or {}).get("scope_divergence_state"),
+            "sample_theme_dynamics_alignment_status": (theme_dynamics_evidence.get("scope_divergence_summary") or {}).get("alignment_status"),
             "sample_theme_dynamics_member_state": (theme_dynamics_evidence.get("latest_member_structural_divergence") or {}).get("structural_state"),
             "theme_dynamics_forbidden_hits": validate_theme_dynamics_text(theme_dynamics_section),
         },
@@ -760,11 +777,15 @@ def main() -> int:
     theme_dynamics = report["theme_dynamics"]
     print(f"theme dynamics module imported: {theme_dynamics['theme_dynamics_module_imported']}")
     print(f"inspect_theme_dynamics.py exists: {theme_dynamics['inspect_theme_dynamics_script_exists']}")
+    print(f"inspect_observation_grain.py exists: {theme_dynamics['inspect_observation_grain_script_exists']}")
     print(f"sample theme dynamics available: {theme_dynamics['sample_theme_dynamics_available']}")
     print(f"sample theme dynamics theme: {theme_dynamics['sample_theme_dynamics_theme']}")
     print(f"sample theme dynamics observations/dates: {theme_dynamics['sample_theme_dynamics_observation_count']} / {theme_dynamics['sample_theme_dynamics_date_count']}")
+    print(f"sample theme dynamics basis/policy: {theme_dynamics['sample_theme_dynamics_basis']} / {theme_dynamics['sample_theme_dynamics_materialization_policy']}")
+    print(f"sample theme dynamics raw/canonical: {theme_dynamics['sample_theme_dynamics_raw_event_count']} / {theme_dynamics['sample_theme_dynamics_canonical_count']}")
+    print(f"sample observation grain raw/canonical/collided: {theme_dynamics['sample_observation_grain_raw_count']} / {theme_dynamics['sample_observation_grain_canonical_count']} / {theme_dynamics['sample_observation_grain_collided_buckets']}")
     print(f"sample theme dynamics state path: {theme_dynamics['sample_theme_dynamics_state_path']}")
-    print(f"sample theme dynamics scope/member state: {theme_dynamics['sample_theme_dynamics_scope_state']} / {theme_dynamics['sample_theme_dynamics_member_state']}")
+    print(f"sample theme dynamics scope/alignment/member state: {theme_dynamics['sample_theme_dynamics_scope_state']} / {theme_dynamics['sample_theme_dynamics_alignment_status']} / {theme_dynamics['sample_theme_dynamics_member_state']}")
     print(f"theme dynamics forbidden hits: {theme_dynamics['theme_dynamics_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
@@ -870,9 +891,11 @@ def main() -> int:
         and not report["theme_taxonomy_audit"]["taxonomy_audit_forbidden_hits"]
         and report["theme_dynamics"]["theme_dynamics_module_imported"]
         and report["theme_dynamics"]["inspect_theme_dynamics_script_exists"]
+        and report["theme_dynamics"]["inspect_observation_grain_script_exists"]
         and report["theme_dynamics"]["sample_theme_dynamics_available"]
         and report["theme_dynamics"]["sample_theme_dynamics_observation_count"] > 0
         and report["theme_dynamics"]["sample_theme_dynamics_date_count"] >= 2
+        and report["theme_dynamics"]["sample_observation_grain_canonical_count"] > 0
         and not report["theme_dynamics"]["theme_dynamics_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]

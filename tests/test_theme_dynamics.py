@@ -3,14 +3,22 @@ from __future__ import annotations
 import pandas as pd
 
 from src.theme_dynamics import (
+    CANONICAL_BUCKET_POLICY,
     DAILY_SELECTION_POLICY,
+    analyze_observation_bucket_collisions,
+    build_bucket_collision_summary,
     build_cross_date_state_evolution,
     build_member_structural_divergence,
     build_scope_divergence_table,
     build_state_transition_trace,
     build_theme_dynamics_evidence,
+    build_theme_observation_events,
     build_theme_observation_cube,
+    get_bucketed_analytical_observation_grain,
+    get_canonical_materialization_policy,
+    get_raw_event_observation_grain,
     get_theme_observation_grain,
+    materialize_canonical_observations,
     render_theme_dynamics_brief_section,
     select_daily_observations,
     validate_theme_dynamics_text,
@@ -35,7 +43,7 @@ def _sample_rows(time_value: str, semi: float, electronic: float = 0.0) -> list[
 
 
 def test_observation_grain_is_explicit() -> None:
-    assert get_theme_observation_grain() == (
+    bucketed = (
         "theme_name",
         "trade_date",
         "captured_time_bucket",
@@ -44,6 +52,16 @@ def test_observation_grain_is_explicit() -> None:
         "taxonomy_fingerprint",
         "theme_definition_fingerprint",
     )
+    assert get_theme_observation_grain() == bucketed
+    assert get_bucketed_analytical_observation_grain() == bucketed
+    assert get_raw_event_observation_grain() == (
+        "snapshot_event_id",
+        "theme_name",
+        "calculation_mode",
+        "source_mode",
+        "theme_definition_fingerprint",
+    )
+    assert get_canonical_materialization_policy() == CANONICAL_BUCKET_POLICY
 
 
 def test_build_theme_observation_cube_from_sample_data() -> None:
@@ -73,13 +91,89 @@ def test_cube_uses_temp_real_cache_without_sample_mixing(tmp_path) -> None:
     assert set(cube["source_mode"]) == {"REAL"}
 
 
-def test_duplicate_grain_detection(tmp_path) -> None:
+def test_bucket_collision_materializes_canonical_observation(tmp_path) -> None:
+    rows = _sample_rows("09:30:00", 40.0) + _sample_rows("09:30:30", 45.0)
+    _write_snapshot(tmp_path, "2026-01-01", rows)
+    events = build_theme_observation_events(source_mode="SAMPLE", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
+    semi_events = events[events["theme_name"].eq("半导体/芯片链")]
+    assert len(semi_events) == 2
+    assert semi_events["event_observation_id"].nunique() == 2
+    assert semi_events["captured_time_bucket"].nunique() == 1
+
+    collisions = analyze_observation_bucket_collisions(events)
+    collided = collisions[(collisions["theme_name"].eq("半导体/芯片链")) & (collisions["event_count"].eq(2))]
+    assert not collided.empty
+    assert collided.iloc[0]["collision_type"] == "multiple_events_same_bucket"
+    assert collided.iloc[0]["true_duplicate_event_count"] == 0
+
+    cube = materialize_canonical_observations(events)
+    semi_cube = cube[cube["theme_name"].eq("半导体/芯片链")]
+    assert len(semi_cube) == 1
+    assert semi_cube.iloc[0]["event_count"] == 2
+    assert semi_cube.iloc[0]["selected_captured_time"] == "09:30:30"
+    assert len(semi_cube.iloc[0]["contributing_event_observation_ids"]) == 2
+    assert cube.attrs["bucket_collision_summary"]["collided_bucket_count"] > 0
+
+
+def test_theme_observation_cube_has_no_duplicate_bucket_grain_after_materialization(tmp_path) -> None:
     rows = _sample_rows("09:30:00", 40.0) + _sample_rows("09:30:30", 45.0)
     _write_snapshot(tmp_path, "2026-01-01", rows)
     cube = build_theme_observation_cube(source_mode="SAMPLE", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
-    # Both captured_time values normalize to the same 09:30 bucket.
-    assert cube.attrs["duplicate_grain_count"] > 0
-    assert cube["duplicate_grain"].any()
+    assert cube.attrs["duplicate_grain_count"] == 0
+    assert not cube.duplicated(list(get_bucketed_analytical_observation_grain())).any()
+    assert cube.attrs["dynamics_basis"] == "canonical_bucket_observations"
+
+
+def test_bucket_collision_summary_counts_by_date_and_mode(tmp_path) -> None:
+    rows = _sample_rows("09:30:00", 40.0) + _sample_rows("09:30:20", -40.0) + _sample_rows("09:30:50", 20.0)
+    _write_snapshot(tmp_path, "2026-01-01", rows)
+    events = build_theme_observation_events(source_mode="SAMPLE", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
+    collisions = analyze_observation_bucket_collisions(events)
+    summary = build_bucket_collision_summary(collisions)
+    assert summary["max_events_per_bucket"] == 3
+    assert summary["extra_events_within_collided_buckets"] > 0
+    assert summary["collision_count_by_date"]["2026-01-01"] > 0
+    assert summary["collision_count_by_mode"]["strict_representative"] > 0
+    semi_collision = collisions[(collisions["theme_name"].eq("半导体/芯片链")) & (collisions["event_count"].eq(3))].iloc[0]
+    assert semi_collision["distinct_state_count"] >= 2
+    assert semi_collision["state_transition_count_within_bucket"] >= 1
+
+
+def test_materialization_excludes_invalid_when_valid_exists(tmp_path) -> None:
+    rows = _sample_rows("09:30:00", 40.0) + _sample_rows("09:30:40", 45.0)
+    _write_snapshot(tmp_path, "2026-01-01", rows)
+    events = build_theme_observation_events(source_mode="SAMPLE", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
+    target = events["theme_name"].eq("半导体/芯片链")
+    first_index = events[target].sort_values("captured_time").index[0]
+    latest_index = events[target].sort_values("captured_time").index[-1]
+    events.loc[first_index, "contract_ok"] = True
+    events.loc[latest_index, "contract_ok"] = False
+    cube = materialize_canonical_observations(events)
+    semi = cube[cube["theme_name"].eq("半导体/芯片链")].iloc[0]
+    assert semi["selected_captured_time"] == "09:30:00"
+    assert bool(semi["selected_event_valid"]) is True
+
+
+def test_true_duplicate_event_collision_is_separate_from_bucket_collision(tmp_path) -> None:
+    _write_snapshot(tmp_path, "2026-01-01", _sample_rows("09:30:00", 40.0))
+    events = build_theme_observation_events(source_mode="SAMPLE", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
+    duplicate_events = pd.DataFrame(events.to_dict(orient="records") + [events.iloc[0].to_dict()])
+    duplicate_events["true_duplicate_event_grain"] = duplicate_events.duplicated(list(get_raw_event_observation_grain()), keep=False)
+    collisions = analyze_observation_bucket_collisions(duplicate_events)
+    duplicate_collision = collisions[collisions["true_duplicate_event_count"].gt(0)].iloc[0]
+    assert duplicate_collision["collision_type"] in {"true_duplicate_event", "mixed_collision"}
+    assert duplicate_collision["true_duplicate_event_count"] > 0
+
+
+def test_canonical_observation_id_is_deterministic(tmp_path) -> None:
+    rows = _sample_rows("09:30:00", 40.0) + _sample_rows("09:30:30", 45.0)
+    _write_snapshot(tmp_path, "2026-01-01", rows)
+    events = build_theme_observation_events(source_mode="SAMPLE", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
+    first = materialize_canonical_observations(events)
+    second = materialize_canonical_observations(events.sample(frac=1, random_state=7).reset_index(drop=True))
+    first_ids = first.sort_values(["theme_name", "captured_time_bucket"])["canonical_observation_id"].tolist()
+    second_ids = second.sort_values(["theme_name", "captured_time_bucket"])["canonical_observation_id"].tolist()
+    assert first_ids == second_ids
 
 
 def test_state_transition_trace_empty_and_single() -> None:

@@ -97,6 +97,9 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 - Theme Radar evidence panels should label SAMPLE evidence as synthetic demo evidence and should not frame evidence as investment rationale.
 - `python tools/audit_theme_taxonomy.py --source-mode SAMPLE --coverage --overlap --top-overlaps 10` should run as a read-only taxonomy calibration audit.
 - `python tools/inspect_theme_dynamics.py --theme "半导体/芯片链" --source-mode SAMPLE --state-trace --scope-divergence --member-divergence` should show observed state path, cross-scope divergence and member structural divergence without writing CSV/SQLite.
+- `python tools/inspect_observation_grain.py --source-mode SAMPLE --json` should show raw event grain, bucketed analytical grain, bucket collision summary and canonical materialization policy.
+- `python tools/inspect_observation_grain.py --source-mode REAL --collisions --canonical` may be run locally when real cache exists; missing real cache should remain a safe, readable state.
+- Bucket collisions should be described as multiple valid captured events sharing one analytical bucket, not as generic duplicate removal.
 - Taxonomy audit warnings such as reused members or ambiguous source names should be reviewed as mapping-governance notes, not app failures.
 - Missing real cache or missing collector logs on Streamlit Cloud is expected and should not be treated as a public demo failure.
 - Any AKShare failure should be documented as a live data source/network limitation, not replaced with fake real data.

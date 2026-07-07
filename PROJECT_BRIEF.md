@@ -203,6 +203,12 @@ v3.10 在主题证据层之上增加主题动态观测 cube。它以 `theme_name
 
 该能力继续复用 `theme_pool` 的 canonical trace，不重新发明主题匹配或状态阈值。CLI `tools/inspect_theme_dynamics.py` 和 Streamlit 多日趋势面板均为只读检查：不访问 AKShare，不写 CSV，不写 SQLite，不合并 SAMPLE 与 REAL，也不把历史状态路径写成预测或投资判断。
 
+## Analytical Grain and Canonical Materialization
+
+v3.11 将 v3.10 的主题动态层进一步拆成两个事实粒度：raw theme observation event 和 bucketed analytical observation。前者以 `snapshot_event_id + theme + calculation_mode + source_mode + theme_definition_fingerprint` 表示一个物理缓存快照事件下的主题计算结果；后者以 `theme + trade_date + captured_time_bucket + calculation_mode + source_mode + taxonomy/theme-definition fingerprint` 表示一个时间桶内被物化的 canonical 观察。
+
+这解决了 v3.10 中“同一分钟桶内多次有效快照”被笼统标记为 duplicate 的问题。v3.11 不使用简单 `drop_duplicates()`，而是先审计 bucket collision，再按 `latest_valid_snapshot_in_bucket` 策略选择 canonical observation，同时保留所有 contributing event IDs、snapshot IDs、精确 captured time、状态变化和聚合值范围。状态路径、占用比例、streak 和 scope divergence 默认基于 canonical bucket observations；scope divergence 还暴露 selected snapshot 是否一致，避免静默跨事件比较。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

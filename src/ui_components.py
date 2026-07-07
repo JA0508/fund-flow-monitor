@@ -1952,6 +1952,7 @@ def render_theme_dynamics_evidence_panel(evidence: dict) -> None:
     trace = evidence.get("state_transition_trace", {})
     scope = evidence.get("scope_divergence_summary", {})
     member = evidence.get("latest_member_structural_divergence", {})
+    collisions = evidence.get("bucket_collision_summary") or {}
     html = (
         "<div class='trust-panel'>"
         "<div class='trust-grid'>"
@@ -1965,10 +1966,29 @@ def render_theme_dynamics_evidence_panel(evidence: dict) -> None:
         f"<div class='trust-item'><div class='trust-label'>theme def</div><div class='trust-value'>{escape(str(evidence.get('theme_definition_fingerprint', ''))[:12])}</div></div>"
         "</div>"
         f"<div class='trust-copy'>状态路径：{escape(str(trace.get('state_path_text') or '--'))}<br>"
-        f"状态占用分母：已缓存主题观测点；该比例只描述历史样本占用。"
+        f"状态占用分母：canonical bucket observations；该比例只描述历史样本占用。"
         "</div></div>"
     )
     st.markdown(html, unsafe_allow_html=True)
+
+    st.markdown("<div class='radar-section-title'>观测粒度与时间桶证据 / Observation Grain & Bucket Evidence</div>", unsafe_allow_html=True)
+    grain_html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>Dynamics basis</div><div class='trust-value'>{escape(str(evidence.get('dynamics_basis') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Materialization policy</div><div class='trust-value'>{escape(str(evidence.get('materialization_policy') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Bucket width</div><div class='trust-value'>{int(evidence.get('bucket_minutes', 1) or 1)} min</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Raw events</div><div class='trust-value'>{int(evidence.get('raw_event_observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Canonical observations</div><div class='trust-value'>{int(evidence.get('canonical_observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Collided buckets</div><div class='trust-value'>{int(collisions.get('collided_bucket_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Max events / bucket</div><div class='trust-value'>{int(collisions.get('max_events_per_bucket', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>State-change buckets</div><div class='trust-value'>{int(collisions.get('within_bucket_state_change_count', 0) or 0)}</div></div>"
+        "</div>"
+        "<div class='trust-copy'>Bucket collision 表示多个有效 captured events 落入同一分析时间桶；非 selected events 仍保留在 lineage 中。"
+        "该区域不做 duplicate removal，不平均累计快照，也不生成预测。</div>"
+        "</div>"
+    )
+    st.markdown(grain_html, unsafe_allow_html=True)
 
     states = trace.get("state_path") or []
     if states:
@@ -2034,7 +2054,9 @@ def render_theme_dynamics_evidence_panel(evidence: dict) -> None:
         )
     _render_simple_table(["Scope", "State", "Aggregate"], scope_rows, "暂无 scope divergence。")
     st.markdown(
-        f"<div class='small-note'>Scope divergence：{escape(str(scope.get('scope_divergence_state') or '--'))}。该标签只描述同一快照下口径是否一致。</div>",
+        f"<div class='small-note'>Scope divergence：{escape(str(scope.get('scope_divergence_state') or '--'))} ｜ "
+        f"alignment：{escape(str(scope.get('alignment_status') or '--'))} ｜ "
+        f"same selected snapshot：{escape(str(scope.get('aligned_snapshot_id_consistent')))}。该标签只描述 canonical 对齐后的口径是否一致。</div>",
         unsafe_allow_html=True,
     )
     member_rows = [

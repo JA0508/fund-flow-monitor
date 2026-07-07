@@ -18,7 +18,7 @@ Live demo: [https://fund-flow-monitor-ja0508.streamlit.app/](https://fund-flow-m
 4. 再看 `多日趋势` 中的 warehouse theme history 图表，理解历史快照如何形成主题级观察。
 5. 查看 `持仓相关池`，理解基金/ETF 主题暴露模板如何与主题雷达合并。
 6. 下载 `观察简报`，或直接阅读 [`SAMPLE Demo Brief`](docs/demo_briefs/sample_observation_brief.md)。
-7. 如需更细证据，可运行 `tools/inspect_theme_dynamics.py` 查看主题状态路径和结构分歧。
+7. 如需更细证据，可运行 `tools/inspect_theme_dynamics.py` 查看主题状态路径和结构分歧，或运行 `tools/inspect_observation_grain.py` 查看 raw event grain、bucket collision 和 canonical observation lineage。
 
 公开展示边界始终保持不变：SAMPLE / DEMO 不代表真实行情；项目不接真实账户，不读取真实个人持仓，不提供交易功能，不预测未来走势。
 

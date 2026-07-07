@@ -270,7 +270,21 @@ This layer does not rewrite the taxonomy, does not call AKShare, does not write 
 
 ## Theme Dynamics Layer
 
-v3.10 adds a read-only observation fact layer on top of the existing theme evidence path. It uses an explicit grain:
+v3.10 adds a read-only observation fact layer on top of the existing theme evidence path. v3.11 hardens this into two explicit grains instead of treating every time-bucket collision as an ordinary duplicate.
+
+Raw theme observation event grain:
+
+```text
+snapshot_event_id
+theme_name
+calculation_mode
+source_mode
+theme_definition_fingerprint
+```
+
+One raw event is one theme result calculated from one physical cached snapshot event under one calculation mode and one semantic theme definition. Exact `captured_at`, `captured_time`, trade date, provider metadata and file snapshot lineage remain attached, but the time bucket is not part of raw event identity.
+
+Bucketed analytical observation grain:
 
 ```text
 theme_name
@@ -282,9 +296,13 @@ taxonomy_fingerprint
 theme_definition_fingerprint
 ```
 
-The layer builds a theme dynamics cube from existing CSV snapshots, then derives state transition traces, latest-per-date evolution, cross-scope divergence and member structural divergence. It reuses `build_theme_snapshot_with_trace()` so the matching, aggregation and state-threshold logic stays aligned with the displayed Theme Radar and Multi-Day panels.
+One bucketed analytical observation is the canonical observation materialized for a time bucket. The default materialization policy is `latest_valid_snapshot_in_bucket`. The provider path used by the project is AKShare/Eastmoney's "今日" sector-flow snapshot, which the application treats as an as-of-capture cumulative snapshot. For that reason, the latest valid event inside a minute bucket is a better default than averaging, summing or blindly keeping all events for bucket-level dynamics. If all events fail contract checks, the latest event is retained only as an inspectable lineage row and is marked accordingly.
 
-This layer is deliberately descriptive: it reads SAMPLE or local REAL cache, preserves source-mode and fingerprint boundaries, surfaces duplicate grains as warnings, and does not call AKShare, write CSV, write SQLite or mutate the taxonomy. State paths and occupancy shares describe observed cached samples only; they are not forecasts, backtests or investment rationales.
+The layer builds raw theme observation events from existing CSV snapshots, analyzes bucket collisions, materializes one canonical bucket observation per analytical grain, then derives state transition traces, latest-per-date evolution, cross-scope divergence and member structural divergence. It reuses `build_theme_snapshot_with_trace()` so the matching, aggregation and state-threshold logic stays aligned with the displayed Theme Radar and Multi-Day panels.
+
+This is not `drop_duplicates()` cleanup. Multiple valid captured events can share one minute bucket; they are bucket collisions with preserved contributing lineage, not automatically bad data. v3.11 separates true raw event duplicates, repeated file discovery, duplicated source rows and valid time-bucket collisions. State paths, occupancy shares and streaks now use canonical bucket observations as the denominator. Scope divergence compares modes aligned on the canonical bucket and exposes `alignment_status`, compared snapshot IDs and selected event IDs.
+
+This layer is deliberately descriptive: it reads SAMPLE or local REAL cache, preserves source-mode and fingerprint boundaries, and does not call AKShare, write CSV, write SQLite or mutate the taxonomy. State paths and occupancy shares describe observed cached samples only; they are not forecasts, backtests or investment rationales.
 
 ## If This Became Production-Grade
 

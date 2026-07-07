@@ -50,6 +50,7 @@ REQUIRED_ASSETS = (
     "tools/inspect_theme_evidence.py",
     "tools/audit_theme_taxonomy.py",
     "tools/inspect_theme_dynamics.py",
+    "tools/inspect_observation_grain.py",
 )
 
 

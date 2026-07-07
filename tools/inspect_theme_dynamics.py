@@ -15,6 +15,8 @@ from src.theme_dynamics import (  # noqa: E402
     build_scope_divergence_table,
     build_theme_dynamics_evidence,
     build_theme_observation_cube,
+    get_bucketed_analytical_observation_grain,
+    get_raw_event_observation_grain,
     get_theme_observation_grain,
     normalize_theme_dynamics_mode,
     validate_theme_dynamics_text,
@@ -95,11 +97,23 @@ def inspect_theme_dynamics(
 
 
 def _print_header(evidence: dict) -> None:
+    collisions = evidence.get("bucket_collision_summary") or {}
     print("Theme dynamics evidence")
     print(f"  theme: {evidence.get('theme_name')}")
     print(f"  source_mode: {evidence.get('source_mode')}")
     print(f"  mode: {evidence.get('calculation_mode')} / {evidence.get('calculation_mode_label')}")
-    print(f"  grain: {' × '.join(get_theme_observation_grain())}")
+    print(f"  raw event grain: {' × '.join(get_raw_event_observation_grain())}")
+    print(f"  analytical grain: {' × '.join(get_bucketed_analytical_observation_grain())}")
+    print(f"  compatibility grain alias: {' × '.join(get_theme_observation_grain())}")
+    print(f"  dynamics_basis: {evidence.get('dynamics_basis')}")
+    print(f"  materialization_policy: {evidence.get('materialization_policy')}")
+    print(f"  bucket_minutes: {evidence.get('bucket_minutes')}")
+    print(f"  raw_event_observations: {evidence.get('raw_event_observation_count')}")
+    print(f"  canonical_observations: {evidence.get('canonical_observation_count')}")
+    print(f"  collided_buckets: {collisions.get('collided_bucket_count', 0)}")
+    print(f"  extra_events_in_collided_buckets: {collisions.get('extra_events_within_collided_buckets', 0)}")
+    print(f"  max_events_per_bucket: {collisions.get('max_events_per_bucket', 0)}")
+    print(f"  within_bucket_state_change_buckets: {collisions.get('within_bucket_state_change_count', 0)}")
     print(f"  observations: {evidence.get('observation_count')}")
     print(f"  trade_dates: {evidence.get('trade_date_count')}")
     print(f"  captured_time_buckets: {evidence.get('captured_time_bucket_count')}")
@@ -133,7 +147,7 @@ def _print_state_trace(evidence: dict) -> None:
         f"negative={trace.get('longest_negative_streak', 0)} "
         f"same_state={trace.get('longest_same_state_streak', 0)}"
     )
-    print("  denominator: observed share = state observations / total observations; not a future-oriented measure.")
+    print("  denominator: observed share = canonical bucket observations / total canonical bucket observations; not a future-oriented measure.")
 
 
 def _print_scope_divergence(evidence: dict) -> None:
@@ -141,6 +155,9 @@ def _print_scope_divergence(evidence: dict) -> None:
     print("Scope divergence")
     print(f"  date/time: {scope.get('trade_date') or '--'} / {scope.get('captured_time_bucket') or '--'}")
     print(f"  state: {scope.get('scope_divergence_state') or '--'}")
+    print(f"  alignment_status: {scope.get('alignment_status') or '--'}")
+    print(f"  aligned_snapshot_id_consistent: {scope.get('aligned_snapshot_id_consistent')}")
+    print(f"  compared_snapshot_ids: {scope.get('compared_snapshot_ids') or []}")
     print(f"  available_scope_count: {scope.get('available_scope_count', 0)}")
     for mode in ("strict_representative", "representative", "breadth"):
         print(f"  - {mode}: state={scope.get(f'{mode}_state') or '--'} aggregate={scope.get(f'{mode}_aggregate_value')}")
@@ -177,6 +194,9 @@ def _print_cube(cube: pd.DataFrame, limit: int) -> None:
         "source_mode",
         "derived_state",
         "aggregate_value",
+        "event_count",
+        "collision_type",
+        "selected_captured_time",
         "observation_id",
     ]
     available = [column for column in columns if column in cube.columns]

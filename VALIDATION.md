@@ -1175,3 +1175,23 @@ The reason is simple: the concept fund-flow endpoint can occasionally fail with 
 - `smoke_check.py`, `verify_runtime.py`, `cloud_preflight.py` and `release_check.py` include the theme dynamics assets.
 - Tests remain offline and deterministic.
 - Page and docs avoid trading, prediction, recommendation or investment-action wording.
+
+## v3.11 Analytical Grain Integrity Checks
+
+- `APP_VERSION` is `v3.11`.
+- `CHANGELOG.md` contains a `v3.11` entry.
+- Raw event observation grain is explicit: `snapshot_event_id`, `theme_name`, `calculation_mode`, `source_mode`, `theme_definition_fingerprint`.
+- Bucketed analytical observation grain is explicit: `theme_name`, `trade_date`, `captured_time_bucket`, `calculation_mode`, `source_mode`, `taxonomy_fingerprint`, `theme_definition_fingerprint`.
+- `build_theme_observation_events()` preserves physical snapshot lineage and exact captured timestamps.
+- Bucket collisions are reported separately from true raw event duplicates.
+- Canonical bucket observations use the centralized `latest_valid_snapshot_in_bucket` policy.
+- Non-selected events remain preserved in contributing lineage.
+- State transition traces, occupancy shares and streaks default to canonical bucket observations.
+- Scope divergence exposes `alignment_status`, compared snapshot IDs and selected event IDs.
+- `tools/inspect_observation_grain.py` exists and supports SAMPLE / REAL read-only inspection.
+- The grain CLI reports raw events, bucket collision summary and canonical observation examples without printing raw market rows.
+- Streamlit Multi-Day evidence panel shows dynamics basis, materialization policy and bucket collision counts.
+- `smoke_check.py`, `verify_runtime.py`, `cloud_preflight.py` and `release_check.py` include analytical grain assets.
+- No `drop_duplicates()` shortcut is presented as the analytical solution.
+- Tests remain offline and deterministic.
+- Page and docs avoid trading, prediction, recommendation or investment-action wording.

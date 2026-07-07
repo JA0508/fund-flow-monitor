@@ -176,6 +176,7 @@ from src.theme_dynamics import (  # noqa: E402
     render_theme_dynamics_brief_section,
     validate_theme_dynamics_text,
 )
+from tools.inspect_observation_grain import build_observation_grain_report  # noqa: E402
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1070,19 +1071,34 @@ def _verify_theme_dynamics() -> None:
     )
     section = render_theme_dynamics_brief_section(evidence)
     forbidden_hits = validate_theme_dynamics_text(section)
+    grain_report = build_observation_grain_report(
+        source_mode="SAMPLE",
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+        theme=theme,
+        mode="strict_representative",
+    )
     trace = evidence.get("state_transition_trace") or {}
     scope = evidence.get("scope_divergence_summary") or {}
     member = evidence.get("latest_member_structural_divergence") or {}
     print("Theme Dynamics / State Transition 检查:")
     print("  theme_dynamics_module_imported: True")
     print(f"  inspect_theme_dynamics.py exists: {(PROJECT_ROOT / 'tools/inspect_theme_dynamics.py').exists()}")
+    print(f"  inspect_observation_grain.py exists: {(PROJECT_ROOT / 'tools/inspect_observation_grain.py').exists()}")
     print(f"  sample_theme_dynamics_available: {evidence.get('dynamics_available')}")
     print(f"  sample_theme_dynamics_theme: {evidence.get('theme_name')}")
     print(f"  sample_theme_dynamics_observation_count: {evidence.get('observation_count')}")
     print(f"  sample_theme_dynamics_date_count: {evidence.get('trade_date_count')}")
     print(f"  sample_theme_dynamics_time_bucket_count: {evidence.get('captured_time_bucket_count')}")
+    print(f"  sample_theme_dynamics_basis: {evidence.get('dynamics_basis')}")
+    print(f"  sample_theme_dynamics_materialization_policy: {evidence.get('materialization_policy')}")
+    print(f"  sample_theme_dynamics_raw_event_count: {evidence.get('raw_event_observation_count')}")
+    print(f"  sample_theme_dynamics_canonical_count: {evidence.get('canonical_observation_count')}")
+    print(f"  sample_observation_grain_raw_count: {grain_report.get('raw_event_count')}")
+    print(f"  sample_observation_grain_canonical_count: {grain_report.get('canonical_observation_count')}")
+    print(f"  sample_observation_grain_collided_buckets: {(grain_report.get('bucket_collision_summary') or {}).get('collided_bucket_count')}")
     print(f"  sample_theme_dynamics_state_path: {trace.get('state_path_text')}")
     print(f"  sample_theme_dynamics_scope_state: {scope.get('scope_divergence_state')}")
+    print(f"  sample_theme_dynamics_alignment_status: {scope.get('alignment_status')}")
     print(f"  sample_theme_dynamics_member_state: {member.get('structural_state')}")
     print(f"  sample_theme_dynamics_forbidden_hits: {forbidden_hits}")
     print("  theme dynamics 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
