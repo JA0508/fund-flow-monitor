@@ -70,6 +70,7 @@ Fund Flow Monitor 的长期目标是成为面向“养基宝 / 基金投资辅�
 - v3.9 完成 theme taxonomy calibration and overlap audit：主题成员角色、映射来源、别名歧义、跨主题重叠、SAMPLE / REAL source-universe coverage 和只读校准 CLI。
 - v3.10 完成 theme dynamics cube and structural divergence：主题观测 fact grain、状态迁移路径、latest-per-date 演化、跨口径分歧和成员结构分歧的只读证据层。
 - v3.11 完成 analytical grain integrity and canonical observation materialization：raw event grain、bucketed analytical grain、time-bucket collision audit、canonical bucket observations、scope alignment lineage 和只读 grain audit CLI。
+- v3.12 完成 structural regime signatures and state-equivalent divergence：基于 canonical observations 的 headline/scope/member 结构签名、episode 切段、已观测结构切换和同 headline state 结构对照。
 - v4.0 以后再考虑证据面板交互 polish、demo brief 图表截图引用、更细的数据质量规则、外部定时采集运维说明、DuckDB 可选分析后端。
 - 在 Streamlit MVP 验证稳定后，再考虑 FastAPI + React + ECharts 产品化重构。
 - 后端未来负责低频沉淀和统一 API。

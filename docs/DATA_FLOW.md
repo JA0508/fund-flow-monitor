@@ -292,3 +292,33 @@ The cross-date view uses canonical bucket observations first, then the latest ca
 `tools/inspect_theme_dynamics.py` is read-only. It does not fetch AKShare, does not write CSV or SQLite and does not mutate `config/theme_taxonomy.json`.
 
 `tools/inspect_observation_grain.py` is the focused grain audit CLI. It reports raw event counts, true duplicate event rows, collided buckets, extra events inside collided buckets, canonical observation counts and safe example metadata without printing raw market rows.
+
+## Structural Regime Signatures
+
+v3.12 consumes canonical bucket observations and creates a structural regime evidence path:
+
+```text
+canonical bucket observations
+-> headline state
+-> scope divergence table
+-> member structural state
+-> structural regime signature
+-> regime episodes
+-> observed transition trace
+-> state-equivalent structural analysis
+-> Multi-Day evidence panel / inspect_theme_regimes.py / brief section
+```
+
+The signature is semantic and deterministic:
+
+```text
+headline_state | scope_divergence_state | member_divergence_state
+```
+
+It does not use clustering, embeddings, model inference, weighted scores or hidden rules. The source fields already exist in the theme dynamics path, so the regime layer avoids a second implementation of scope or member divergence.
+
+Episode boundaries are based on adjacent canonical observations. The project reports observation counts and first/last observed timestamps. It does not infer uninterrupted duration across overnight or missing-cache gaps.
+
+State-equivalent analysis asks a narrow descriptive question: for the same headline state, how many structural signatures have been observed? The denominator for observed shares is the canonical observations inside that headline-state group. These shares are not future-oriented measures.
+
+The CLI and Streamlit panel remain read-only: no AKShare calls, no CSV writes, no SQLite writes and no taxonomy mutation.

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v3.12
+
+- Structural Regime Signatures and State-Equivalent Divergence.
+- Added `src/theme_regimes.py` to compose deterministic human-readable structural signatures from governed headline state, scope divergence state and member structural state.
+- Added regime episodes, observed transition traces, headline-preserving structural transitions and state-equivalent structural analysis on top of canonical bucket observations.
+- Added `tools/inspect_theme_regimes.py` for read-only SAMPLE / REAL structural regime inspection without calling AKShare or writing cache files.
+- Streamlit Theme Dynamics Evidence now includes a compact Structural Regime Evidence section with signature legend, episode table and observed-share tables.
+- Observation Brief exports can include concise structural-regime evidence while preserving no-prediction and no-advice wording.
+- Smoke/runtime/cloud/release checks now recognize structural regime assets and SAMPLE regime evidence.
+- The layer remains descriptive and deterministic: no clustering, no black-box score, no transition forecast, no trading signal and no investment recommendation.
+
 ## v3.11
 
 - Analytical Grain Integrity and Canonical Observation Materialization.

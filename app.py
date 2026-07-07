@@ -173,6 +173,11 @@ from src.theme_dynamics import (
     render_theme_dynamics_brief_section,
     validate_theme_dynamics_text,
 )
+from src.theme_regimes import (
+    build_theme_regime_evidence,
+    render_theme_regime_brief_section,
+    validate_theme_regime_text,
+)
 from src.theme_radar import build_market_temperature, build_theme_radar_snapshot, compare_strict_and_breadth
 from src.theme_taxonomy_audit import build_taxonomy_audit_report
 from src.theme_taxonomy import (
@@ -251,6 +256,7 @@ from src.ui_components import (
     render_theme_observation_evidence_cards,
     render_theme_observation_threshold_table,
     render_theme_dynamics_evidence_panel,
+    render_theme_regime_evidence_panel,
 )
 from src.utils import get_china_now
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
@@ -1198,6 +1204,22 @@ def main() -> None:
                             tone="warning",
                         )
                     render_theme_dynamics_evidence_panel(dynamics_evidence)
+                    st.markdown("<div class='radar-section-title'>结构状态签名 / Structural Regime Evidence</div>", unsafe_allow_html=True)
+                    regime_evidence = build_theme_regime_evidence(
+                        theme_name=dynamics_theme,
+                        source_mode=active_source_mode,
+                        calculation_mode=dynamics_mode,
+                        taxonomy=taxonomy,
+                        data_dir=active_catalog_dir,
+                        cube_df=dynamics_cube_df,
+                    )
+                    if active_source_mode == "SAMPLE":
+                        render_compact_notice(
+                            "SAMPLE 结构签名说明",
+                            "当前结构状态签名来自 sample_data/ticks 合成演示数据，只描述已缓存历史样本，不代表真实行情。",
+                            tone="warning",
+                        )
+                    render_theme_regime_evidence_panel(regime_evidence)
         st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
         render_historical_evidence_notes(
             "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
@@ -1494,6 +1516,17 @@ def main() -> None:
                 brief_dynamics_section = render_theme_dynamics_brief_section(brief_dynamics_evidence)
                 if not validate_theme_dynamics_text(brief_dynamics_section):
                     extra_brief_sections.append(brief_dynamics_section)
+                brief_regime_evidence = build_theme_regime_evidence(
+                    theme_name=brief_provenance_theme,
+                    source_mode=active_source_mode,
+                    calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                    taxonomy=taxonomy,
+                    data_dir=active_catalog_dir,
+                    cube_df=brief_dynamics_cube,
+                )
+                brief_regime_section = render_theme_regime_brief_section(brief_regime_evidence)
+                if not validate_theme_regime_text(brief_regime_section):
+                    extra_brief_sections.append(brief_regime_section)
             except Exception:
                 pass
         theme_history_brief_section = ""

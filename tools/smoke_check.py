@@ -108,6 +108,11 @@ from src.theme_dynamics import (  # noqa: E402
     validate_theme_dynamics_text,
 )
 from tools.inspect_observation_grain import build_observation_grain_report  # noqa: E402
+from src.theme_regimes import (  # noqa: E402
+    build_theme_regime_evidence,
+    render_theme_regime_brief_section,
+    validate_theme_regime_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -450,6 +455,15 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         taxonomy=taxonomy_for_evidence,
     )
     theme_dynamics_section = render_theme_dynamics_brief_section(theme_dynamics_evidence)
+    theme_regime_evidence = build_theme_regime_evidence(
+        theme_name=evidence_theme,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        taxonomy=taxonomy_for_evidence,
+        data_dir=str(project_root / "sample_data/ticks"),
+        cube_df=dynamics_cube,
+    )
+    theme_regime_section = render_theme_regime_brief_section(theme_regime_evidence)
     observation_grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(project_root / "sample_data/ticks"),
@@ -615,6 +629,14 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_theme_dynamics_alignment_status": (theme_dynamics_evidence.get("scope_divergence_summary") or {}).get("alignment_status"),
             "sample_theme_dynamics_member_state": (theme_dynamics_evidence.get("latest_member_structural_divergence") or {}).get("structural_state"),
             "theme_dynamics_forbidden_hits": validate_theme_dynamics_text(theme_dynamics_section),
+            "theme_regimes_module_imported": True,
+            "inspect_theme_regimes_script_exists": (project_root / "tools/inspect_theme_regimes.py").exists(),
+            "sample_theme_regime_available": bool(theme_regime_evidence.get("regime_available")),
+            "sample_theme_regime_signature_count": int(theme_regime_evidence.get("regime_signature_count", 0) or 0),
+            "sample_theme_regime_episode_count": int(theme_regime_evidence.get("episode_count", 0) or 0),
+            "sample_theme_regime_latest_signature": theme_regime_evidence.get("latest_regime_signature"),
+            "sample_theme_regime_headline_preserving_count": int((theme_regime_evidence.get("transition_trace") or {}).get("headline_preserving_structural_change_count", 0) or 0),
+            "theme_regime_forbidden_hits": validate_theme_regime_text(theme_regime_section),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -787,6 +809,12 @@ def main() -> int:
     print(f"sample theme dynamics state path: {theme_dynamics['sample_theme_dynamics_state_path']}")
     print(f"sample theme dynamics scope/alignment/member state: {theme_dynamics['sample_theme_dynamics_scope_state']} / {theme_dynamics['sample_theme_dynamics_alignment_status']} / {theme_dynamics['sample_theme_dynamics_member_state']}")
     print(f"theme dynamics forbidden hits: {theme_dynamics['theme_dynamics_forbidden_hits']}")
+    print(f"inspect_theme_regimes.py exists: {theme_dynamics['inspect_theme_regimes_script_exists']}")
+    print(f"sample theme regime available: {theme_dynamics['sample_theme_regime_available']}")
+    print(f"sample theme regime signatures/episodes: {theme_dynamics['sample_theme_regime_signature_count']} / {theme_dynamics['sample_theme_regime_episode_count']}")
+    print(f"sample theme regime latest signature: {theme_dynamics['sample_theme_regime_latest_signature']}")
+    print(f"sample theme regime headline-preserving changes: {theme_dynamics['sample_theme_regime_headline_preserving_count']}")
+    print(f"theme regime forbidden hits: {theme_dynamics['theme_regime_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")

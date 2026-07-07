@@ -2074,6 +2074,99 @@ def render_theme_dynamics_evidence_panel(evidence: dict) -> None:
                 st.write(f"- {warning}")
 
 
+def render_theme_regime_evidence_panel(evidence: dict) -> None:
+    if not evidence or not evidence.get("regime_available"):
+        st.markdown(
+            "<div class='rank-panel'><div class='rank-empty'>当前主题暂无可用结构状态签名证据。该区域只读取 canonical observations，不触发实时抓取。</div></div>",
+            unsafe_allow_html=True,
+        )
+        for warning in (evidence or {}).get("warnings", [])[:5]:
+            st.caption(str(warning))
+        return
+    transition = evidence.get("transition_trace") or {}
+    state_equiv = evidence.get("state_equivalent_analysis") or {}
+    latest_signature = str(evidence.get("latest_regime_signature") or "--")
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>当前结构签名</div><div class='trust-value'>{escape(latest_signature)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Headline</div><div class='trust-value'>{escape(str(evidence.get('latest_headline_state') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Scope structure</div><div class='trust-value'>{escape(str(evidence.get('latest_scope_divergence_state') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Member structure</div><div class='trust-value'>{escape(str(evidence.get('latest_member_divergence_state') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Canonical obs</div><div class='trust-value'>{int(evidence.get('canonical_observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Signatures</div><div class='trust-value'>{int(evidence.get('regime_signature_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Episodes</div><div class='trust-value'>{int(evidence.get('episode_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Basis</div><div class='trust-value'>{escape(str(evidence.get('canonical_observation_basis') or '--'))}</div></div>"
+        "</div>"
+        "<div class='trust-copy'>结构状态签名 = headline state + scope structure + member structure。"
+        "它是确定性语义签名，不是黑箱评分，也不描述未来。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+    episodes = evidence.get("episodes")
+    if episodes is not None and not episodes.empty:
+        episode_rows = []
+        label_map = {}
+        for idx, signature in enumerate(episodes["regime_signature"].dropna().astype(str).drop_duplicates().tolist(), start=1):
+            label_map[signature] = f"R{idx}"
+        for _, row in episodes.head(12).iterrows():
+            signature = str(row.get("regime_signature") or "--")
+            episode_rows.append(
+                [
+                    label_map.get(signature, "--"),
+                    signature,
+                    f"{row.get('start_trade_date')} {row.get('start_captured_at')}",
+                    f"{row.get('end_trade_date')} {row.get('end_captured_at')}",
+                    row.get("canonical_observation_count", 0),
+                    row.get("span_semantics", "observed timestamp span"),
+                ]
+            )
+        _render_simple_table(["Label", "Signature", "Start", "End", "Obs", "Span semantics"], episode_rows, "暂无 episode。")
+        legend_rows = [[label, signature] for signature, label in label_map.items()]
+        with st.expander("结构签名 label legend", expanded=False):
+            _render_simple_table(["Label", "Full structural signature"], legend_rows, "暂无 legend。")
+
+    transition_rows = []
+    for item in (transition.get("headline_preserving_structural_transitions") or [])[:10]:
+        transition_rows.append(
+            [
+                f"{item.get('from_trade_date')} {item.get('from_captured_time_bucket')}",
+                f"{item.get('to_trade_date')} {item.get('to_captured_time_bucket')}",
+                item.get("headline_state", "--"),
+                f"{item.get('from_scope_structure')} → {item.get('to_scope_structure')}",
+                f"{item.get('from_member_structure')} → {item.get('to_member_structure')}",
+            ]
+        )
+    st.markdown(
+        f"<div class='small-note'>Observed structural transitions：{int(transition.get('structural_change_count', 0) or 0)} ｜ "
+        f"headline-preserving structural transitions：{int(transition.get('headline_preserving_structural_change_count', 0) or 0)}。"
+        "这些是历史已缓存 canonical observations 的相邻变化计数。</div>",
+        unsafe_allow_html=True,
+    )
+    _render_simple_table(["From", "To", "Headline", "Scope change", "Member change"], transition_rows, "暂无 headline 不变但结构变化的观测。")
+
+    signature_counts = state_equiv.get("regime_signature_counts") or {}
+    signature_shares = state_equiv.get("regime_signature_observed_shares") or {}
+    state_rows = [
+        [signature, count, signature_shares.get(signature, 0)]
+        for signature, count in signature_counts.items()
+    ]
+    st.markdown(
+        f"<div class='small-note'>当前 headline state：{escape(str(state_equiv.get('headline_state') or '--'))} ｜ "
+        f"同状态结构数：{int(state_equiv.get('distinct_regime_signature_count', 0) or 0)} ｜ "
+        "observed share 分母为该 headline state 下 canonical observations。</div>",
+        unsafe_allow_html=True,
+    )
+    _render_simple_table(["Structural signature", "Count", "observed share"], state_rows, "暂无同 headline state 结构对照。")
+
+    warnings = evidence.get("warnings") or []
+    if warnings:
+        with st.expander("Structural regime lineage warnings", expanded=False):
+            for warning in warnings[:10]:
+                st.write(f"- {warning}")
+
+
 def render_app_footer() -> None:
     st.markdown(
         f"<div class='footer-note'>{escape(APP_CN_NAME)} · {escape(APP_VERSION)} · Streamlit MVP<br>"

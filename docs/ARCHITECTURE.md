@@ -304,6 +304,38 @@ This is not `drop_duplicates()` cleanup. Multiple valid captured events can shar
 
 This layer is deliberately descriptive: it reads SAMPLE or local REAL cache, preserves source-mode and fingerprint boundaries, and does not call AKShare, write CSV, write SQLite or mutate the taxonomy. State paths and occupancy shares describe observed cached samples only; they are not forecasts, backtests or investment rationales.
 
+## Structural Regime Signature Layer
+
+v3.12 adds a deterministic structural signature layer on top of canonical bucket observations. The goal is to show when the same headline theme state hides different internal configurations.
+
+One structural regime signature is composed from three already-governed dimensions:
+
+```text
+headline theme state
+scope divergence state
+member structural state
+```
+
+The human-readable signature stays visible, for example:
+
+```text
+弱流入|representative_positive_breadth_negative|balanced_divergence
+```
+
+The short `regime_signature_id` is only a deterministic identifier for lineage and table joins. It is not a score, rank or model output.
+
+The layer reuses existing canonical logic:
+
+- headline state comes from the canonical theme observation row
+- scope structure comes from `build_scope_divergence_table()`
+- member structure comes from the member divergence already attached by the theme trace path
+
+It then segments contiguous observed canonical observations with the same signature into regime episodes, reports observed transition counts and identifies headline-preserving structural transitions. A headline-preserving structural transition means the displayed headline state remained the same while scope or member structure changed. It is a factual structural comparison, not a reversal signal or future-oriented measure.
+
+State-equivalent structural analysis groups observations by headline state and reports how many structural signatures were observed under that same headline state. Observed shares use canonical observations within the selected headline-state group as the denominator.
+
+REAL and SAMPLE, different theme-definition fingerprints and incompatible taxonomy fingerprints are not silently combined. When multiple lineages appear, the series is grouped or warning-labeled.
+
 ## If This Became Production-Grade
 
 A production-grade version would need additional systems that are intentionally out of scope here:

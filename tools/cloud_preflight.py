@@ -44,6 +44,7 @@ REQUIRED_ASSETS = (
     "src/theme_observation_evidence.py",
     "src/theme_taxonomy_audit.py",
     "src/theme_dynamics.py",
+    "src/theme_regimes.py",
     "src/providers/akshare_sector_flow.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
@@ -51,6 +52,7 @@ REQUIRED_ASSETS = (
     "tools/audit_theme_taxonomy.py",
     "tools/inspect_theme_dynamics.py",
     "tools/inspect_observation_grain.py",
+    "tools/inspect_theme_regimes.py",
 )
 
 

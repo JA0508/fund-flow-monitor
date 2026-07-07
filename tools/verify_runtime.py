@@ -177,6 +177,11 @@ from src.theme_dynamics import (  # noqa: E402
     validate_theme_dynamics_text,
 )
 from tools.inspect_observation_grain import build_observation_grain_report  # noqa: E402
+from src.theme_regimes import (  # noqa: E402
+    build_theme_regime_evidence,
+    render_theme_regime_brief_section,
+    validate_theme_regime_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1071,6 +1076,16 @@ def _verify_theme_dynamics() -> None:
     )
     section = render_theme_dynamics_brief_section(evidence)
     forbidden_hits = validate_theme_dynamics_text(section)
+    regime_evidence = build_theme_regime_evidence(
+        theme_name=theme,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        taxonomy=taxonomy,
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+        cube_df=cube,
+    )
+    regime_section = render_theme_regime_brief_section(regime_evidence)
+    regime_forbidden_hits = validate_theme_regime_text(regime_section)
     grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
@@ -1101,6 +1116,13 @@ def _verify_theme_dynamics() -> None:
     print(f"  sample_theme_dynamics_alignment_status: {scope.get('alignment_status')}")
     print(f"  sample_theme_dynamics_member_state: {member.get('structural_state')}")
     print(f"  sample_theme_dynamics_forbidden_hits: {forbidden_hits}")
+    print(f"  inspect_theme_regimes.py exists: {(PROJECT_ROOT / 'tools/inspect_theme_regimes.py').exists()}")
+    print(f"  sample_theme_regime_available: {regime_evidence.get('regime_available')}")
+    print(f"  sample_theme_regime_signature_count: {regime_evidence.get('regime_signature_count')}")
+    print(f"  sample_theme_regime_episode_count: {regime_evidence.get('episode_count')}")
+    print(f"  sample_theme_regime_latest_signature: {regime_evidence.get('latest_regime_signature')}")
+    print(f"  sample_theme_regime_headline_preserving_count: {(regime_evidence.get('transition_trace') or {}).get('headline_preserving_structural_change_count')}")
+    print(f"  sample_theme_regime_forbidden_hits: {regime_forbidden_hits}")
     print("  theme dynamics 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 

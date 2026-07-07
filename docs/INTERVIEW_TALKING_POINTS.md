@@ -24,6 +24,7 @@ The app fetches or reads sector fund-flow snapshots, normalizes them with pandas
 - Theme observation evidence shows which taxonomy definition, calculation mode, matched members, aggregate inputs and thresholds produced a displayed theme state.
 - Theme taxonomy audit checks member roles, overlap, alias ambiguity and source coverage while keeping mapping rules manually reviewable.
 - Theme dynamics separates raw snapshot-event observations from bucketed analytical observations, audits time-bucket collisions, and materializes canonical bucket observations while preserving contributing lineage.
+- Structural regime signatures combine headline state, scope divergence and member structure so the same headline state can be compared across different observed internal configurations without ML clustering or black-box scoring.
 - Lightweight data contracts validate the practical snapshot shape, especially SAMPLE CSV structure, without blocking valid local cache data unnecessarily.
 
 ## Engineering Architecture Tradeoff

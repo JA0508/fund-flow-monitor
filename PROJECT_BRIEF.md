@@ -209,6 +209,12 @@ v3.11 将 v3.10 的主题动态层进一步拆成两个事实粒度：raw theme 
 
 这解决了 v3.10 中“同一分钟桶内多次有效快照”被笼统标记为 duplicate 的问题。v3.11 不使用简单 `drop_duplicates()`，而是先审计 bucket collision，再按 `latest_valid_snapshot_in_bucket` 策略选择 canonical observation，同时保留所有 contributing event IDs、snapshot IDs、精确 captured time、状态变化和聚合值范围。状态路径、占用比例、streak 和 scope divergence 默认基于 canonical bucket observations；scope divergence 还暴露 selected snapshot 是否一致，避免静默跨事件比较。
 
+## Structural Regime Signatures
+
+v3.12 在 canonical observations 之上增加结构状态签名。它不再只看 headline theme state，而是把 headline state、scope divergence state 和 member structural state 组合成一个确定性语义签名，用于观察“同一个主题状态是否对应多种内部结构”。
+
+该能力继续复用 v3.10 / v3.11 的既有规则：headline state 来自 canonical observation，scope 结构来自 `build_scope_divergence_table()`，member 结构来自主题 trace 已计算出的成员结构。它不做聚类、不做黑箱评分、不计算策略收益，也不把已观测结构切换写成未来判断。CLI `tools/inspect_theme_regimes.py` 和 Streamlit 多日趋势面板均为只读检查。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -230,6 +236,7 @@ v3.11 将 v3.10 的主题动态层进一步拆成两个事实粒度：raw theme 
 - Historical Evidence 当前只做文件级和 captured_time 覆盖证据，不替代完整生产级 lineage / data catalog。
 - Theme Observation Evidence 当前解释规则化主题计算 lineage，不替代正式行业分类体系，也不产生任何交易建议或未来判断。
 - Theme Taxonomy Calibration 当前只做确定性规则审计，不做 fuzzy matching、embedding matching 或自动主题重写。
+- Structural Regime Signatures 当前只描述已缓存 canonical observations 中的结构状态，不提供连续时长推断、自动金融 regime 发现或未来判断。
 
 ## 后续计划
 

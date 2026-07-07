@@ -1195,3 +1195,24 @@ The reason is simple: the concept fund-flow endpoint can occasionally fail with 
 - No `drop_duplicates()` shortcut is presented as the analytical solution.
 - Tests remain offline and deterministic.
 - Page and docs avoid trading, prediction, recommendation or investment-action wording.
+
+## v3.12 Structural Regime Signature Checks
+
+- `APP_VERSION` is `v3.12`.
+- `CHANGELOG.md` contains a `v3.12` entry.
+- `src/theme_regimes.py` exists and can be imported.
+- `tools/inspect_theme_regimes.py` exists and supports SAMPLE / REAL read-only inspection.
+- Structural regime signatures are composed from deterministic governed dimensions: headline state, scope divergence state and member structural state.
+- Signature IDs are deterministic, but the human-readable signature remains visible.
+- Signatures default to v3.11 canonical bucket observations and do not use raw physical events as the default basis.
+- Scope divergence is reused from `build_scope_divergence_table()`; member structure is reused from the existing theme trace output.
+- Episodes are contiguous observed canonical-observation sequences with the same structural signature.
+- Timestamp spans are labeled as observed timestamp spans, not continuous regime duration.
+- Transition traces report observed transition counts, not future-oriented measures.
+- Headline-preserving structural transitions are identified when the headline state remains unchanged while scope/member structure changes.
+- State-equivalent analysis groups canonical observations by headline state and reports observed structural shares with an explicit denominator.
+- REAL and SAMPLE, different theme definitions and incompatible taxonomy fingerprints are not silently combined.
+- Streamlit Multi-Day / Theme Dynamics Evidence includes a compact Structural Regime Evidence panel without replacing existing multi-day logic.
+- Observation Brief integration remains concise and descriptive.
+- The regime layer does not introduce clustering, embeddings, opaque scores, strategy returns, trading signals or investment-action wording.
+- Tests remain offline and deterministic.
