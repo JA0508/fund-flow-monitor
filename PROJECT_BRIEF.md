@@ -221,6 +221,14 @@ v3.13 将项目从单主题结构证据推进到跨主题语义-动态关系证�
 
 该能力复用 v3.9 taxonomy overlap audit 和 v3.12 structural regime signatures，不重新实现主题重叠公式，也不创建黑箱关系分数。它的目标是回答“两个主题在同一 canonical 观察点上是否表现相似，以及 headline 相似时内部结构是否也相同”，而不是推断未来关系或交易价值。
 
+## Analytical Robustness Evidence
+
+v3.14 增加分析规格身份、规格敏感性和证据充分度审计。它回答的问题不是“哪个结果最好”，而是“这个观察结果由哪一个分析规格生成，在预声明规格下是否发生事实变化，以及支撑它的 canonical observations 和交易日期有多少”。
+
+规格身份包含 captured-time bucket 宽度、canonical 物化策略、计算口径、source mode、taxonomy fingerprint、状态阈值 fingerprint 和 canonical observation basis。默认生产策略仍是 `latest_valid_snapshot_in_bucket`，不会因为审计结果而自动切换。
+
+该层比较 1 / 5 / 10 分钟 bucket、latest / earliest valid materialization audit variant，以及 strict / representative / breadth 三种语义口径。输出是观察数量、日期覆盖、max-date observation share、状态路径差异、关系 observed-share 区间和 per-date evidence。它不生成稳健性分数、置信分数、显著性包装、预测或投资建议。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。
@@ -244,6 +252,7 @@ v3.13 将项目从单主题结构证据推进到跨主题语义-动态关系证�
 - Theme Taxonomy Calibration 当前只做确定性规则审计，不做 fuzzy matching、embedding matching 或自动主题重写。
 - Structural Regime Signatures 当前只描述已缓存 canonical observations 中的结构状态，不提供连续时长推断、自动金融 regime 发现或未来判断。
 - Cross-Theme Relationship Evidence 当前只描述 aligned canonical observations 中的主题对关系，不提供关系预测、组合优化、交易信号或机制解释。
+- Analytical Robustness Evidence 当前只覆盖预声明的轻量规格敏感性，不是正式统计模型验证，也不替代生产级研究流程。
 
 ## 后续计划
 

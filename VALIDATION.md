@@ -1253,3 +1253,39 @@ The reason is simple: the concept fund-flow endpoint can occasionally fail with 
 - Observation Brief integration remains concise and descriptive.
 - The regime layer does not introduce clustering, embeddings, opaque scores, strategy returns, trading signals or investment-action wording.
 - Tests remain offline and deterministic.
+
+## v3.13 Cross-Theme Relationship Evidence Checks
+
+- `APP_VERSION` is `v3.13`.
+- `CHANGELOG.md` contains a `v3.13` entry.
+- `src/theme_relationships.py` exists and can be imported.
+- `tools/inspect_theme_relationships.py` exists and supports SAMPLE / REAL read-only inspection.
+- Theme pairs are deterministic and unordered.
+- Pair alignment uses exact canonical bucket observations only.
+- Missing pair observations remain visible as alignment gaps.
+- Semantic overlap reuses the taxonomy overlap audit.
+- Headline agreement, same-sign share, structural-regime alignment and co-transition counts expose denominators.
+- No relationship score, correlation ranking, mechanism claim, prediction or investment-action wording is introduced.
+- Tests remain offline and deterministic.
+
+## v3.14 Analytical Robustness Checks
+
+- `APP_VERSION` is `v3.14`.
+- `CHANGELOG.md` contains a `v3.14` entry.
+- `src/analytical_robustness.py` exists and can be imported.
+- `tools/audit_analytical_robustness.py` exists and supports SAMPLE / REAL read-only audit.
+- Analytical specification identity includes bucket width, materialization policy, calculation mode, source mode, taxonomy fingerprint, canonical basis and threshold fingerprint.
+- Changing bucket width, materialization policy or calculation mode changes the specification ID.
+- The production default canonical policy remains `latest_valid_snapshot_in_bucket`.
+- Bucket-width sensitivity uses pre-declared `1,5,10` minute variants.
+- Materialization-policy sensitivity is an audit variant and does not switch production behavior.
+- Calculation scopes are compared as semantic scopes and are not ranked.
+- Evidence sufficiency exposes observation count, represented trade dates, observations by date, max-date observation share, bucket count and alignment gaps.
+- Threshold-boundary proximity uses existing state thresholds and does not mutate them.
+- Relationship robustness exposes aligned-observation ranges, same-sign ranges, exact-state ranges, same-regime ranges, structural-contrast ranges and per-date results.
+- Relationship topology rows include numerator/denominator context and represented trade dates.
+- Low-evidence pairs remain inspectable but are gated from ranked display rows by explicit display sufficiency thresholds.
+- Streamlit Multi-Day evidence includes a compact Analytical Robustness Evidence panel without replacing existing multi-day logic.
+- Observation Brief integration remains concise and uses factual specification range wording only.
+- The robustness layer does not introduce robustness scores, confidence scores, p-values, prediction, trading signals or investment-action wording.
+- Tests remain offline and deterministic.

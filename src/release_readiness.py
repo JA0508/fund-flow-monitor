@@ -37,6 +37,7 @@ PUBLIC_FILES = (
     "src/theme_dynamics.py",
     "src/theme_regimes.py",
     "src/theme_relationships.py",
+    "src/analytical_robustness.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
     "tools/inspect_theme_evidence.py",
@@ -45,6 +46,7 @@ PUBLIC_FILES = (
     "tools/inspect_observation_grain.py",
     "tools/inspect_theme_regimes.py",
     "tools/inspect_theme_relationships.py",
+    "tools/audit_analytical_robustness.py",
 )
 
 PUBLIC_DIRS = (
@@ -83,6 +85,7 @@ REQUIRED_PUBLIC_ASSETS = (
     "src/theme_dynamics.py",
     "src/theme_regimes.py",
     "src/theme_relationships.py",
+    "src/analytical_robustness.py",
     "tools/probe_akshare.py",
     "tools/quality_gate.py",
     "tools/collect_real_snapshot.py",
@@ -94,6 +97,7 @@ REQUIRED_PUBLIC_ASSETS = (
     "tools/inspect_observation_grain.py",
     "tools/inspect_theme_regimes.py",
     "tools/inspect_theme_relationships.py",
+    "tools/audit_analytical_robustness.py",
     "LICENSE",
 )
 

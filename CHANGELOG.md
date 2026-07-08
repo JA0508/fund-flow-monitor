@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v3.14
+
+- Analytical Robustness, Specification Sensitivity and Evidence Sufficiency.
+- Added `src/analytical_robustness.py` to define deterministic analytical specification identity across bucket width, materialization policy, calculation scope, source mode, taxonomy fingerprint and threshold fingerprint.
+- Added evidence sufficiency profiles with observation counts, represented trade dates, observations by date, max-date observation share, bucket count and alignment gap context.
+- Added pre-declared bucket-width sensitivity for 1 / 5 / 10 minute buckets and materialization-policy audit variants while keeping the production default `latest_valid_snapshot_in_bucket` unchanged.
+- Added threshold-boundary proximity evidence based on existing theme state thresholds without changing or perturbing them.
+- Added `tools/audit_analytical_robustness.py` for read-only SAMPLE / REAL robustness audits without AKShare calls or cache writes.
+- Cross-theme topology rows now expose numerator/denominator context, represented trade dates and display sufficiency guardrails.
+- Streamlit Multi-Day evidence now includes a compact Analytical Robustness Evidence panel; Observation Briefs can include concise specification range qualifiers.
+- This layer reports factual ranges and observed variation only: no robustness score, no confidence score, no p-value theatre, no prediction and no investment recommendation.
+
 ## v3.13
 
 - Cross-Theme Alignment Topology and Semantic-Dynamic Contrast.

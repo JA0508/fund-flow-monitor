@@ -119,6 +119,11 @@ from src.theme_relationships import (  # noqa: E402
     render_theme_relationship_brief_section,
     validate_theme_relationship_text,
 )
+from src.analytical_robustness import (  # noqa: E402
+    compare_relationship_specifications,
+    compare_theme_specifications,
+    validate_analytical_robustness_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -179,6 +184,7 @@ REQUIRED_FILES = (
     "src/theme_observation_evidence.py",
     "src/theme_taxonomy_audit.py",
     "src/theme_dynamics.py",
+    "src/analytical_robustness.py",
     "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
@@ -196,6 +202,7 @@ REQUIRED_FILES = (
     "tools/inspect_theme_dynamics.py",
     "tools/inspect_observation_grain.py",
     "tools/rebuild_local_warehouse.py",
+    "tools/audit_analytical_robustness.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
     "config/theme_taxonomy.json",
@@ -485,6 +492,23 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         taxonomy=taxonomy_for_evidence,
     )
     theme_relationship_section = render_theme_relationship_brief_section(theme_relationship_evidence)
+    theme_robustness = compare_theme_specifications(
+        evidence_theme,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        bucket_minutes=(1, 5, 10),
+        taxonomy=taxonomy_for_evidence,
+        data_dir=str(project_root / "sample_data/ticks"),
+    )
+    relationship_robustness = compare_relationship_specifications(
+        evidence_theme,
+        relationship_peer,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        bucket_minutes=(1, 5, 10),
+        taxonomy=taxonomy_for_evidence,
+        data_dir=str(project_root / "sample_data/ticks"),
+    )
     observation_grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(project_root / "sample_data/ticks"),
@@ -666,6 +690,13 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_theme_relationship_same_sign_share": (theme_relationship_evidence.get("headline_state_evidence") or {}).get("same_sign_share"),
             "sample_theme_relationship_structural_contrast_count": (theme_relationship_evidence.get("structural_regime_evidence") or {}).get("headline_aligned_regime_different_count"),
             "theme_relationship_forbidden_hits": validate_theme_relationship_text(theme_relationship_section),
+            "analytical_robustness_module_imported": True,
+            "audit_analytical_robustness_script_exists": (project_root / "tools/audit_analytical_robustness.py").exists(),
+            "sample_theme_robustness_spec_count": int(theme_robustness.get("evaluated_specification_count", 0) or 0),
+            "sample_theme_robustness_latest_states": theme_robustness.get("latest_headline_state_values", []),
+            "sample_relationship_robustness_spec_count": int(relationship_robustness.get("evaluated_specification_count", 0) or 0),
+            "sample_relationship_robustness_same_sign_range": relationship_robustness.get("same_sign_observed_share_range", {}),
+            "analytical_robustness_forbidden_hits": validate_analytical_robustness_text(str(theme_robustness) + str(relationship_robustness)),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -850,6 +881,13 @@ def main() -> int:
     print(f"sample theme relationship same-sign share: {theme_dynamics['sample_theme_relationship_same_sign_share']}")
     print(f"sample theme relationship structural contrast count: {theme_dynamics['sample_theme_relationship_structural_contrast_count']}")
     print(f"theme relationship forbidden hits: {theme_dynamics['theme_relationship_forbidden_hits']}")
+    print(f"analytical robustness module imported: {theme_dynamics['analytical_robustness_module_imported']}")
+    print(f"audit_analytical_robustness.py exists: {theme_dynamics['audit_analytical_robustness_script_exists']}")
+    print(f"sample theme robustness spec count: {theme_dynamics['sample_theme_robustness_spec_count']}")
+    print(f"sample theme robustness latest states: {theme_dynamics['sample_theme_robustness_latest_states']}")
+    print(f"sample relationship robustness spec count: {theme_dynamics['sample_relationship_robustness_spec_count']}")
+    print(f"sample relationship robustness same-sign range: {theme_dynamics['sample_relationship_robustness_same_sign_range']}")
+    print(f"analytical robustness forbidden hits: {theme_dynamics['analytical_robustness_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")

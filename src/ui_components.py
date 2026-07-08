@@ -2255,6 +2255,132 @@ def render_theme_relationship_evidence_panel(evidence: dict) -> None:
                 st.write(f"- {warning}")
 
 
+def render_analytical_robustness_panel(evidence: dict, analysis_type: str = "theme") -> None:
+    result = (evidence or {}).get("relationship_robustness") or (evidence or {}).get("theme_robustness") or {}
+    if not result or not result.get("robustness_available"):
+        st.markdown(
+            "<div class='rank-panel'><div class='rank-empty'>当前暂无可展示的 analytical robustness evidence。该区域只读取已缓存观察，不触发实时抓取。</div></div>",
+            unsafe_allow_html=True,
+        )
+        return
+    default_spec = result.get("default_specification") or {}
+    rows = result.get("specification_results") or []
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>Default spec</div><div class='trust-value'>{escape(str(default_spec.get('specification_id') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Bucket</div><div class='trust-value'>{escape(str(default_spec.get('captured_time_bucket_minutes') or '--'))}m</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Policy</div><div class='trust-value'>{escape(str(default_spec.get('materialization_policy') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Mode</div><div class='trust-value'>{escape(str(default_spec.get('calculation_mode') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Source</div><div class='trust-value'>{escape(str(default_spec.get('source_mode') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Evaluated specs</div><div class='trust-value'>{int(result.get('evaluated_specification_count', 0) or 0)}</div></div>"
+        "</div>"
+        "<div class='trust-copy'>Analytical robustness evidence 展示预声明规格下的事实区间、分母和样本深度。"
+        "它不是置信分数、显著性检验或未来判断。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+    if analysis_type == "relationship" or "theme_pair" in result:
+        range_rows = [
+            ["aligned observations", result.get("aligned_observation_count_range", {})],
+            ["same-sign observed share", result.get("same_sign_observed_share_range", {})],
+            ["exact-state agreement share", result.get("exact_state_agreement_share_range", {})],
+            ["same-regime observed share", result.get("same_regime_observed_share_range", {})],
+            ["structural-contrast share", result.get("structural_contrast_share_range", {})],
+        ]
+        _render_simple_table(["Observed result range", "min/max"], [[label, value] for label, value in range_rows], "暂无 result range。")
+        variant_rows = []
+        for item in rows:
+            suff = item.get("evidence_sufficiency") or {}
+            variant_rows.append(
+                [
+                    item.get("human_readable"),
+                    item.get("aligned_observation_count"),
+                    item.get("represented_trade_date_count"),
+                    f"{item.get('same_sign_observed_share')} ({item.get('same_sign_count')}/{item.get('aligned_observation_count')})",
+                    item.get("same_regime_observed_share"),
+                    item.get("structural_contrast_share"),
+                    suff.get("max_date_observation_share"),
+                ]
+            )
+        _render_simple_table(
+            ["Specification", "Aligned obs", "Dates", "Same-sign", "Same-regime", "Structural contrast", "Max date share"],
+            variant_rows,
+            "暂无 relationship robustness variants。",
+        )
+        per_date = rows[0].get("per_date_results") if rows else []
+        if per_date:
+            with st.expander("Per-date relationship results", expanded=False):
+                _render_simple_table(
+                    ["Date", "Aligned obs", "Same-sign", "Exact-state"],
+                    [
+                        [
+                            item.get("trade_date"),
+                            item.get("aligned_observation_count"),
+                            f"{item.get('same_sign_share')} ({item.get('same_sign_count')}/{item.get('aligned_observation_count')})",
+                            f"{item.get('exact_state_agreement_share')} ({item.get('exact_state_agreement_count')}/{item.get('aligned_observation_count')})",
+                        ]
+                        for item in per_date
+                    ],
+                    "暂无 per-date relationship rows。",
+                )
+    else:
+        range_rows = [
+            ["state path variants", result.get("headline_state_path_variant_count")],
+            ["latest state values", ", ".join(result.get("latest_headline_state_values", []))],
+            ["regime signature count", result.get("regime_signature_count_range", {})],
+            ["episode count", result.get("episode_count_range", {})],
+            ["headline-preserving structure changes", result.get("headline_preserving_change_count_range", {})],
+        ]
+        _render_simple_table(["Theme robustness field", "Value"], range_rows, "暂无 theme robustness range。")
+        variant_rows = []
+        for item in rows:
+            suff = item.get("evidence_sufficiency") or {}
+            threshold = item.get("threshold_boundary_evidence") or {}
+            variant_rows.append(
+                [
+                    item.get("human_readable"),
+                    item.get("observation_count"),
+                    item.get("represented_trade_date_count"),
+                    item.get("latest_headline_state"),
+                    item.get("transition_count"),
+                    item.get("regime_signature_count"),
+                    suff.get("max_date_observation_share"),
+                    threshold.get("minimum_distance_to_threshold"),
+                ]
+            )
+        _render_simple_table(
+            ["Specification", "Obs", "Dates", "Latest state", "Transitions", "Regime signatures", "Max date share", "Min threshold distance"],
+            variant_rows,
+            "暂无 theme robustness variants。",
+        )
+        closest = rows[0].get("threshold_boundary_evidence", {}).get("closest_observations", []) if rows else []
+        if closest:
+            with st.expander("Closest state-threshold observations", expanded=False):
+                _render_simple_table(
+                    ["Date", "Bucket", "State", "Aggregate", "Nearest threshold", "Distance"],
+                    [
+                        [
+                            item.get("trade_date"),
+                            item.get("captured_time_bucket"),
+                            item.get("derived_state"),
+                            item.get("aggregate_value"),
+                            item.get("nearest_state_threshold"),
+                            item.get("absolute_distance_to_nearest_threshold"),
+                        ]
+                        for item in closest
+                    ],
+                    "暂无 threshold boundary rows。",
+                )
+
+    warnings = result.get("warnings") or []
+    if warnings:
+        with st.expander("Analytical robustness warnings", expanded=False):
+            for warning in warnings[:10]:
+                st.write(f"- {warning}")
+
+
 def render_app_footer() -> None:
     st.markdown(
         f"<div class='footer-note'>{escape(APP_CN_NAME)} · {escape(APP_VERSION)} · Streamlit MVP<br>"

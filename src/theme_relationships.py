@@ -70,6 +70,8 @@ STATE_SIGN_GROUPS = {
 
 ALIGNMENT_DENOMINATOR = "all aligned canonical pair observations for the selected pair/mode/source/taxonomy lineage"
 TRANSITION_DENOMINATOR = "aligned consecutive transition steps where at least one theme changed the measured dimension"
+MIN_DISPLAY_ALIGNED_OBSERVATIONS = 3
+MIN_DISPLAY_REPRESENTED_TRADE_DATES = 2
 
 
 def _stable_id(payload: object, length: int = 20) -> str:
@@ -431,6 +433,16 @@ def build_observed_co_transition_evidence(pair_observations: pd.DataFrame) -> di
             "structural_change_denominator": 0,
             "denominator_note": TRANSITION_DENOMINATOR,
         }
+    lineage_cols = [
+        "source_mode",
+        "taxonomy_fingerprint",
+        "theme_a_definition_fingerprint",
+        "theme_b_definition_fingerprint",
+        "calculation_mode",
+    ]
+    for col in lineage_cols:
+        if col not in aligned.columns:
+            aligned[col] = None
     ordered = aligned.sort_values(["source_mode", "taxonomy_fingerprint", "theme_a_definition_fingerprint", "theme_b_definition_fingerprint", "trade_date", "captured_time_bucket"], na_position="last")
     transition_steps = 0
     a_headline = b_headline = both_headline = 0
@@ -582,6 +594,8 @@ def build_relationship_topology_summary(
     pair_df: pd.DataFrame,
     taxonomy: dict | None = None,
     sort_by: str = "jaccard_overlap",
+    min_aligned_observations: int = MIN_DISPLAY_ALIGNED_OBSERVATIONS,
+    min_represented_trade_dates: int = MIN_DISPLAY_REPRESENTED_TRADE_DATES,
 ) -> pd.DataFrame:
     if pair_df is None or pair_df.empty:
         return pd.DataFrame()
@@ -593,22 +607,41 @@ def build_relationship_topology_summary(
         headline = evidence.get("headline_state_evidence", {})
         structural = evidence.get("structural_regime_evidence", {})
         transitions = evidence.get("co_transition_evidence", {})
+        aligned_observations = int(evidence.get("aligned_observation_count", 0) or 0)
+        represented_trade_dates = int(evidence.get("represented_trade_date_count", 0) or 0)
+        exclusion_reasons = []
+        if aligned_observations < int(min_aligned_observations):
+            exclusion_reasons.append("below_min_aligned_observations")
+        if represented_trade_dates < int(min_represented_trade_dates):
+            exclusion_reasons.append("below_min_represented_trade_dates")
         rows.append(
             {
                 "theme_pair": evidence.get("theme_pair"),
                 "theme_a": evidence.get("theme_a"),
                 "theme_b": evidence.get("theme_b"),
-                "aligned_observations": evidence.get("aligned_observation_count", 0),
+                "aligned_observations": aligned_observations,
                 "alignment_gaps": evidence.get("alignment_gap_count", 0),
+                "represented_trade_dates": represented_trade_dates,
                 "taxonomy_jaccard": semantic.get("jaccard_overlap", 0.0),
                 "shared_member_count": semantic.get("shared_member_count", 0),
+                "same_sign_count": headline.get("same_sign_count", 0),
                 "same_sign_observed_share": headline.get("same_sign_share", 0.0),
+                "exact_state_agreement_count": headline.get("exact_headline_state_agreement_count", 0),
                 "exact_state_observed_share": headline.get("exact_headline_state_agreement_share", 0.0),
+                "same_regime_count": structural.get("same_regime_signature_count", 0),
                 "same_regime_observed_share": structural.get("same_regime_signature_share", 0.0),
                 "headline_aligned_regime_different_count": structural.get("headline_aligned_regime_different_count", 0),
                 "headline_aligned_regime_different_share": structural.get("headline_aligned_regime_different_share", 0.0),
                 "simultaneous_headline_change_count": transitions.get("simultaneous_headline_change_count", 0),
                 "simultaneous_structural_change_count": transitions.get("simultaneous_structural_change_count", 0),
+                "display_min_aligned_observations": int(min_aligned_observations),
+                "display_min_represented_trade_dates": int(min_represented_trade_dates),
+                "display_eligible": not exclusion_reasons,
+                "exclusion_reasons": ", ".join(exclusion_reasons),
+                "denominator_context": (
+                    f"{headline.get('same_sign_count', 0)}/{aligned_observations} aligned observations, "
+                    f"{represented_trade_dates} trade dates"
+                ),
                 "warnings": "; ".join(evidence.get("warnings", [])[:2]),
             }
         )
@@ -622,6 +655,14 @@ def build_relationship_topology_summary(
     column = sort_map.get(sort_by, sort_by)
     if column in result.columns:
         result = result.sort_values([column, "aligned_observations", "theme_pair"], ascending=[False, False, True]).reset_index(drop=True)
+    result.attrs["display_sufficiency"] = {
+        "minimum_aligned_observations": int(min_aligned_observations),
+        "minimum_represented_trade_dates": int(min_represented_trade_dates),
+        "total_candidate_pairs": int(len(result)),
+        "pairs_meeting_display_sufficiency": int(result["display_eligible"].sum()) if "display_eligible" in result.columns else int(len(result)),
+        "excluded_pair_count": int((~result["display_eligible"].astype(bool)).sum()) if "display_eligible" in result.columns else 0,
+        "exclusion_reasons": result["exclusion_reasons"].value_counts().astype(int).to_dict() if "exclusion_reasons" in result.columns else {},
+    }
     return result
 
 

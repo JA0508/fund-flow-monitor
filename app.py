@@ -121,6 +121,11 @@ from src.runtime_profile import (
     build_runtime_profile_sidebar_defaults,
     get_runtime_profile,
 )
+from src.analytical_robustness import (
+    compare_relationship_specifications,
+    compare_theme_specifications,
+    validate_analytical_robustness_text,
+)
 from src.sample_data import (
     SAMPLE_DIR,
     build_sample_snapshot_catalog,
@@ -264,6 +269,7 @@ from src.ui_components import (
     render_theme_dynamics_evidence_panel,
     render_theme_regime_evidence_panel,
     render_theme_relationship_evidence_panel,
+    render_analytical_robustness_panel,
 )
 from src.utils import get_china_now
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
@@ -1272,17 +1278,73 @@ def main() -> None:
                         topology = relationship_bundle.get("topology_summary")
                         if topology is not None and not topology.empty:
                             with st.expander("Cross-theme topology factual rows", expanded=False):
+                                display_summary = getattr(topology, "attrs", {}).get("display_sufficiency", {})
+                                if display_summary:
+                                    st.caption(
+                                        "Display sufficiency: "
+                                        f"min aligned observations = {display_summary.get('minimum_aligned_observations')}; "
+                                        f"min represented trade dates = {display_summary.get('minimum_represented_trade_dates')}; "
+                                        f"excluded pair count = {display_summary.get('excluded_pair_count')}."
+                                    )
                                 columns = [
                                     "theme_pair",
                                     "aligned_observations",
+                                    "represented_trade_dates",
                                     "alignment_gaps",
                                     "taxonomy_jaccard",
+                                    "same_sign_count",
                                     "same_sign_observed_share",
+                                    "exact_state_agreement_count",
                                     "exact_state_observed_share",
+                                    "same_regime_count",
                                     "same_regime_observed_share",
                                     "headline_aligned_regime_different_count",
+                                    "display_eligible",
+                                    "denominator_context",
                                 ]
                                 st.dataframe(topology[[column for column in columns if column in topology.columns]].head(12), hide_index=True)
+                    st.markdown("<div class='radar-section-title'>分析稳健性与证据充分度 / Analytical Robustness Evidence</div>", unsafe_allow_html=True)
+                    robustness_options = ("当前主题", "当前主题对") if len(dynamics_theme_options) >= 2 else ("当前主题",)
+                    robustness_kind = st.radio(
+                        "稳健性审计对象",
+                        robustness_options,
+                        horizontal=True,
+                        key="robustness_kind",
+                    )
+                    robustness_buckets = (1, 5, 10)
+                    if robustness_kind == "当前主题":
+                        robustness_theme_result = compare_theme_specifications(
+                            dynamics_theme,
+                            source_mode=active_source_mode,
+                            calculation_mode=dynamics_mode,
+                            bucket_minutes=robustness_buckets,
+                            taxonomy=taxonomy,
+                            data_dir=active_catalog_dir,
+                        )
+                        if active_source_mode == "SAMPLE":
+                            render_compact_notice(
+                                "SAMPLE 稳健性审计说明",
+                                "当前 analytical robustness evidence 来自 sample_data/ticks 合成演示数据，只用于展示规格敏感性和证据充分度流程，不代表真实行情。",
+                                tone="warning",
+                            )
+                        render_analytical_robustness_panel({"theme_robustness": robustness_theme_result}, analysis_type="theme")
+                    elif len(dynamics_theme_options) >= 2:
+                        robustness_pair_result = compare_relationship_specifications(
+                            relationship_theme_a,
+                            relationship_theme_b,
+                            source_mode=active_source_mode,
+                            calculation_mode=dynamics_mode,
+                            bucket_minutes=robustness_buckets,
+                            taxonomy=taxonomy,
+                            data_dir=active_catalog_dir,
+                        )
+                        if active_source_mode == "SAMPLE":
+                            render_compact_notice(
+                                "SAMPLE 关系稳健性审计说明",
+                                "当前 relationship robustness evidence 来自 sample_data/ticks 合成演示数据；观察区间、分子/分母和日期覆盖只描述合成样本。",
+                                tone="warning",
+                            )
+                        render_analytical_robustness_panel({"relationship_robustness": robustness_pair_result}, analysis_type="relationship")
         st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
         render_historical_evidence_notes(
             "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
@@ -1612,6 +1674,33 @@ def main() -> None:
                     brief_relationship_section = render_theme_relationship_brief_section(brief_relationship_evidence)
                     if not validate_theme_relationship_text(brief_relationship_section):
                         extra_brief_sections.append(brief_relationship_section)
+                    brief_relationship_robustness = compare_relationship_specifications(
+                        brief_provenance_theme,
+                        relationship_theme_candidates[0],
+                        source_mode=active_source_mode,
+                        calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                        bucket_minutes=(1, 5, 10),
+                        taxonomy=taxonomy,
+                        data_dir=active_catalog_dir,
+                    )
+                    same_sign_range = brief_relationship_robustness.get("same_sign_observed_share_range", {})
+                    aligned_range = brief_relationship_robustness.get("aligned_observation_count_range", {})
+                    date_range = brief_relationship_robustness.get("represented_trade_date_count_range", {})
+                    robustness_section = "\n".join(
+                        [
+                            "## 分析规格与证据充分度说明",
+                            "",
+                            f"- 主题对：`{brief_relationship_robustness.get('theme_pair')}`；source_mode：`{active_source_mode}`。",
+                            "- 规格范围：预声明 1/5/10 分钟 captured-time bucket，默认物化策略保持 `latest_valid_snapshot_in_bucket`。",
+                            f"- aligned observations 区间：{aligned_range.get('min')}–{aligned_range.get('max')}；represented trade dates 区间：{date_range.get('min')}–{date_range.get('max')}。",
+                            f"- same-sign observed share 区间：{same_sign_range.get('min')}–{same_sign_range.get('max')}；该区间只描述已评估规格下的历史观察差异。",
+                            "- 以上不构成置信分数，不是显著性检验，也不预测未来走势。",
+                        ]
+                    )
+                    if active_source_mode == "SAMPLE":
+                        robustness_section += "\n- SAMPLE 说明：该稳健性说明基于合成演示数据，不代表真实行情。"
+                    if not validate_analytical_robustness_text(robustness_section):
+                        extra_brief_sections.append(robustness_section)
             except Exception:
                 pass
         theme_history_brief_section = ""

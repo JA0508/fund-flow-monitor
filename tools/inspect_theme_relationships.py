@@ -57,6 +57,7 @@ def _print_pair(evidence: dict, co_transitions: bool = False) -> None:
     print(f"  canonical basis: {evidence.get('canonical_materialization_basis')}")
     print(f"  materialization policy: {evidence.get('materialization_policy')}")
     print(f"  aligned canonical observations: {evidence.get('aligned_observation_count', 0)}")
+    print(f"  represented trade dates: {evidence.get('represented_trade_date_count', 0)}")
     print(f"  alignment gaps: {evidence.get('alignment_gap_count', 0)}")
     semantic = evidence.get("semantic_overlap", {})
     headline = evidence.get("headline_state_evidence", {})
@@ -67,9 +68,9 @@ def _print_pair(evidence: dict, co_transitions: bool = False) -> None:
     print(f"  shared_member_count: {semantic.get('shared_member_count', 0)}")
     print(f"  shared_strict_count: {semantic.get('shared_strict_count', 0)}")
     print("Observed headline-state alignment")
-    print(f"  exact agreement observed share: {headline.get('exact_headline_state_agreement_share', 0.0)}")
-    print(f"  same-sign observed share: {headline.get('same_sign_share', 0.0)}")
-    print(f"  opposing-sign observed share: {headline.get('opposing_sign_share', 0.0)}")
+    print(f"  exact agreement observed share: {headline.get('exact_headline_state_agreement_share', 0.0)} ({headline.get('exact_headline_state_agreement_count', 0)}/{headline.get('aligned_observation_count', 0)})")
+    print(f"  same-sign observed share: {headline.get('same_sign_share', 0.0)} ({headline.get('same_sign_count', 0)}/{headline.get('aligned_observation_count', 0)})")
+    print(f"  opposing-sign observed share: {headline.get('opposing_sign_share', 0.0)} ({headline.get('opposing_sign_count', 0)}/{headline.get('aligned_observation_count', 0)})")
     print("Structural-regime alignment")
     print(f"  same-regime observed share: {structural.get('same_regime_signature_share', 0.0)}")
     print(f"  headline-aligned/regime-different count: {structural.get('headline_aligned_regime_different_count', 0)}")
@@ -95,12 +96,19 @@ def _print_topology(df, title: str, limit: int) -> None:
     columns = [
         "theme_pair",
         "aligned_observations",
+        "represented_trade_dates",
         "alignment_gaps",
         "taxonomy_jaccard",
+        "same_sign_count",
         "same_sign_observed_share",
+        "exact_state_agreement_count",
         "exact_state_observed_share",
+        "same_regime_count",
         "same_regime_observed_share",
         "headline_aligned_regime_different_count",
+        "display_eligible",
+        "exclusion_reasons",
+        "denominator_context",
         "simultaneous_headline_change_count",
         "simultaneous_structural_change_count",
     ]
@@ -144,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         topology = topology.sort_values(["taxonomy_jaccard", "aligned_observations", "theme_pair"], ascending=[False, False, True]) if topology is not None and not topology.empty else topology
         title = "Top factual rows by taxonomy Jaccard overlap"
     elif args.top_state_alignment:
+        topology = topology[topology["display_eligible"].astype(bool)].copy() if topology is not None and not topology.empty and "display_eligible" in topology.columns else topology
         topology = topology.sort_values(["same_sign_observed_share", "aligned_observations", "theme_pair"], ascending=[False, False, True]) if topology is not None and not topology.empty else topology
         title = "Top factual rows by observed same-sign share"
     elif args.top_structural_contrast:
@@ -159,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
             "relationship_observation_basis": bundle.get("relationship_observation_basis"),
             "materialization_policy": bundle.get("materialization_policy"),
             "alignment_summary": bundle.get("alignment_summary"),
+            "display_sufficiency": getattr(bundle.get("topology_summary"), "attrs", {}).get("display_sufficiency", {}),
             "topology_summary": _records_for_json(topology.head(limit) if topology is not None and not topology.empty else topology),
             "warnings": bundle.get("warnings", []),
         }
@@ -170,6 +180,14 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
     else:
         _print_topology(topology, title, limit)
+        display = getattr(bundle.get("topology_summary"), "attrs", {}).get("display_sufficiency", {})
+        if display:
+            print("Display sufficiency")
+            print(f"  minimum aligned observations: {display.get('minimum_aligned_observations')}")
+            print(f"  minimum represented trade dates: {display.get('minimum_represented_trade_dates')}")
+            print(f"  total candidate pairs: {display.get('total_candidate_pairs')}")
+            print(f"  displayed pairs meeting sufficiency: {display.get('pairs_meeting_display_sufficiency')}")
+            print(f"  excluded pair count: {display.get('excluded_pair_count')}")
         warnings = bundle.get("warnings") or []
         if warnings:
             print("Warnings")
@@ -180,4 +198,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

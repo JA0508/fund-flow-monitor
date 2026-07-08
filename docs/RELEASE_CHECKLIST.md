@@ -100,6 +100,9 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 - `python tools/inspect_observation_grain.py --source-mode SAMPLE --json` should show raw event grain, bucketed analytical grain, bucket collision summary and canonical materialization policy.
 - `python tools/inspect_observation_grain.py --source-mode REAL --collisions --canonical` may be run locally when real cache exists; missing real cache should remain a safe, readable state.
 - `python tools/inspect_theme_regimes.py --theme "半导体/芯片链" --source-mode SAMPLE --episodes --transitions --state-equivalent` should show structural signatures, observed episodes and headline-preserving structural transitions without writing CSV/SQLite.
+- `python tools/audit_analytical_robustness.py --source-mode SAMPLE --theme "半导体/芯片链" --bucket-minutes "1,5,10" --evidence-sufficiency --threshold-boundaries --json` should show analytical specification IDs, evidence sufficiency and threshold-boundary evidence without writing CSV/SQLite.
+- `python tools/audit_analytical_robustness.py --source-mode SAMPLE --pair "AI算力/TMT::半导体/芯片链" --mode "strict_representative" --bucket-minutes "1,5,10" --date-concentration --json` should show aligned-observation ranges, represented trade dates, per-date results and denominator context.
+- `python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode "strict_representative" --top-state-alignment --limit 10` should show display sufficiency thresholds, represented trade dates and numerator/denominator context.
 - Bucket collisions should be described as multiple valid captured events sharing one analytical bucket, not as generic duplicate removal.
 - Taxonomy audit warnings such as reused members or ambiguous source names should be reviewed as mapping-governance notes, not app failures.
 - Missing real cache or missing collector logs on Streamlit Cloud is expected and should not be treated as a public demo failure.
@@ -125,6 +128,7 @@ streamlit run app.py
 - Theme radar displays normally.
 - Theme history chart displays normally after SAMPLE warehouse rebuild.
 - Cross-theme relationship evidence displays aligned observation counts, semantic overlap, same-sign observed share and structural contrast without showing a relationship score.
+- Analytical Robustness Evidence displays specification identity, evidence depth, observed result ranges and date concentration without showing confidence or significance language.
 - Warehouse Explorer displays SAMPLE data and read-only consistency information.
 - Observation brief can be generated and downloaded.
 - No local path, secret, account data, or real private cache content is visible.
@@ -157,3 +161,4 @@ streamlit run app.py
 - The project does not connect to broker accounts or read personal holdings.
 - The project does not provide trading actions, fund recommendations, or future predictions.
 - Cross-theme relationship evidence remains descriptive and does not collapse semantic overlap and observed dynamic alignment into one score.
+- Analytical robustness evidence remains descriptive and does not collapse specification sensitivity into one score.

@@ -378,6 +378,47 @@ These dimensions are not collapsed into a single relationship score. Semantic ov
 
 This is not a mechanism engine, temporal-order model, trading signal, portfolio optimizer or correlation dashboard. Observed shares use aligned canonical pair observations as denominators and describe historical cache evidence only.
 
+## Analytical Robustness Evidence Layer
+
+v3.14 adds an analytical robustness layer on top of canonical observations, structural regime signatures and cross-theme relationship evidence. The purpose is to make the analytical specification visible instead of presenting one configuration as objective truth.
+
+Each robustness result carries a deterministic analytical specification identity:
+
+```text
+captured_time_bucket_minutes
+materialization_policy
+calculation_mode
+source_mode
+taxonomy_fingerprint
+canonical_observation_basis
+state_mapping_identity
+threshold_fingerprint
+```
+
+The default production specification remains:
+
+```text
+bucket=1m
+policy=latest_valid_snapshot_in_bucket
+mode=strict_representative
+basis=canonical_bucket_observations
+```
+
+The robustness audit evaluates pre-declared variants rather than searching for a preferred outcome:
+
+- bucket width: 1 / 5 / 10 minutes
+- materialization policy audit: latest-valid and earliest-valid where defensible
+- calculation scope: strict representative, representative and breadth as semantic scopes
+- threshold proximity: distance from aggregate value to existing state thresholds
+
+Evidence sufficiency is multidimensional. It reports canonical/aligned observations, represented trade dates, observations by date, max-date observation share, bucket count and alignment gaps. These fields are not collapsed into one score.
+
+Cross-specification output is shown as factual ranges and disagreement counts. For example, a pair result can expose the range of same-sign observed share across evaluated specifications, plus the aligned-observation denominators that produced it. These ranges are not confidence intervals, probability estimates or model validation.
+
+Topology/ranking views now include display sufficiency guardrails. Low-depth pairs remain inspectable in raw evidence, but ranked display rows show whether they meet configured minimum aligned observations and represented trade dates. This prevents an extreme `2/2` row from appearing as a top relationship without denominator context.
+
+The layer is deliberately descriptive. It does not add p-values, relationship confidence, optimization, future-state prediction or investment-action language.
+
 ## If This Became Production-Grade
 
 A production-grade version would need additional systems that are intentionally out of scope here:

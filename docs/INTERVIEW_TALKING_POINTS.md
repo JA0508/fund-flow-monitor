@@ -93,6 +93,10 @@ It gives each theme observation an explicit grain and then summarizes observed s
 
 It compares two themes only when their canonical observations are exactly aligned on date, time bucket, calculation mode, source mode and taxonomy lineage. The output keeps semantic overlap, headline-state agreement, same-sign observed share, structural-regime alignment and observed co-transition counts as separate evidence dimensions. I intentionally avoided a single relationship score because that would hide the denominators and lineage assumptions.
 
+### What does analytical robustness evidence add?
+
+It makes the analytical specification visible. A result is tied to bucket width, materialization policy, calculation scope, source mode and taxonomy lineage, then compared across pre-declared variants such as 1/5/10 minute buckets. The output is observation counts, date coverage and factual result ranges. It is not a confidence score, a p-value exercise or parameter tuning.
+
 ### Why not just drop duplicate theme dynamics rows?
 
 The apparent duplicates can be valid captured events that share the same analytical minute bucket. v3.11 separates physical snapshot-event grain from bucketed analytical grain, audits bucket collisions, and then applies an explicit `latest_valid_snapshot_in_bucket` materialization policy while preserving all contributing event IDs. That is more honest than silently dropping rows.

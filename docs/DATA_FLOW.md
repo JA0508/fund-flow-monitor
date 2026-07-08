@@ -364,3 +364,39 @@ Co-transition evidence compares adjacent aligned canonical observations and repo
 Semantic evidence comes from the existing v3.9 overlap audit: shared members, member union count, Jaccard overlap, shared strict representatives and overlap state. The relationship layer does not duplicate the Jaccard formula.
 
 The output stays multi-dimensional by design. It does not create an opaque score, does not infer a mechanism and does not treat observed agreement as a forecast.
+
+## Analytical Robustness and Specification Sensitivity
+
+v3.14 adds a read-only robustness audit path:
+
+```text
+raw theme observation events
+-> analytical specification identity
+-> canonical materialization variants
+-> theme / regime / relationship analysis
+-> cross-specification comparison
+-> evidence sufficiency and threshold-boundary evidence
+```
+
+The audit does not change production defaults. The default canonical policy remains `latest_valid_snapshot_in_bucket`, and default UI calculations continue to use the existing CSV-first / canonical-observation path.
+
+The evaluated bucket widths are pre-declared as 1, 5 and 10 minutes. They are not selected from outcomes. For each width, the pipeline rebuilds raw theme observation events, applies deterministic canonical materialization and reuses existing theme/regime/relationship analysis functions.
+
+Materialization-policy sensitivity is an offline audit. The supported variants are:
+
+- `latest_valid_snapshot_in_bucket`
+- `earliest_valid_snapshot_in_bucket`
+
+The audit never averages cumulative "今日" snapshots, never sums snapshots and never averages ordinal state codes.
+
+Calculation-scope sensitivity compares existing semantic scopes:
+
+- strict representative
+- representative
+- breadth
+
+The modes are displayed side by side. They are not ranked and no mode is selected because it produces a more convenient result.
+
+Threshold-boundary proximity uses the existing `theme_pool` state thresholds. It records the nearest threshold and factual distance for each canonical observation where aggregate value is available. It does not mutate thresholds or describe a state as unreliable.
+
+Date concentration is explicit. Each profile reports observations by date, represented trade-date count and max-date observation share. Pair evidence can also show per-date same-sign and exact-state observed shares while keeping the pooled denominator visible.

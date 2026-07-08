@@ -188,6 +188,11 @@ from src.theme_relationships import (  # noqa: E402
     render_theme_relationship_brief_section,
     validate_theme_relationship_text,
 )
+from src.analytical_robustness import (  # noqa: E402
+    compare_relationship_specifications,
+    compare_theme_specifications,
+    validate_analytical_robustness_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1107,6 +1112,24 @@ def _verify_theme_dynamics() -> None:
     )
     relationship_section = render_theme_relationship_brief_section(relationship_evidence)
     relationship_forbidden_hits = validate_theme_relationship_text(relationship_section)
+    theme_robustness = compare_theme_specifications(
+        theme,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        bucket_minutes=(1, 5, 10),
+        taxonomy=taxonomy,
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+    )
+    relationship_robustness = compare_relationship_specifications(
+        theme,
+        relationship_peer,
+        source_mode="SAMPLE",
+        calculation_mode="strict_representative",
+        bucket_minutes=(1, 5, 10),
+        taxonomy=taxonomy,
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+    )
+    robustness_forbidden_hits = validate_analytical_robustness_text(str(theme_robustness) + str(relationship_robustness))
     grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
@@ -1151,6 +1174,12 @@ def _verify_theme_dynamics() -> None:
     print(f"  sample_theme_relationship_same_sign_share: {(relationship_evidence.get('headline_state_evidence') or {}).get('same_sign_share')}")
     print(f"  sample_theme_relationship_structural_contrast_count: {(relationship_evidence.get('structural_regime_evidence') or {}).get('headline_aligned_regime_different_count')}")
     print(f"  sample_theme_relationship_forbidden_hits: {relationship_forbidden_hits}")
+    print(f"  audit_analytical_robustness.py exists: {(PROJECT_ROOT / 'tools/audit_analytical_robustness.py').exists()}")
+    print(f"  sample_theme_robustness_spec_count: {theme_robustness.get('evaluated_specification_count')}")
+    print(f"  sample_theme_robustness_latest_states: {theme_robustness.get('latest_headline_state_values')}")
+    print(f"  sample_relationship_robustness_spec_count: {relationship_robustness.get('evaluated_specification_count')}")
+    print(f"  sample_relationship_robustness_same_sign_range: {relationship_robustness.get('same_sign_observed_share_range')}")
+    print(f"  analytical_robustness_forbidden_hits: {robustness_forbidden_hits}")
     print("  theme dynamics 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 
