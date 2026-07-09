@@ -97,6 +97,14 @@ It compares two themes only when their canonical observations are exactly aligne
 
 It makes the analytical specification visible. A result is tied to bucket width, materialization policy, calculation scope, source mode and taxonomy lineage, then compared across pre-declared variants such as 1/5/10 minute buckets. The output is observation counts, date coverage and factual result ranges. It is not a confidence score, a p-value exercise or parameter tuning.
 
+### Why not just switch to another AKShare endpoint when the primary endpoint fails?
+
+Because provider availability is not the same as semantic comparability. v3.15 gives the primary AKShare/Eastmoney path a semantic contract and classifies candidate endpoints by metric semantics, time semantics, row grain, source universe, value semantics and unit/sign meaning. If a candidate is related but not equivalent, it can be documented as shadow-only or rejected instead of being silently merged into the same historical continuity path.
+
+### What is the current runtime provider policy?
+
+The current policy is `primary_only`. The project can inspect candidate contracts and explain why they are equivalent, conditional, non-equivalent or unknown, but it does not automatically enable fallback. If fallback is ever added, the selected provider contract ID must be preserved in snapshot lineage and mixed-provider history must be segmented explicitly.
+
 ### Why not just drop duplicate theme dynamics rows?
 
 The apparent duplicates can be valid captured events that share the same analytical minute bucket. v3.11 separates physical snapshot-event grain from bucketed analytical grain, audits bucket collisions, and then applies an explicit `latest_valid_snapshot_in_bucket` materialization policy while preserving all contributing event IDs. That is more honest than silently dropping rows.

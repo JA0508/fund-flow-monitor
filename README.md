@@ -18,7 +18,7 @@ Live demo: [https://fund-flow-monitor-ja0508.streamlit.app/](https://fund-flow-m
 4. 再看 `多日趋势` 中的 warehouse theme history 图表，理解历史快照如何形成主题级观察。
 5. 查看 `持仓相关池`，理解基金/ETF 主题暴露模板如何与主题雷达合并。
 6. 下载 `观察简报`，或直接阅读 [`SAMPLE Demo Brief`](docs/demo_briefs/sample_observation_brief.md)。
-7. 如需更细证据，可运行 `tools/inspect_theme_dynamics.py` 查看主题状态路径和结构分歧，运行 `tools/inspect_observation_grain.py` 查看 raw event grain / bucket collision / canonical lineage，运行 `tools/inspect_theme_regimes.py` 查看 headline state 相同但内部 scope/member 结构不同的已观测签名，运行 `tools/inspect_theme_relationships.py` 查看跨主题 aligned canonical observations 的语义重叠、状态对齐和结构差异，或运行 `tools/audit_analytical_robustness.py` 查看预声明规格下的证据充分度和观察区间。
+7. 如需更细证据，可运行 `tools/inspect_theme_dynamics.py` 查看主题状态路径和结构分歧，运行 `tools/inspect_observation_grain.py` 查看 raw event grain / bucket collision / canonical lineage，运行 `tools/inspect_theme_regimes.py` 查看 headline state 相同但内部 scope/member 结构不同的已观测签名，运行 `tools/inspect_theme_relationships.py` 查看跨主题 aligned canonical observations 的语义重叠、状态对齐和结构差异，运行 `tools/audit_analytical_robustness.py` 查看预声明规格下的证据充分度和观察区间，或运行 `tools/audit_provider_semantics.py` 查看 provider semantic contract、source comparability 和 continuity eligibility。
 
 公开展示边界始终保持不变：SAMPLE / DEMO 不代表真实行情；项目不接真实账户，不读取真实个人持仓，不提供交易功能，不预测未来走势。
 
@@ -71,6 +71,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 基金观察池：将相近行业/概念归并为基金投资相关主题。
 - 主题动态证据：基于 CSV 快照构建 theme observation cube，展示已观测状态路径、跨口径分歧和成员结构分歧。
 - 分析稳健性证据：展示分析规格 ID、1/5/10 分钟 bucket 敏感性、证据充分度、阈值边界距离和关系分母上下文，不生成黑箱分数。
+- Provider semantics evidence：为当前 AKShare / Eastmoney 实时路径建立语义契约、候选源可比性分类和连续性门禁，默认保持 `primary_only`，不做静默 fallback。
 - 三种主题口径：严格代表口径、代表口径、广度观察。
 - 今日资金温度：基于主题资金状态计算整体主题资金冷热。
 - 关注主题雷达：按 `config/watchlist.json` 展示自选主题状态。

@@ -14,6 +14,7 @@ from src.providers.akshare_sector_flow import (  # noqa: E402
     API_NAME,
     ProviderBoundaryError,
     fetch_and_normalize_sector_flow,
+    sanitize_provider_error_message,
 )
 from src.utils import get_china_now  # noqa: E402
 
@@ -97,9 +98,9 @@ def run_probe(args: argparse.Namespace) -> dict:
                 "success": False,
                 "failure_category": "provider_error",
                 "exception_type": type(exc).__name__,
-                "message": str(exc),
+                "message": sanitize_provider_error_message(exc),
                 "warnings": [],
-                "errors": [str(exc)],
+                "errors": [sanitize_provider_error_message(exc)],
             }
         )
     return result
@@ -150,4 +151,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -229,6 +229,14 @@ v3.14 增加分析规格身份、规格敏感性和证据充分度审计。它�
 
 该层比较 1 / 5 / 10 分钟 bucket、latest / earliest valid materialization audit variant，以及 strict / representative / breadth 三种语义口径。输出是观察数量、日期覆盖、max-date observation share、状态路径差异、关系 observed-share 区间和 per-date evidence。它不生成稳健性分数、置信分数、显著性包装、预测或投资建议。
 
+## Provider Semantics And Continuity
+
+v3.15 增加数据源语义契约和连续性门禁。当前真实数据主路径是 AKShare / Eastmoney 的 `stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")`，项目会把它登记为明确的 provider semantic contract，并区分 provider/API 事实、项目归一化解释和仍未知的语义。
+
+候选 AKShare endpoint 不会因为名字相似或字段相似就被当作可替换来源。项目会按 metric family、time semantics、row grain、source universe、value semantics、unit 和 sign semantics 等维度分类为 equivalent、conditionally comparable、non-equivalent 或 unknown。当前运行策略保持 `primary_only`，不会在主路径失败时静默切换到另一个 endpoint。
+
+历史证据层会暴露 provider contract count、provider segment count 和 source-homogeneous 状态。这样即使未来引入新的可比来源，也必须先保留 provider contract identity 和 segment 边界，不能把多来源历史伪装成单一连续序列。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

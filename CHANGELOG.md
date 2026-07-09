@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v3.15
+
+- Provider Semantics Registry, Source Comparability and Continuity Gate.
+- Added explicit provider semantic contracts for the current AKShare / Eastmoney primary path: `ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")`.
+- Added deterministic semantic contract fingerprints, provider registry inspection and source comparability classification across equivalent / conditionally comparable / non-equivalent / unknown states.
+- Added a continuity eligibility gate that separates semantic eligibility from runtime fallback policy. The default runtime policy remains `primary_only`; no silent fallback is enabled.
+- New normalized REAL snapshots can preserve provider contract identity, and historical evidence can report provider contract counts, provider segments and source-homogeneous state.
+- Added read-only provider semantic audit and network diagnostic CLIs: `tools/audit_provider_semantics.py` and `tools/diagnose_provider_network.py`.
+- Streamlit Data Explanation now includes a compact Provider Semantics & Continuity evidence panel without running live network diagnostics on render.
+- Release, smoke, runtime and cloud checks now recognize provider semantics assets and keep CI offline/deterministic.
+- This layer is source-governance evidence only: available APIs are not treated as comparable facts, and provider availability does not create trading signals, prediction or investment recommendation.
+
 ## v3.14
 
 - Analytical Robustness, Specification Sensitivity and Evidence Sufficiency.

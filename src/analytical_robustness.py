@@ -4,10 +4,12 @@ import hashlib
 import json
 import statistics
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
 
+from src.history_evidence import build_provider_lineage_summary, build_snapshot_manifest
 from src.theme_dynamics import (
     CANONICAL_BUCKET_POLICY,
     CAPTURED_TIME_BUCKET_MINUTES,
@@ -38,6 +40,7 @@ SUPPORTED_MATERIALIZATION_POLICIES = (
 )
 DEFAULT_MIN_ALIGNED_OBSERVATIONS = 3
 DEFAULT_MIN_REPRESENTED_TRADE_DATES = 2
+SAMPLE_DATA_DIR = "sample_data/ticks"
 
 INSUFFICIENT_OBSERVATION_COUNT = 3
 CONCENTRATED_MAX_DATE_SHARE = 0.75
@@ -203,6 +206,25 @@ def build_canonical_cube_for_spec(
     canonical.attrs["analytical_specification"] = specification
     canonical.attrs["materialization_policy"] = specification.get("materialization_policy")
     return canonical
+
+
+def _provider_lineage_metadata(source_mode: str, data_dir: str | None = None, bucket_minutes: int = CAPTURED_TIME_BUCKET_MINUTES) -> dict:
+    mode = str(source_mode or "SAMPLE").upper()
+    directory = data_dir or (SAMPLE_DATA_DIR if mode == "SAMPLE" else "data/ticks")
+    manifest = build_snapshot_manifest(directory, source_mode=mode, bucket_minutes=normalize_bucket_minutes(bucket_minutes))
+    summary = build_provider_lineage_summary(manifest)
+    return {
+        "source_mode": mode,
+        "data_dir_label": str(Path(directory)),
+        "provider_contract_count": summary.get("provider_contract_count", 0),
+        "provider_contract_counts": summary.get("provider_contract_counts", {}),
+        "provider_segment_count": summary.get("provider_segment_count", 0),
+        "provider_segments": summary.get("provider_segments", []),
+        "source_homogeneous": summary.get("source_homogeneous", False),
+        "provider_lineage_label": summary.get("provider_lineage_label"),
+        "provider_lineage_reason": summary.get("provider_lineage_reason"),
+        "lineage_semantics": "metadata only; provider lineage is reported alongside robustness evidence and does not change analytical values.",
+    }
 
 
 def build_evidence_sufficiency_profile(
@@ -426,6 +448,7 @@ def compare_theme_specifications(
         "robustness_available": bool(results),
         "theme_name": theme_name,
         "source_mode": str(source_mode).upper(),
+        "provider_lineage": _provider_lineage_metadata(source_mode, data_dir=data_dir, bucket_minutes=buckets[0] if buckets else CAPTURED_TIME_BUCKET_MINUTES),
         "default_specification": build_default_analytical_specification(source_mode, calculation_mode, taxonomy),
         "evaluated_specification_count": len(results),
         "specification_results": results,
@@ -542,6 +565,7 @@ def compare_relationship_specifications(
         "robustness_available": bool(results),
         "theme_pair": f"{left}::{right}",
         "source_mode": str(source_mode).upper(),
+        "provider_lineage": _provider_lineage_metadata(source_mode, data_dir=data_dir, bucket_minutes=buckets[0] if buckets else CAPTURED_TIME_BUCKET_MINUTES),
         "default_specification": build_default_analytical_specification(source_mode, calculation_mode, taxonomy),
         "evaluated_specification_count": len(results),
         "specification_results": results,

@@ -1193,8 +1193,10 @@ def render_replay_evidence_card(replay_evidence: dict) -> None:
     st.markdown("<div class='radar-section-title'>历史回放证据</div>", unsafe_allow_html=True)
     provider_counts = replay_evidence.get("provider_counts") or {}
     api_counts = replay_evidence.get("api_counts") or {}
+    contract_counts = replay_evidence.get("provider_contract_counts") or {}
     providers = "，".join(f"{key}:{value}" for key, value in provider_counts.items()) or "--"
     apis = "，".join(f"{key}:{value}" for key, value in api_counts.items()) or "--"
+    contracts = "，".join(f"{key}:{value}" for key, value in contract_counts.items()) or "--"
     html = (
         "<div class='trust-panel'>"
         "<div class='trust-grid'>"
@@ -1206,8 +1208,9 @@ def render_replay_evidence_card(replay_evidence: dict) -> None:
         f"<div class='trust-item'><div class='trust-label'>Schema 一致</div><div class='trust-value'>{'是' if replay_evidence.get('schema_consistent') else '否'}</div></div>"
         f"<div class='trust-item'><div class='trust-label'>契约通过</div><div class='trust-value'>{int(replay_evidence.get('contract_pass_count', 0) or 0)}</div></div>"
         f"<div class='trust-item'><div class='trust-label'>来源类型</div><div class='trust-value'>{escape(str(replay_evidence.get('source_mode') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Provider Segments</div><div class='trust-value'>{int(replay_evidence.get('provider_segment_count', 0) or 0)}</div></div>"
         "</div>"
-        f"<div class='trust-copy'>Provider：{escape(providers)}；API：{escape(apis)}。历史回放证据只说明已保存 CSV 的来源和覆盖，不构成投资建议。</div>"
+        f"<div class='trust-copy'>Provider：{escape(providers)}；API：{escape(apis)}；Contract：{escape(contracts)}。历史回放证据只说明已保存 CSV 的来源和覆盖，不构成投资建议。</div>"
         "</div>"
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -1215,6 +1218,66 @@ def render_replay_evidence_card(replay_evidence: dict) -> None:
     if warnings:
         with st.expander("查看历史回放证据提示", expanded=False):
             st.markdown("<div class='concept-note'>" + "<br>".join(escape(str(item)) for item in warnings[:12]) + "</div>", unsafe_allow_html=True)
+
+
+def render_provider_semantics_panel(
+    registry_summary: dict,
+    primary_contract: dict,
+    history_summary: dict | None = None,
+    latest_diagnostic: dict | None = None,
+) -> None:
+    st.markdown("<div class='radar-section-title'>数据源语义与连续性 / Provider Semantics & Continuity</div>", unsafe_allow_html=True)
+    history_summary = history_summary or {}
+    latest_diagnostic = latest_diagnostic or {}
+    comparability_counts = registry_summary.get("comparability_counts") or {}
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>Primary Provider</div><div class='trust-value'>{escape(str(primary_contract.get('provider_name') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>API</div><div class='trust-value'>{escape(str(primary_contract.get('api_name') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Contract</div><div class='trust-value'>{escape(str(primary_contract.get('semantic_contract_short_id') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Runtime Policy</div><div class='trust-value'>{escape(str(registry_summary.get('runtime_policy') or 'primary_only'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Fallback Enabled</div><div class='trust-value'>{'是' if registry_summary.get('fallback_enabled') else '否'}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Candidates Reviewed</div><div class='trust-value'>{int(registry_summary.get('candidate_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Fallback Eligible</div><div class='trust-value'>{len(registry_summary.get('fallback_eligible_provider_ids') or [])}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Shadow Only</div><div class='trust-value'>{len(registry_summary.get('shadow_only_provider_ids') or [])}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Provider Segments</div><div class='trust-value'>{int(history_summary.get('provider_segment_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Source Homogeneous</div><div class='trust-value'>{'是' if history_summary.get('source_homogeneous') else '否'}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>Metric semantics：{escape(str(primary_contract.get('metric_semantics') or '--'))}</div>"
+        f"<div class='trust-copy'>Time semantics：{escape(str(primary_contract.get('time_semantics') or '--'))}</div>"
+        "<div class='trust-copy'>Available source does not automatically mean comparable source. 页面不会自动切换 provider，也不会自动运行网络诊断。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    rows = [
+        ["equivalent", comparability_counts.get("equivalent", 0)],
+        ["conditionally_comparable", comparability_counts.get("conditionally_comparable", 0)],
+        ["non_equivalent", comparability_counts.get("non_equivalent", 0)],
+        ["unknown", comparability_counts.get("unknown", 0)],
+    ]
+    _render_simple_table(["Comparability State", "Count"], rows, "暂无 provider comparability summary。")
+    segment_rows = []
+    for segment in (history_summary.get("provider_segments") or [])[:8]:
+        segment_rows.append(
+            [
+                segment.get("segment_index", "--"),
+                segment.get("provider_contract_id", "--"),
+                f"{segment.get('first_trade_date', '--')} {segment.get('first_captured_time') or ''}".strip(),
+                f"{segment.get('last_trade_date', '--')} {segment.get('last_captured_time') or ''}".strip(),
+                segment.get("snapshot_count", 0),
+            ]
+        )
+    _render_simple_table(["Segment", "Contract", "First", "Last", "Snapshots"], segment_rows, "暂无 provider segment evidence。")
+    if latest_diagnostic:
+        st.markdown(
+            "<div class='concept-note'>"
+            f"最新 provider/collector 诊断：status={escape(str(latest_diagnostic.get('status') or latest_diagnostic.get('error_category') or '--'))}；"
+            f"normalization={escape(str(latest_diagnostic.get('normalization_status') or '--'))}；"
+            "详细网络诊断请手动运行 <code>python tools/diagnose_provider_network.py</code>。"
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def render_coverage_matrix(matrix_df: pd.DataFrame, title: str = "历史覆盖矩阵", max_rows: int = 40) -> None:

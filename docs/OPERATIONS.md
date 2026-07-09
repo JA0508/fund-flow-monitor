@@ -53,6 +53,21 @@ Useful variants:
 
 The quality gate should fail on real code or release-readiness errors. It should not require real private `data/ticks/*.csv`, secrets, or a local SQLite warehouse.
 
+## Provider Semantics Checks
+
+Run provider-governance checks when changing the AKShare adapter, provider metadata, historical lineage, or collector behavior:
+
+```bash
+.venv/bin/python tools/audit_provider_semantics.py --registry
+.venv/bin/python tools/audit_provider_semantics.py --primary
+.venv/bin/python tools/audit_provider_semantics.py --eligibility
+.venv/bin/python tools/diagnose_provider_network.py
+```
+
+`audit_provider_semantics.py` is offline by default. It inspects the primary contract, registered candidates, comparability classification and continuity eligibility without enabling fallback. `diagnose_provider_network.py` may touch the network for diagnosis, but it is read-only and must not expose proxy values or write logs by default.
+
+The current runtime provider policy is `primary_only`. If a candidate source is reachable but semantically different, it should remain shadow-only or rejected rather than being silently merged into the real cache continuity path.
+
 ## GitHub Actions CI
 
 The GitHub workflow is `.github/workflows/ci.yml`.

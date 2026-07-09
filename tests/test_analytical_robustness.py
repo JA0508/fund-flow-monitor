@@ -143,6 +143,8 @@ def test_sample_theme_robustness_has_specification_results():
     assert result["evaluated_specification_count"] == 2
     assert result["specification_results"]
     assert "specification_id" in result["specification_results"][0]
+    assert result["provider_lineage"]["provider_segment_count"] >= 1
+    assert "metadata only" in result["provider_lineage"]["lineage_semantics"]
     assert "robustness_score" not in result
 
 

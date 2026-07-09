@@ -141,6 +141,9 @@ from src.providers.akshare_sector_flow import (  # noqa: E402
     build_schema_fingerprint,
     validate_provider_text,
 )
+from src.provider_comparability import validate_provider_comparability_text  # noqa: E402
+from src.provider_contracts import validate_provider_contract_text  # noqa: E402
+from src.provider_registry import build_provider_registry_summary, get_primary_provider_contract  # noqa: E402
 from src.release_readiness import (  # noqa: E402
     build_release_readiness_report,
     check_gitignore_safety,
@@ -939,6 +942,27 @@ def _verify_release_readiness() -> None:
     print("  release readiness 检查不访问网络，不写默认 data/warehouse。")
 
 
+def _verify_provider_semantics() -> None:
+    print("Provider semantics / continuity 检查:")
+    primary = get_primary_provider_contract()
+    summary = build_provider_registry_summary(runtime_policy="primary_only")
+    text = str(primary.to_dict()) + str(summary)
+    forbidden_hits = sorted(set(validate_provider_contract_text(text) + validate_provider_comparability_text(text)))
+    print(f"  provider_contracts_module_imported: True")
+    print(f"  primary_provider_id: {primary.provider_id}")
+    print(f"  primary_contract_id: {primary.to_dict().get('semantic_contract_short_id')}")
+    print(f"  candidate_count: {summary.get('candidate_count')}")
+    print(f"  comparability_counts: {summary.get('comparability_counts')}")
+    print(f"  runtime_policy: {summary.get('runtime_policy')}")
+    print(f"  fallback_enabled: {summary.get('fallback_enabled')}")
+    print(f"  fallback_eligible_provider_ids: {summary.get('fallback_eligible_provider_ids')}")
+    print(f"  shadow_only_provider_ids: {summary.get('shadow_only_provider_ids')}")
+    print(f"  audit_provider_semantics.py exists: {(PROJECT_ROOT / 'tools/audit_provider_semantics.py').exists()}")
+    print(f"  diagnose_provider_network.py exists: {(PROJECT_ROOT / 'tools/diagnose_provider_network.py').exists()}")
+    print(f"  provider_semantics_forbidden_hits: {forbidden_hits}")
+    print("  provider semantics 检查离线运行；不会访问 AKShare，也不会启用 fallback。")
+
+
 def _verify_runtime_profile() -> None:
     print("Runtime profile 检查:")
     current_profile = get_runtime_profile(PROJECT_ROOT)
@@ -1392,6 +1416,7 @@ def main() -> int:
     _verify_brief_template_readiness(observation_brief, selected_date)
     _verify_presentation_readiness(selected_date, "CACHE")
     _verify_release_readiness()
+    _verify_provider_semantics()
     _verify_runtime_profile()
 
     concept_latest = get_concept_latest_snapshot(ticks)

@@ -121,6 +121,7 @@ from src.runtime_profile import (
     build_runtime_profile_sidebar_defaults,
     get_runtime_profile,
 )
+from src.provider_registry import build_provider_registry_summary, get_primary_provider_contract
 from src.analytical_robustness import (
     compare_relationship_specifications,
     compare_theme_specifications,
@@ -237,6 +238,7 @@ from src.ui_components import (
     render_snapshot_quality_notes,
     render_coverage_matrix,
     render_replay_evidence_card,
+    render_provider_semantics_panel,
     render_warehouse_date_table,
     render_warehouse_explorer_notes,
     render_warehouse_explorer_summary_cards,
@@ -421,6 +423,8 @@ def main() -> None:
     sample_history_manifest_df = build_snapshot_manifest(SAMPLE_DIR, source_mode="SAMPLE")
     real_history_summary = build_historical_coverage_summary(real_history_manifest_df)
     sample_history_summary = build_historical_coverage_summary(sample_history_manifest_df)
+    provider_registry_summary = build_provider_registry_summary(runtime_policy="primary_only")
+    primary_provider_contract = get_primary_provider_contract().to_dict()
     real_history_readiness = classify_historical_evidence_readiness(real_history_summary)
     sample_history_readiness = classify_historical_evidence_readiness(sample_history_summary)
     real_coverage_matrix_df = build_coverage_matrix(real_history_manifest_df)
@@ -1915,6 +1919,17 @@ def main() -> None:
             render_coverage_matrix(real_coverage_matrix_df, title="REAL captured_time 覆盖矩阵")
         with st.expander("查看 SAMPLE captured_time 覆盖矩阵", expanded=show_debug_details):
             render_coverage_matrix(sample_coverage_matrix_df, title="SAMPLE captured_time 覆盖矩阵")
+        render_provider_semantics_panel(
+            provider_registry_summary,
+            primary_provider_contract,
+            history_summary=real_history_summary,
+            latest_diagnostic=collector_audit_summary,
+        )
+        st.markdown(
+            "- Provider semantic contract 用于说明真实数据路径的语义边界；SAMPLE 仍是合成演示数据。\n"
+            "- 当前 runtime policy 为 `primary_only`，不会因为其他 AKShare API 可用就自动替换主来源。\n"
+            "- 相似 API 名称或相似列名不等于语义等价；候选来源必须先通过 comparability audit。"
+        )
         render_snapshot_quality_cards(snapshot_quality_report)
         st.markdown("#### 本地真实缓存新鲜度")
         st.markdown(

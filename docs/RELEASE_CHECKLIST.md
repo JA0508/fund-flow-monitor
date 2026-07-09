@@ -12,6 +12,9 @@ python tools/smoke_check.py
 python tools/verify_runtime.py
 python tools/inspect_history_evidence.py --source-mode REAL
 python tools/inspect_history_evidence.py --data-dir sample_data/ticks --source-mode SAMPLE --matrix
+python tools/audit_provider_semantics.py --registry
+python tools/audit_provider_semantics.py --primary
+python tools/audit_provider_semantics.py --eligibility
 python -m pytest -q
 python -m compileall app.py src tests tools
 ```
@@ -25,6 +28,7 @@ python -m compileall app.py src tests tools
 - `smoke_check.py` / `verify_runtime.py` should report collection policy, ingestion metrics, real cache coverage labels and bounded runner readiness without calling live AKShare.
 - `smoke_check.py` / `verify_runtime.py` should report historical evidence readiness, SAMPLE replay provenance and captured_time coverage matrix shape without calling live AKShare.
 - `inspect_history_evidence.py` should inspect REAL cache gracefully even when no local real cache exists, and should inspect SAMPLE history with a readable matrix.
+- `audit_provider_semantics.py` should report an explicit primary provider contract, candidate comparability counts, `primary_only` runtime policy, and no silent fallback.
 - `cloud_preflight.py` should confirm `docs/ARCHITECTURE.md`, `docs/DATA_FLOW.md` and `docs/OPERATIONS.md` exist.
 - `release_check.py` and `cloud_preflight.py` should confirm `docs/REAL_DATA_INGESTION.md`, `tools/collect_real_snapshot.py`, `tools/run_collection_session.py`, `src/collection_policy.py` and `src/ingestion_metrics.py` exist.
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
@@ -107,6 +111,8 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 - Taxonomy audit warnings such as reused members or ambiguous source names should be reviewed as mapping-governance notes, not app failures.
 - Missing real cache or missing collector logs on Streamlit Cloud is expected and should not be treated as a public demo failure.
 - Any AKShare failure should be documented as a live data source/network limitation, not replaced with fake real data.
+- `python tools/diagnose_provider_network.py` may be run for proxy/DNS/request/provider-stage diagnosis. It should print only proxy presence flags and sanitized failures, not proxy values or credentials.
+- Candidate provider/API availability must not be treated as semantic equivalence. Different row grain, universe semantics, time semantics or value semantics should block silent continuity.
 
 ## 3. Demo Checks
 

@@ -1289,3 +1289,24 @@ The reason is simple: the concept fund-flow endpoint can occasionally fail with 
 - Observation Brief integration remains concise and uses factual specification range wording only.
 - The robustness layer does not introduce robustness scores, confidence scores, p-values, prediction, trading signals or investment-action wording.
 - Tests remain offline and deterministic.
+
+## v3.15 Provider Semantics and Continuity Checks
+
+- `APP_VERSION` is `v3.15`.
+- `CHANGELOG.md` contains a `v3.15` entry.
+- `src/provider_contracts.py`, `src/provider_comparability.py`, `src/provider_registry.py` and `src/provider_network_diagnostics.py` exist and can be imported.
+- `tools/audit_provider_semantics.py` exists and supports offline registry, primary, candidate, compare and eligibility inspection.
+- `tools/diagnose_provider_network.py` exists and reports proxy/DNS/request/provider-stage diagnostics without printing proxy values or credentials.
+- The primary provider contract is explicit for `ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")`.
+- Semantic contract IDs are deterministic, formatting-insensitive and change when meaningful semantic fields change.
+- Candidate provider contracts are classified by semantic dimensions rather than similar API names or similar column names.
+- Comparability states include `equivalent`, `conditionally_comparable`, `non_equivalent` and `unknown`.
+- Continuity eligibility is separate from runtime provider policy.
+- Default runtime provider policy remains `primary_only`.
+- No silent automatic fallback is enabled.
+- New normalized REAL snapshots can preserve provider ID, provider contract ID, semantic contract fingerprint and upstream origin.
+- Historical evidence reports provider contract counts, provider segment counts, provider segments and source-homogeneous state.
+- Multi-provider history is not silently presented as source-homogeneous.
+- Streamlit Data Explanation includes a compact Provider Semantics & Continuity panel without running live probes on render.
+- `smoke_check.py`, `verify_runtime.py`, `cloud_preflight.py` and `release_check.py` recognize provider semantics readiness.
+- Deterministic tests remain offline and do not require live AKShare.

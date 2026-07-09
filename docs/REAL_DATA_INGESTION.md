@@ -75,6 +75,35 @@ Run the probe without writing cache files:
 
 The probe is diagnostic only. It does not write `data/ticks`, `sample_data`, SQLite or warehouse files.
 
+## Provider Semantics Audit
+
+v3.15 adds a read-only semantic registry for provider/API contracts. The primary real-data contract remains:
+
+```python
+ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")
+```
+
+Inspect the registry and continuity gate without touching cache files:
+
+```bash
+.venv/bin/python tools/audit_provider_semantics.py --registry
+.venv/bin/python tools/audit_provider_semantics.py --primary
+.venv/bin/python tools/audit_provider_semantics.py --eligibility
+```
+
+The audit classifies candidates as `equivalent`, `conditionally_comparable`, `non_equivalent`, or `unknown`. This is a source-governance check, not a provider-quality score. It does not enable fallback and does not call AKShare unless the optional network diagnosis flag is used.
+
+## Network Path Diagnosis
+
+When the live provider path fails with network or proxy errors, use:
+
+```bash
+.venv/bin/python tools/diagnose_provider_network.py
+.venv/bin/python tools/diagnose_provider_network.py --json
+```
+
+The diagnostic separates proxy-presence flags, DNS, TCP, HTTP/TLS and AKShare-provider stages where practical. It prints only true/false proxy configuration flags and sanitized exception categories; it does not print proxy values, credentials, tokens, or full proxy URLs. The tool does not modify system proxy settings, shell configuration, CSV cache files, warehouse files, or logs by default.
+
 ## Collect One Real Snapshot
 
 Dry run first:

@@ -42,11 +42,42 @@ Key modules:
 
 - `src/data_source.py`: live data fetch orchestration.
 - `src/providers/akshare_sector_flow.py`: AKShare/Eastmoney provider adapter, schema fingerprinting, explicit column mapping and provider-boundary diagnostics.
+- `src/provider_contracts.py`: semantic contract identity for provider/API facts and project-level normalization assumptions.
+- `src/provider_registry.py`: read-only registry of primary and candidate provider contracts.
+- `src/provider_comparability.py`: source comparability and continuity eligibility rules.
+- `src/provider_network_diagnostics.py`: local read-only network path diagnostics without exposing proxy values.
 - `src/concept_flow.py`: concept-flow helper logic.
 - `src/transform.py`: raw AKShare/Eastmoney-style rows to the standard snapshot DataFrame.
 - `src/data_contracts.py`: lightweight structural checks for snapshot and SAMPLE data.
 
 The live path is optional but first-class for local real-data work. Current sector fund-flow collection uses AKShare's `stock_sector_fund_flow_rank` through a provider adapter, then normalizes rows with provenance fields such as provider, API name, fetched timestamp and `data_mode=REAL`. The adapter keeps the upstream boundary explicit: it records safe response metadata, builds a deterministic schema fingerprint, maps only known column variants and reports unsupported schemas as schema drift. If AKShare or a live fetch is unavailable, the app can still run with CACHE, HISTORY, SAMPLE, DEMO, or EMPTY states. The public Streamlit Cloud path should not depend on live fetch success.
+
+## Provider Semantics And Continuity Layer
+
+v3.15 adds a governed provider-semantics layer around the existing AKShare/Eastmoney real-data path. The primary contract is explicit:
+
+```python
+ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")
+```
+
+The contract separates three kinds of information:
+
+- factual provider/API evidence, such as function name, arguments, inspected AKShare source mapping and required source fields;
+- project-level interpretation, such as treating each returned "今日" board ranking as an as-of-capture CSV snapshot;
+- unknown semantics, which remain marked as `unknown` rather than filled in for completeness.
+
+Candidate AKShare endpoints are registered as inspectable contracts, then classified with semantic dimensions such as metric family, time semantics, row grain, universe semantics, value semantics, unit and sign semantics. Similar function names or similar column names are not enough to make two sources equivalent.
+
+Continuity eligibility is intentionally separate from runtime provider policy:
+
+```text
+provider contract
+-> comparability classification
+-> semantic eligibility
+-> runtime policy
+```
+
+The default runtime policy remains `primary_only`. No automatic fallback is enabled, and no snapshot combines rows from two providers. If a future source is used for shadow comparison or fallback, the provider contract identity must remain visible in lineage and the history must not be silently presented as source-homogeneous.
 
 ## Runtime Profile Layer
 

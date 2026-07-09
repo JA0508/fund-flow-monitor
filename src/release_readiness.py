@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterable
 
 from src.data_contracts import validate_snapshot_directory
+from src.provider_registry import build_provider_registry_summary, get_primary_provider_contract
 
 
 PUBLIC_FILES = (
@@ -38,6 +39,10 @@ PUBLIC_FILES = (
     "src/theme_regimes.py",
     "src/theme_relationships.py",
     "src/analytical_robustness.py",
+    "src/provider_contracts.py",
+    "src/provider_comparability.py",
+    "src/provider_registry.py",
+    "src/provider_network_diagnostics.py",
     "tools/run_collection_session.py",
     "tools/inspect_history_evidence.py",
     "tools/inspect_theme_evidence.py",
@@ -47,6 +52,8 @@ PUBLIC_FILES = (
     "tools/inspect_theme_regimes.py",
     "tools/inspect_theme_relationships.py",
     "tools/audit_analytical_robustness.py",
+    "tools/audit_provider_semantics.py",
+    "tools/diagnose_provider_network.py",
 )
 
 PUBLIC_DIRS = (
@@ -86,6 +93,10 @@ REQUIRED_PUBLIC_ASSETS = (
     "src/theme_regimes.py",
     "src/theme_relationships.py",
     "src/analytical_robustness.py",
+    "src/provider_contracts.py",
+    "src/provider_comparability.py",
+    "src/provider_registry.py",
+    "src/provider_network_diagnostics.py",
     "tools/probe_akshare.py",
     "tools/quality_gate.py",
     "tools/collect_real_snapshot.py",
@@ -98,6 +109,8 @@ REQUIRED_PUBLIC_ASSETS = (
     "tools/inspect_theme_regimes.py",
     "tools/inspect_theme_relationships.py",
     "tools/audit_analytical_robustness.py",
+    "tools/audit_provider_semantics.py",
+    "tools/diagnose_provider_network.py",
     "LICENSE",
 )
 
@@ -453,6 +466,55 @@ def check_gitignore_safety(project_root: str | Path = ".") -> dict:
     }
 
 
+def check_provider_semantics_readiness() -> dict:
+    warnings: list[str] = []
+    errors: list[str] = []
+    try:
+        primary = get_primary_provider_contract()
+        summary = build_provider_registry_summary(runtime_policy="primary_only")
+    except Exception as exc:
+        return {
+            "provider_semantics_label": "provider semantics 检查失败",
+            "primary_provider_id": None,
+            "primary_contract_id": None,
+            "candidate_count": 0,
+            "comparability_counts": {},
+            "runtime_policy": None,
+            "fallback_enabled": None,
+            "warning_count": 0,
+            "error_count": 1,
+            "warnings": [],
+            "errors": [f"provider semantics readiness failed: {type(exc).__name__}"],
+        }
+    if not primary.provider_id:
+        errors.append("primary provider contract 缺少 provider_id。")
+    if not summary.get("primary_contract_id"):
+        errors.append("primary provider contract 缺少 contract fingerprint。")
+    if summary.get("runtime_policy") != "primary_only":
+        warnings.append("默认 runtime provider policy 不是 primary_only，请人工确认。")
+    if summary.get("fallback_enabled"):
+        errors.append("release readiness 不允许静默启用 fallback。")
+    candidate_count = int(summary.get("candidate_count", 0) or 0)
+    if candidate_count <= 0:
+        warnings.append("尚未登记 candidate provider contracts。")
+    error_count = len(errors)
+    warning_count = len(warnings)
+    label = "Provider semantics readiness 通过" if error_count == 0 else "Provider semantics readiness 需修复"
+    return {
+        "provider_semantics_label": label,
+        "primary_provider_id": primary.provider_id,
+        "primary_contract_id": summary.get("primary_contract_id"),
+        "candidate_count": candidate_count,
+        "comparability_counts": summary.get("comparability_counts", {}),
+        "runtime_policy": summary.get("runtime_policy"),
+        "fallback_enabled": bool(summary.get("fallback_enabled")),
+        "warning_count": warning_count,
+        "error_count": error_count,
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
 def check_sample_data_contract(project_root: str | Path = ".") -> dict:
     root = _root(project_root)
     report = validate_snapshot_directory(root / "sample_data/ticks", sample=True)
@@ -615,6 +677,7 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
     sample_data_contract = check_sample_data_contract(root)
     version_consistency = check_version_consistency(root)
     tracked_file_safety = check_tracked_file_safety(root)
+    provider_semantics = check_provider_semantics_readiness()
     markdown_link_report = _build_markdown_link_report(root, targets)
     local_path_hits, sensitive_hits, forbidden_phrase_hits = _scan_project_text(root, targets)
 
@@ -625,10 +688,12 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
     errors.extend(sample_data_contract.get("errors", []))
     errors.extend(version_consistency.get("errors", []))
     errors.extend(tracked_file_safety.get("errors", []))
+    errors.extend(provider_semantics.get("errors", []))
     warnings.extend(sample_notice_coverage.get("warnings", []))
     warnings.extend(sample_data_contract.get("warnings", []))
     warnings.extend(version_consistency.get("warnings", []))
     warnings.extend(tracked_file_safety.get("warnings", []))
+    warnings.extend(provider_semantics.get("warnings", []))
     if targets.get("missing_files"):
         errors.extend(f"缺少审计目标文件：{path}" for path in targets["missing_files"])
     if targets.get("missing_dirs"):
@@ -664,6 +729,7 @@ def build_release_readiness_report(project_root: str | Path = ".") -> dict:
         "sample_data_contract": sample_data_contract,
         "version_consistency": version_consistency,
         "tracked_file_safety": tracked_file_safety,
+        "provider_semantics": provider_semantics,
         "app_version": version_consistency.get("app_version", ""),
         "changelog_version_ok": version_consistency.get("changelog_version_ok", False),
         "tracked_forbidden_files": tracked_file_safety.get("tracked_forbidden_files", []),
@@ -688,6 +754,7 @@ def render_release_readiness_markdown(report: dict) -> str:
     sample_contract = report.get("sample_data_contract", {})
     version = report.get("version_consistency", {})
     tracked = report.get("tracked_file_safety", {})
+    provider_semantics = report.get("provider_semantics", {})
     links = report.get("markdown_link_report", {})
     lines = [
         "# Release Readiness Report",
@@ -727,6 +794,15 @@ def render_release_readiness_markdown(report: dict) -> str:
         f"- APP_VERSION：{version.get('app_version', '--')}",
         f"- CHANGELOG 对应版本：{version.get('changelog_version_ok', False)}",
         f"- tracked forbidden files：{len(tracked.get('tracked_forbidden_files', []))}",
+        "",
+        "## Provider Semantics Readiness",
+        "",
+        f"- 状态：{provider_semantics.get('provider_semantics_label', '--')}",
+        f"- primary provider：{provider_semantics.get('primary_provider_id', '--')}",
+        f"- primary contract：{provider_semantics.get('primary_contract_id', '--')}",
+        f"- candidates reviewed：{provider_semantics.get('candidate_count', 0)}",
+        f"- runtime policy：{provider_semantics.get('runtime_policy', '--')}",
+        f"- fallback enabled：{provider_semantics.get('fallback_enabled', False)}",
         "",
         "## Markdown Links",
         "",

@@ -121,6 +121,13 @@ def test_classify_network_timeout_and_provider_parse_errors():
     assert provider.classify_provider_exception(json.JSONDecodeError("Expecting value", "", 0)) == "provider_parse_error"
 
 
+def test_provider_error_message_redacts_request_query():
+    text = provider.sanitize_provider_error_message("failed with url: /api/qt/clist/get?token=secret&fields=f62")
+    assert "/api/qt/clist/get" not in text
+    assert "secret" not in text
+    assert "<request_url_redacted>" in text
+
+
 def test_retryable_failure_followed_by_success(monkeypatch):
     calls = {"count": 0}
 
@@ -162,4 +169,3 @@ def test_schema_drift_is_not_retried(monkeypatch):
 
 def test_validate_provider_text_detects_forbidden_phrase():
     assert "未来会涨" in provider.validate_provider_text("未来会涨")
-

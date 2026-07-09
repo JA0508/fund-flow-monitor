@@ -70,6 +70,9 @@ from src.providers.akshare_sector_flow import (  # noqa: E402
     build_schema_fingerprint,
     validate_provider_text,
 )
+from src.provider_comparability import validate_provider_comparability_text  # noqa: E402
+from src.provider_contracts import validate_provider_contract_text  # noqa: E402
+from src.provider_registry import build_provider_registry_summary, get_primary_provider_contract  # noqa: E402
 from src.release_readiness import (  # noqa: E402
     build_release_readiness_report,
     render_release_readiness_markdown,
@@ -185,6 +188,10 @@ REQUIRED_FILES = (
     "src/theme_taxonomy_audit.py",
     "src/theme_dynamics.py",
     "src/analytical_robustness.py",
+    "src/provider_contracts.py",
+    "src/provider_comparability.py",
+    "src/provider_registry.py",
+    "src/provider_network_diagnostics.py",
     "src/providers/akshare_sector_flow.py",
     "src/watchlist.py",
     "tools/generate_sample_data.py",
@@ -203,6 +210,8 @@ REQUIRED_FILES = (
     "tools/inspect_observation_grain.py",
     "tools/rebuild_local_warehouse.py",
     "tools/audit_analytical_robustness.py",
+    "tools/audit_provider_semantics.py",
+    "tools/diagnose_provider_network.py",
     "config/watchlist.json",
     "config/fund_profiles.json",
     "config/theme_taxonomy.json",
@@ -524,6 +533,8 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     demo_brief_text = demo_brief_path.read_text(encoding="utf-8") if demo_brief_path.exists() else ""
     release_readiness = build_release_readiness_report(project_root)
     release_readiness_markdown = render_release_readiness_markdown(release_readiness)
+    primary_provider_contract = get_primary_provider_contract()
+    provider_registry_summary = build_provider_registry_summary(runtime_policy="primary_only")
     runtime_detection = detect_public_demo_profile()
     old_public_demo_env = os.environ.get("FUND_FLOW_PUBLIC_DEMO")
     os.environ["FUND_FLOW_PUBLIC_DEMO"] = "1"
@@ -722,6 +733,27 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "release_readiness_warning_count": int(release_readiness.get("warning_count", 0) or 0),
             "release_readiness_error_count": int(release_readiness.get("error_count", 0) or 0),
             "release_readiness_forbidden_hits": validate_release_readiness_text(release_readiness_markdown),
+        },
+        "provider_semantics": {
+            "provider_contracts_module_imported": True,
+            "provider_comparability_module_imported": True,
+            "provider_registry_module_imported": True,
+            "audit_provider_semantics_script_exists": (project_root / "tools/audit_provider_semantics.py").exists(),
+            "diagnose_provider_network_script_exists": (project_root / "tools/diagnose_provider_network.py").exists(),
+            "primary_provider_id": primary_provider_contract.provider_id,
+            "primary_contract_id": primary_provider_contract.to_dict().get("semantic_contract_short_id"),
+            "candidate_count": int(provider_registry_summary.get("candidate_count", 0) or 0),
+            "comparability_counts": provider_registry_summary.get("comparability_counts", {}),
+            "runtime_policy": provider_registry_summary.get("runtime_policy"),
+            "fallback_enabled": bool(provider_registry_summary.get("fallback_enabled")),
+            "fallback_eligible_count": len(provider_registry_summary.get("fallback_eligible_provider_ids") or []),
+            "shadow_only_count": len(provider_registry_summary.get("shadow_only_provider_ids") or []),
+            "provider_semantics_forbidden_hits": sorted(
+                set(
+                    validate_provider_contract_text(str(primary_provider_contract.to_dict()) + str(provider_registry_summary))
+                    + validate_provider_comparability_text(str(provider_registry_summary))
+                )
+            ),
         },
         "runtime_profile": {
             "runtime_profile_module_imported": True,
@@ -937,6 +969,17 @@ def main() -> int:
     print(f"release readiness label: {release_readiness['release_readiness_label']}")
     print(f"release readiness warnings/errors: {release_readiness['release_readiness_warning_count']} / {release_readiness['release_readiness_error_count']}")
     print(f"release readiness forbidden hits: {release_readiness['release_readiness_forbidden_hits']}")
+    provider_semantics = report["provider_semantics"]
+    print(f"provider contracts module imported: {provider_semantics['provider_contracts_module_imported']}")
+    print(f"provider registry module imported: {provider_semantics['provider_registry_module_imported']}")
+    print(f"audit_provider_semantics.py exists: {provider_semantics['audit_provider_semantics_script_exists']}")
+    print(f"diagnose_provider_network.py exists: {provider_semantics['diagnose_provider_network_script_exists']}")
+    print(f"primary provider/contract: {provider_semantics['primary_provider_id']} / {provider_semantics['primary_contract_id']}")
+    print(f"provider candidates reviewed: {provider_semantics['candidate_count']}")
+    print(f"provider comparability counts: {provider_semantics['comparability_counts']}")
+    print(f"provider runtime policy/fallback: {provider_semantics['runtime_policy']} / {provider_semantics['fallback_enabled']}")
+    print(f"provider fallback eligible/shadow only: {provider_semantics['fallback_eligible_count']} / {provider_semantics['shadow_only_count']}")
+    print(f"provider semantics forbidden hits: {provider_semantics['provider_semantics_forbidden_hits']}")
     runtime_profile = report["runtime_profile"]
     print(f"runtime profile module imported: {runtime_profile['runtime_profile_module_imported']}")
     print(f"public demo profile supported: {runtime_profile['public_demo_profile_supported']}")
@@ -1035,6 +1078,14 @@ def main() -> int:
         and release_readiness["release_check_script_exists"]
         and release_readiness["release_readiness_error_count"] == 0
         and not release_readiness["release_readiness_forbidden_hits"]
+        and provider_semantics["provider_contracts_module_imported"]
+        and provider_semantics["provider_registry_module_imported"]
+        and provider_semantics["audit_provider_semantics_script_exists"]
+        and provider_semantics["diagnose_provider_network_script_exists"]
+        and provider_semantics["candidate_count"] >= 1
+        and provider_semantics["runtime_policy"] == "primary_only"
+        and not provider_semantics["fallback_enabled"]
+        and not provider_semantics["provider_semantics_forbidden_hits"]
         and runtime_profile["runtime_profile_module_imported"]
         and runtime_profile["public_demo_profile_supported"]
         and runtime_profile["public_demo_default_source"] == "SAMPLE"

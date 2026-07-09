@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,6 +12,8 @@ import pandas as pd
 import requests
 
 from src.config import DATA_SOURCE, TIMEZONE
+from src.provider_contracts import build_provider_contract_short_id
+from src.provider_registry import get_primary_provider_contract
 from src.utils import safe_to_float
 
 
@@ -36,6 +39,13 @@ FIELD_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 REQUIRED_PROVIDER_FIELDS = ("sector_name", "main_net_inflow_yuan")
+
+
+def sanitize_provider_error_message(message: object, max_len: int = 500) -> str:
+    text = str(message or "")
+    text = re.sub(r"https?://[^\s\"')]+", "<request_url_redacted>", text)
+    text = re.sub(r"url:\s*/[^\s\"')]+", "url: <request_url_redacted>", text)
+    return text[:max_len]
 NUMERIC_FIELDS = (
     "rank_value",
     "change_pct",
@@ -67,7 +77,11 @@ OUTPUT_COLUMNS = [
     "leading_stock",
     "source",
     "provider",
+    "provider_id",
     "api_name",
+    "provider_contract_id",
+    "provider_contract_fingerprint",
+    "upstream_origin",
     "data_mode",
 ]
 
@@ -169,6 +183,7 @@ def _raise_boundary_error(
     original: Exception | None = None,
     retry_count: int = 0,
 ) -> None:
+    safe_message = sanitize_provider_error_message(message)
     diagnostic = build_provider_diagnostic(
         sector_type=sector_type,
         indicator=indicator,
@@ -176,10 +191,10 @@ def _raise_boundary_error(
         normalization_status=normalization_status,
         error_category=category,
         error_type=type(original).__name__ if original is not None else category,
-        message=message,
+        message=safe_message,
         retry_count=retry_count,
     )
-    raise ProviderBoundaryError(message, category=category, diagnostic=diagnostic, original=original)
+    raise ProviderBoundaryError(safe_message, category=category, diagnostic=diagnostic, original=original)
 
 
 def _build_column_index(columns: Iterable[object]) -> dict[str, list[str]]:
@@ -329,7 +344,12 @@ def normalize_provider_dataframe(
         normalized["sector_type"] = sector_type
         normalized["source"] = DATA_SOURCE
         normalized["provider"] = PROVIDER_NAME
+        primary_contract = get_primary_provider_contract()
+        normalized["provider_id"] = primary_contract.provider_id
         normalized["api_name"] = API_NAME
+        normalized["provider_contract_id"] = build_provider_contract_short_id(primary_contract)
+        normalized["provider_contract_fingerprint"] = primary_contract.to_dict().get("semantic_contract_id")
+        normalized["upstream_origin"] = primary_contract.upstream_origin
         normalized["data_mode"] = "REAL"
         normalized = normalized.drop(columns=["leading_stock_code"], errors="ignore")
         normalized = normalized[
@@ -495,4 +515,3 @@ def validate_provider_text(text: str) -> list[str]:
         "建议关注",
     )
     return [word for word in forbidden if word in text]
-

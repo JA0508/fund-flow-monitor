@@ -8,6 +8,7 @@ from typing import Iterable
 import pandas as pd
 
 from src.data_contracts import validate_real_snapshot_dataframe, validate_sample_snapshot_dataframe
+from src.provider_registry import infer_provider_contract_id
 from src.providers.akshare_sector_flow import build_schema_fingerprint
 from src.snapshot_catalog import SNAPSHOT_PATTERN, parse_snapshot_date
 
@@ -137,7 +138,11 @@ def inspect_snapshot_evidence(
         "captured_time_count": 0,
         "captured_at": None,
         "provider": UNKNOWN,
+        "provider_id": UNKNOWN,
         "api_name": UNKNOWN,
+        "provider_contract_id": UNKNOWN,
+        "provider_contract_fingerprint": UNKNOWN,
+        "upstream_origin": UNKNOWN,
         "source": UNKNOWN,
         "data_mode": UNKNOWN,
         "row_count": 0,
@@ -197,9 +202,20 @@ def inspect_snapshot_evidence(
         if not captured_at.empty:
             base["captured_at"] = captured_at.max().isoformat()
     base["provider"] = _safe_first_value(df, "provider")
+    base["provider_id"] = _safe_first_value(df, "provider_id")
     base["api_name"] = _safe_first_value(df, "api_name")
+    base["provider_contract_id"] = _safe_first_value(df, "provider_contract_id")
+    base["provider_contract_fingerprint"] = _safe_first_value(df, "provider_contract_fingerprint")
+    base["upstream_origin"] = _safe_first_value(df, "upstream_origin")
     base["source"] = _safe_first_value(df, "source")
     base["data_mode"] = _safe_first_value(df, "data_mode")
+    if base["provider_contract_id"] == UNKNOWN:
+        base["provider_contract_id"] = infer_provider_contract_id(
+            base.get("provider"),
+            base.get("api_name"),
+            _safe_first_value(df, "sector_type"),
+            base.get("data_mode"),
+        )
     if source_mode == "SAMPLE":
         contract = validate_sample_snapshot_dataframe(df, context=rel_path)
     else:
@@ -256,6 +272,110 @@ def _valid_manifest(manifest_df: pd.DataFrame | None) -> pd.DataFrame:
     return df
 
 
+def _make_provider_segment_id(contract_id: str, first_trade_date: str, first_time: str | None, index: int) -> str:
+    payload = json.dumps(
+        {
+            "provider_contract_id": str(contract_id or UNKNOWN),
+            "first_trade_date": str(first_trade_date or UNKNOWN),
+            "first_captured_time": str(first_time or UNKNOWN),
+            "segment_index": int(index),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def build_provider_segments(manifest_df: pd.DataFrame | None) -> list[dict]:
+    valid = _valid_manifest(manifest_df)
+    if valid.empty:
+        return []
+    df = valid.copy()
+    for column in ("trade_date", "captured_time", "file_name", "provider", "api_name", "provider_contract_id"):
+        if column not in df.columns:
+            df[column] = UNKNOWN
+    df["provider_contract_id"] = df.apply(
+        lambda row: row.get("provider_contract_id")
+        if str(row.get("provider_contract_id") or "").strip().lower() not in {"", "none", "nan", UNKNOWN}
+        else infer_provider_contract_id(row.get("provider"), row.get("api_name"), None, row.get("data_mode")),
+        axis=1,
+    )
+    df = df.sort_values(["trade_date", "captured_time", "file_name"], na_position="last").reset_index(drop=True)
+    segments: list[dict] = []
+    current: dict | None = None
+    for _, row in df.iterrows():
+        contract_id = str(row.get("provider_contract_id") or UNKNOWN)
+        if current is None or current.get("provider_contract_id") != contract_id:
+            if current is not None:
+                segments.append(current)
+            index = len(segments) + 1
+            current = {
+                "segment_id": _make_provider_segment_id(contract_id, str(row.get("trade_date") or UNKNOWN), row.get("captured_time"), index),
+                "segment_index": index,
+                "provider": str(row.get("provider") or UNKNOWN),
+                "api_name": str(row.get("api_name") or UNKNOWN),
+                "provider_contract_id": contract_id,
+                "first_trade_date": str(row.get("trade_date") or UNKNOWN),
+                "last_trade_date": str(row.get("trade_date") or UNKNOWN),
+                "first_captured_time": row.get("captured_time"),
+                "last_captured_time": row.get("captured_time"),
+                "observation_count": 0,
+                "snapshot_count": 0,
+            }
+        current["last_trade_date"] = str(row.get("trade_date") or UNKNOWN)
+        current["last_captured_time"] = row.get("captured_time")
+        current["snapshot_count"] = int(current.get("snapshot_count", 0) or 0) + 1
+        current["observation_count"] = int(current.get("observation_count", 0) or 0) + int(row.get("captured_time_count", 0) or 1)
+    if current is not None:
+        segments.append(current)
+    return segments
+
+
+def build_provider_lineage_summary(manifest_df: pd.DataFrame | None) -> dict:
+    valid = _valid_manifest(manifest_df)
+    if valid.empty:
+        return {
+            "provider_contract_count": 0,
+            "provider_segment_count": 0,
+            "provider_contract_counts": {},
+            "provider_segments": [],
+            "source_homogeneous": False,
+            "provider_lineage_label": "暂无 provider lineage",
+            "provider_lineage_reason": "当前没有可读且非空的历史快照。",
+            "warnings": [],
+        }
+    df = valid.copy()
+    if "provider_contract_id" not in df.columns:
+        df["provider_contract_id"] = UNKNOWN
+    df["provider_contract_id"] = df.apply(
+        lambda row: row.get("provider_contract_id")
+        if str(row.get("provider_contract_id") or "").strip().lower() not in {"", "none", "nan", UNKNOWN}
+        else infer_provider_contract_id(row.get("provider"), row.get("api_name"), row.get("sector_type"), row.get("data_mode")),
+        axis=1,
+    )
+    counts = df["provider_contract_id"].fillna(UNKNOWN).astype(str).value_counts().to_dict()
+    segments = build_provider_segments(df)
+    contract_count = len([key for key in counts if key and key != UNKNOWN])
+    source_homogeneous = bool(contract_count == 1 and len(segments) == 1)
+    if source_homogeneous:
+        label = "历史 provider 来源同质"
+        reason = "当前有效历史快照可归入同一个 provider semantic contract segment。"
+    else:
+        label = "历史 provider 来源存在分段"
+        reason = "当前历史快照包含多个 provider contract 或多个连续分段，分析时应暴露来源差异。"
+    return {
+        "provider_contract_count": int(contract_count),
+        "provider_segment_count": int(len(segments)),
+        "provider_contract_counts": counts,
+        "provider_segments": segments,
+        "source_homogeneous": source_homogeneous,
+        "provider_lineage_label": label,
+        "provider_lineage_reason": reason,
+        "warnings": [] if source_homogeneous else ["历史 provider lineage 不是单一同质 segment；不要静默解释为同一来源。"],
+    }
+
+
 def build_historical_coverage_summary(manifest_df: pd.DataFrame | None) -> dict:
     total = 0 if manifest_df is None else int(len(manifest_df))
     if manifest_df is None or manifest_df.empty:
@@ -289,6 +409,7 @@ def build_historical_coverage_summary(manifest_df: pd.DataFrame | None) -> dict:
     provider_counts = df.get("provider", pd.Series(dtype=str)).fillna(UNKNOWN).astype(str).value_counts().to_dict()
     api_counts = df.get("api_name", pd.Series(dtype=str)).fillna(UNKNOWN).astype(str).value_counts().to_dict()
     schema_counts = df.get("schema_fingerprint", pd.Series(dtype=str)).fillna(UNKNOWN).astype(str).value_counts().to_dict()
+    provider_lineage = build_provider_lineage_summary(df)
     unknown_metadata_count = 0
     for column in ("provider", "api_name", "source", "data_mode", "schema_fingerprint"):
         if column in df.columns:
@@ -326,6 +447,13 @@ def build_historical_coverage_summary(manifest_df: pd.DataFrame | None) -> dict:
         "latest_captured_time": latest_time,
         "provider_counts": provider_counts,
         "api_counts": api_counts,
+        "provider_contract_counts": provider_lineage.get("provider_contract_counts", {}),
+        "provider_contract_count": provider_lineage.get("provider_contract_count", 0),
+        "provider_segment_count": provider_lineage.get("provider_segment_count", 0),
+        "provider_segments": provider_lineage.get("provider_segments", []),
+        "source_homogeneous": provider_lineage.get("source_homogeneous", False),
+        "provider_lineage_label": provider_lineage.get("provider_lineage_label"),
+        "provider_lineage_reason": provider_lineage.get("provider_lineage_reason"),
         "schema_fingerprint_counts": schema_counts,
         "schema_fingerprint_count": schema_fingerprint_count,
         "schema_consistent": bool(schema_fingerprint_count == 1),
@@ -573,6 +701,7 @@ def resolve_replay_evidence(
             if str(value).lower() != UNKNOWN
         }
     )
+    lineage = build_provider_lineage_summary(selected)
     return {
         "mode": mode,
         "source_mode": source_mode,
@@ -585,6 +714,11 @@ def resolve_replay_evidence(
         "captured_time_count": int(len(sorted_times)),
         "provider_counts": selected.get("provider", pd.Series(dtype=str)).fillna(UNKNOWN).astype(str).value_counts().to_dict(),
         "api_counts": selected.get("api_name", pd.Series(dtype=str)).fillna(UNKNOWN).astype(str).value_counts().to_dict(),
+        "provider_contract_counts": lineage.get("provider_contract_counts", {}),
+        "provider_contract_count": lineage.get("provider_contract_count", 0),
+        "provider_segment_count": lineage.get("provider_segment_count", 0),
+        "provider_segments": lineage.get("provider_segments", []),
+        "source_homogeneous": lineage.get("source_homogeneous", False),
         "schema_fingerprints": schema_values,
         "schema_consistent": len(schema_values) <= 1,
         "contract_pass_count": int(selected.get("contract_ok", pd.Series(dtype=bool)).fillna(False).sum()),

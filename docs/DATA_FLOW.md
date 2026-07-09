@@ -42,6 +42,10 @@ The main sector-flow DataFrame is expected to include:
 - `data_mode`
 - `fetched_at`
 - `rank_value`
+- `provider_id`
+- `provider_contract_id`
+- `provider_contract_fingerprint`
+- `upstream_origin`
 
 `src/data_contracts.py` checks the minimum practical contract without making the app overly brittle. The required columns for theme computation are:
 
@@ -53,6 +57,8 @@ The main sector-flow DataFrame is expected to include:
 SAMPLE files additionally require `source=SAMPLE` and `data_mode=SAMPLE`.
 
 Real AKShare snapshots use the same core shape but are validated by a separate real snapshot contract. Real rows should not contain SAMPLE or DEMO markers. Recommended provenance fields such as `provider`, `api_name`, `data_mode=REAL` and `fetched_at` improve cache observability, but the contract remains lightweight so future AKShare column drift does not break the app unnecessarily.
+
+Provider contract fields are recommended lineage columns for newly normalized REAL snapshots. Older cache files remain readable; historical evidence can infer the known primary contract from provider/API fields when those fields are present. If a contract cannot be inferred safely, the value remains `unknown_provider_contract` rather than being forced into the primary source.
 
 ## Raw Data To Theme Observation
 
@@ -322,6 +328,27 @@ Episode boundaries are based on adjacent canonical observations. The project rep
 State-equivalent analysis asks a narrow descriptive question: for the same headline state, how many structural signatures have been observed? The denominator for observed shares is the canonical observations inside that headline-state group. These shares are not future-oriented measures.
 
 The CLI and Streamlit panel remain read-only: no AKShare calls, no CSV writes, no SQLite writes and no taxonomy mutation.
+
+## Provider Semantic Contracts And Historical Segments
+
+v3.15 inserts provider semantics before canonical analytics:
+
+```text
+provider/API candidate
+-> semantic contract
+-> source comparability classification
+-> continuity eligibility
+-> provider-aware snapshot lineage
+-> existing theme/history analytics
+```
+
+A provider segment is a contiguous chronological sequence of snapshot evidence with the same provider contract identity. One history can therefore be:
+
+- source-homogeneous: one represented provider contract;
+- segmented but visible: multiple provider contracts with explicit segment boundaries;
+- unsafe for silent continuity: mixed contracts that are non-equivalent or unknown.
+
+The project does not treat every AKShare fund-flow endpoint as interchangeable. A concept-fund-flow ranking, a stock-universe fund-flow table and an industry-board "今日" ranking may all mention fund flow, but they can differ in row grain, source universe, time semantics or value semantics. Those differences block silent substitution into the same continuity path.
 
 ## Cross-Theme Semantic-Dynamic Relationship Evidence
 
