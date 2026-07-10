@@ -179,6 +179,16 @@ They summarize collector log statuses, malformed log lines, write-intent success
 After a successful local collection, verify evidence without exposing private cache:
 
 ```bash
+.venv/bin/python tools/inspect_history_evidence.py --source-mode REAL
+.venv/bin/python tools/audit_analytical_eligibility.py --source REAL --json
+.venv/bin/python tools/audit_evidence_accumulation.py --source REAL --json
+```
+
+`audit_evidence_accumulation.py` is the v3.18 acquisition-coverage check. It reports physical capture events, qualified capture events, covered acquisition cells, missing cells and marginal contribution states. A successful collector run should not be treated as expanded temporal evidence until this audit shows the capture is qualified and mapped into the predeclared acquisition frame.
+
+The full manual protocol is in [`REAL_ACCUMULATION_PROTOCOL.md`](REAL_ACCUMULATION_PROTOCOL.md).
+
+```bash
 .venv/bin/python tools/verify_runtime.py
 .venv/bin/python tools/smoke_check.py
 git status --short

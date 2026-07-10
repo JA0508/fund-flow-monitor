@@ -81,6 +81,18 @@ def build_quality_gate_commands(python_executable: str | None = None) -> list[di
             "command": [python, "tools/audit_analytical_eligibility.py", "--source", "REAL"],
             "env": {},
         },
+        {
+            "name": "evidence_accumulation_sample",
+            "label": "Evidence accumulation audit (SAMPLE)",
+            "command": [python, "tools/audit_evidence_accumulation.py", "--source", "SAMPLE"],
+            "env": {},
+        },
+        {
+            "name": "evidence_accumulation_real",
+            "label": "Evidence accumulation audit (REAL)",
+            "command": [python, "tools/audit_evidence_accumulation.py", "--source", "REAL"],
+            "env": {},
+        },
     ]
 
 

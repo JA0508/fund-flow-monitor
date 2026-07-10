@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+import pandas as pd
+
+from src.evidence_accumulation import (
+    ASSIGNMENT_OUTSIDE,
+    CONTRIBUTION_ADDITIONAL,
+    CONTRIBUTION_EXCLUDED,
+    CONTRIBUTION_NEW_CELL,
+    build_acquisition_frame,
+    build_acquisition_frame_id,
+    build_evidence_accumulation_report,
+    build_physical_capture_event_inventory,
+    validate_evidence_accumulation_text,
+)
+from src.providers.akshare_sector_flow import normalize_provider_dataframe
+from src.theme_dynamics import get_canonical_materialization_policy
+
+
+def _raw_provider_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "序号": [1, 2],
+            "板块代码": ["BK001", "BK002"],
+            "名称": ["半导体", "通信"],
+            "今日涨跌幅": [1.2, -0.3],
+            "今日主力净流入-净额": [100_000_000, -50_000_000],
+            "今日主力净流入-净占比": [3.2, -1.1],
+            "今日超大单净流入-净额": [50_000_000, -20_000_000],
+            "今日大单净流入-净额": [30_000_000, -10_000_000],
+            "今日中单净流入-净额": [10_000_000, -10_000_000],
+            "今日小单净流入-净额": [10_000_000, -10_000_000],
+            "今日主力净流入最大股": ["样例A", "样例B"],
+            "今日主力净流入最大股代码": ["000001", "000002"],
+        }
+    )
+
+
+def _write_provider_snapshots(tmp_path, times: list[str], trade_date: str = "2026-06-10") -> None:
+    frames = []
+    for time_text in times:
+        captured_at = datetime.fromisoformat(f"{trade_date}T{time_text}+08:00")
+        result = normalize_provider_dataframe(_raw_provider_frame(), sector_type="行业资金流", captured_at=captured_at)
+        frames.append(result.normalized_df)
+    out = pd.concat(frames, ignore_index=True)
+    (tmp_path / f"sector_flow_{trade_date}.csv").write_text(out.to_csv(index=False), encoding="utf-8")
+
+
+def _write_legacy_snapshot(tmp_path, time_text: str = "10:00:00", trade_date: str = "2026-06-10") -> None:
+    captured_at = datetime.fromisoformat(f"{trade_date}T{time_text}+08:00")
+    result = normalize_provider_dataframe(_raw_provider_frame(), sector_type="行业资金流", captured_at=captured_at)
+    df = result.normalized_df
+    df = df.drop(
+        columns=[
+            "provider_contract_id",
+            "provider_contract_fingerprint",
+            "provider_id",
+            "upstream_origin",
+            "provider",
+            "api_name",
+        ],
+        errors="ignore",
+    )
+    (tmp_path / f"sector_flow_{trade_date}.csv").write_text(df.to_csv(index=False), encoding="utf-8")
+
+
+def test_physical_capture_inventory_is_one_row_per_capture_not_sector_row(tmp_path):
+    _write_provider_snapshots(tmp_path, ["10:00:00", "10:05:00", "10:40:00"])
+    inventory = build_physical_capture_event_inventory(tmp_path, source_mode="REAL")
+    assert len(inventory) == 3
+    assert inventory["row_count"].tolist() == [2, 2, 2]
+    assert inventory["is_qualified_acquisition_event"].tolist() == [True, True, True]
+
+
+def test_acquisition_frame_identity_is_deterministic_and_separate_from_canonical_policy():
+    frame_id_a = build_acquisition_frame_id(cell_minutes=30)
+    frame_id_b = build_acquisition_frame_id(cell_minutes=30)
+    frame_id_c = build_acquisition_frame_id(cell_minutes=15)
+    assert frame_id_a == frame_id_b
+    assert frame_id_a != frame_id_c
+    assert get_canonical_materialization_policy() == "latest_valid_snapshot_in_bucket"
+
+
+def test_session_boundary_assignment_and_off_frame_capture(tmp_path):
+    _write_provider_snapshots(tmp_path, ["09:30:00", "11:30:00", "12:00:00"])
+    report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30)
+    preview = report["events_preview"]
+    assert preview[0]["marginal_coverage_contribution"] == CONTRIBUTION_NEW_CELL
+    assert preview[1]["marginal_coverage_contribution"] == CONTRIBUTION_NEW_CELL
+    assert preview[2]["acquisition_assignment_state"] == ASSIGNMENT_OUTSIDE
+
+
+def test_provider_normalization_to_accumulation_handshake(tmp_path):
+    _write_provider_snapshots(tmp_path, ["10:00:00", "10:05:00", "10:40:00"])
+    report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30)
+    assert report["physical_capture_event_count"] == 3
+    assert report["qualified_capture_event_count"] == 3
+    assert report["covered_acquisition_cell_count"] == 2
+    counts = report["marginal_contribution_counts"]
+    assert counts[CONTRIBUTION_NEW_CELL] == 2
+    assert counts[CONTRIBUTION_ADDITIONAL] == 1
+
+
+def test_legacy_unresolved_capture_visible_but_excluded(tmp_path):
+    _write_legacy_snapshot(tmp_path)
+    report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30)
+    assert report["physical_capture_event_count"] == 1
+    assert report["qualified_capture_event_count"] == 0
+    assert report["excluded_capture_event_count"] == 1
+    assert report["provider_contract_resolution_counts"] == {"unknown": 1}
+    assert report["marginal_contribution_counts"][CONTRIBUTION_EXCLUDED] == 1
+
+
+def test_clustered_captures_cover_one_cell(tmp_path):
+    times = [f"10:{minute:02d}:00" for minute in range(10)]
+    _write_provider_snapshots(tmp_path, times)
+    report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30)
+    assert report["qualified_capture_event_count"] == 10
+    assert report["covered_acquisition_cell_count"] == 1
+    assert report["marginal_contribution_counts"][CONTRIBUTION_NEW_CELL] == 1
+    assert report["marginal_contribution_counts"][CONTRIBUTION_ADDITIONAL] == 9
+
+
+def test_equal_capture_count_can_have_different_cell_coverage(tmp_path):
+    clustered = tmp_path / "clustered"
+    distributed = tmp_path / "distributed"
+    clustered.mkdir()
+    distributed.mkdir()
+    _write_provider_snapshots(clustered, [f"10:{minute:02d}:00" for minute in range(10)])
+    _write_provider_snapshots(
+        distributed,
+        ["09:35:00", "10:05:00", "10:35:00", "11:05:00", "13:05:00", "13:35:00", "14:05:00", "14:35:00", "14:45:00", "14:55:00"],
+    )
+    clustered_report = build_evidence_accumulation_report("REAL", data_dir=clustered, cell_minutes=30)
+    distributed_report = build_evidence_accumulation_report("REAL", data_dir=distributed, cell_minutes=30)
+    assert clustered_report["qualified_capture_event_count"] == distributed_report["qualified_capture_event_count"] == 10
+    assert clustered_report["covered_acquisition_cell_count"] < distributed_report["covered_acquisition_cell_count"]
+
+
+def test_sample_is_demo_eligible_but_not_real_accumulation(tmp_path):
+    _write_provider_snapshots(tmp_path, ["10:00:00"])
+    df = pd.read_csv(tmp_path / "sector_flow_2026-06-10.csv")
+    df["source"] = "SAMPLE"
+    df["data_mode"] = "SAMPLE"
+    df = df.drop(columns=["provider_contract_id", "provider_contract_fingerprint"], errors="ignore")
+    (tmp_path / "sector_flow_2026-06-10.csv").write_text(df.to_csv(index=False), encoding="utf-8")
+    sample_report = build_evidence_accumulation_report("SAMPLE", data_dir=tmp_path, cell_minutes=30)
+    real_report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30)
+    assert sample_report["qualified_capture_event_count"] == 1
+    assert real_report["qualified_capture_event_count"] == 0
+
+
+def test_mixed_legacy_and_verified_history_preserves_both_universes(tmp_path):
+    verified_dir = tmp_path / "verified"
+    legacy_dir = tmp_path / "legacy"
+    verified_dir.mkdir()
+    legacy_dir.mkdir()
+    _write_provider_snapshots(verified_dir, ["10:00:00", "10:40:00"])
+    _write_legacy_snapshot(legacy_dir, time_text="10:05:00")
+    verified = pd.read_csv(verified_dir / "sector_flow_2026-06-10.csv")
+    legacy = pd.read_csv(legacy_dir / "sector_flow_2026-06-10.csv")
+    mixed = pd.concat([verified, legacy], ignore_index=True)
+    (tmp_path / "sector_flow_2026-06-10.csv").write_text(mixed.to_csv(index=False), encoding="utf-8")
+
+    report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30)
+    assert report["physical_capture_event_count"] == 3
+    assert report["qualified_capture_event_count"] == 2
+    assert report["excluded_capture_event_count"] == 1
+    assert report["covered_acquisition_cell_count"] == 2
+    assert report["provider_contract_resolution_counts"]["explicit_verified"] == 2
+    assert report["provider_contract_resolution_counts"]["unknown"] == 1
+    assert report["excluded_reason_counts"]["unresolved_provider_contract"] == 1
+
+
+def test_validate_evidence_accumulation_text_detects_forbidden_words():
+    assert "未来会涨" in validate_evidence_accumulation_text("未来会涨")
+    assert validate_evidence_accumulation_text("Capture count and cell coverage are separate.") == []

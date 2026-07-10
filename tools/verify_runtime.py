@@ -198,6 +198,10 @@ from src.analytical_robustness import (  # noqa: E402
 )
 from tools.audit_analytical_continuity import build_analytical_continuity_report  # noqa: E402
 from tools.audit_analytical_eligibility import build_analytical_eligibility_report  # noqa: E402
+from src.evidence_accumulation import (  # noqa: E402
+    build_evidence_accumulation_report,
+    validate_evidence_accumulation_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1169,6 +1173,10 @@ def _verify_theme_dynamics() -> None:
         mode="strict_representative",
     )
     eligibility_summary = ((eligibility_report.get("availability_vs_qualified") or {}).get("qualified_summary") or {})
+    evidence_accumulation_report = build_evidence_accumulation_report(
+        source_mode="SAMPLE",
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+    )
     grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
@@ -1232,6 +1240,14 @@ def _verify_theme_dynamics() -> None:
     print(f"  analytical_eligibility_eligible_count: {eligibility_summary.get('eligible_observation_count')}")
     print(f"  analytical_eligibility_excluded_count: {eligibility_summary.get('excluded_observation_count')}")
     print(f"  analytical_eligibility_network_used: {eligibility_report.get('network_used')}")
+    print(f"  audit_evidence_accumulation.py exists: {(PROJECT_ROOT / 'tools/audit_evidence_accumulation.py').exists()}")
+    print(f"  evidence_accumulation_physical_capture_count: {evidence_accumulation_report.get('physical_capture_event_count')}")
+    print(f"  evidence_accumulation_qualified_capture_count: {evidence_accumulation_report.get('qualified_capture_event_count')}")
+    print(f"  evidence_accumulation_covered_cell_count: {evidence_accumulation_report.get('covered_acquisition_cell_count')}")
+    print(f"  evidence_accumulation_missing_cell_count: {evidence_accumulation_report.get('missing_acquisition_cell_count')}")
+    print(f"  evidence_accumulation_marginal_counts: {evidence_accumulation_report.get('marginal_contribution_counts')}")
+    print(f"  evidence_accumulation_network_used: {evidence_accumulation_report.get('network_used')}")
+    print(f"  evidence_accumulation_forbidden_hits: {validate_evidence_accumulation_text(str(evidence_accumulation_report))}")
     print("  theme dynamics 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 

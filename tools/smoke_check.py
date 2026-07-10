@@ -129,6 +129,10 @@ from src.analytical_robustness import (  # noqa: E402
 )
 from tools.audit_analytical_continuity import build_analytical_continuity_report  # noqa: E402
 from tools.audit_analytical_eligibility import build_analytical_eligibility_report  # noqa: E402
+from src.evidence_accumulation import (  # noqa: E402
+    build_evidence_accumulation_report,
+    validate_evidence_accumulation_text,
+)
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -192,6 +196,7 @@ REQUIRED_FILES = (
     "src/analytical_robustness.py",
     "src/analytical_continuity.py",
     "src/analytical_eligibility.py",
+    "src/evidence_accumulation.py",
     "src/provider_contracts.py",
     "src/provider_comparability.py",
     "src/provider_registry.py",
@@ -216,6 +221,7 @@ REQUIRED_FILES = (
     "tools/audit_analytical_robustness.py",
     "tools/audit_analytical_continuity.py",
     "tools/audit_analytical_eligibility.py",
+    "tools/audit_evidence_accumulation.py",
     "tools/audit_provider_semantics.py",
     "tools/diagnose_provider_network.py",
     "config/watchlist.json",
@@ -231,6 +237,7 @@ REQUIRED_FILES = (
     "docs/ARCHITECTURE.md",
     "docs/DATA_FLOW.md",
     "docs/REAL_DATA_INGESTION.md",
+    "docs/REAL_ACCUMULATION_PROTOCOL.md",
     "docs/OPERATIONS.md",
     "README.md",
 )
@@ -536,6 +543,10 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         data_dir=str(project_root / "sample_data/ticks"),
         mode="strict_representative",
     )
+    evidence_accumulation_report = build_evidence_accumulation_report(
+        source_mode="SAMPLE",
+        data_dir=str(project_root / "sample_data/ticks"),
+    )
     observation_grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(project_root / "sample_data/ticks"),
@@ -742,6 +753,16 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "analytical_eligibility_excluded_count": int(((analytical_eligibility_report.get("availability_vs_qualified") or {}).get("qualified_summary") or {}).get("excluded_observation_count", 0) or 0),
             "analytical_eligibility_network_used": bool(analytical_eligibility_report.get("network_used")),
             "analytical_eligibility_forbidden_hits": [],
+            "evidence_accumulation_module_imported": True,
+            "audit_evidence_accumulation_script_exists": (project_root / "tools/audit_evidence_accumulation.py").exists(),
+            "evidence_accumulation_physical_capture_count": int(evidence_accumulation_report.get("physical_capture_event_count", 0) or 0),
+            "evidence_accumulation_qualified_capture_count": int(evidence_accumulation_report.get("qualified_capture_event_count", 0) or 0),
+            "evidence_accumulation_covered_cell_count": int(evidence_accumulation_report.get("covered_acquisition_cell_count", 0) or 0),
+            "evidence_accumulation_missing_cell_count": int(evidence_accumulation_report.get("missing_acquisition_cell_count", 0) or 0),
+            "evidence_accumulation_new_cell_count": int((evidence_accumulation_report.get("marginal_contribution_counts") or {}).get("new_cell_coverage", 0) or 0),
+            "evidence_accumulation_additional_capture_count": int((evidence_accumulation_report.get("marginal_contribution_counts") or {}).get("additional_capture_in_existing_cell", 0) or 0),
+            "evidence_accumulation_network_used": bool(evidence_accumulation_report.get("network_used")),
+            "evidence_accumulation_forbidden_hits": validate_evidence_accumulation_text(str(evidence_accumulation_report)),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -968,6 +989,13 @@ def main() -> int:
     print(f"analytical eligibility eligible/excluded: {theme_dynamics['analytical_eligibility_eligible_count']} / {theme_dynamics['analytical_eligibility_excluded_count']}")
     print(f"analytical eligibility network used: {theme_dynamics['analytical_eligibility_network_used']}")
     print(f"analytical eligibility forbidden hits: {theme_dynamics['analytical_eligibility_forbidden_hits']}")
+    print(f"evidence accumulation module imported: {theme_dynamics['evidence_accumulation_module_imported']}")
+    print(f"audit_evidence_accumulation.py exists: {theme_dynamics['audit_evidence_accumulation_script_exists']}")
+    print(f"evidence accumulation physical/qualified captures: {theme_dynamics['evidence_accumulation_physical_capture_count']} / {theme_dynamics['evidence_accumulation_qualified_capture_count']}")
+    print(f"evidence accumulation covered/missing cells: {theme_dynamics['evidence_accumulation_covered_cell_count']} / {theme_dynamics['evidence_accumulation_missing_cell_count']}")
+    print(f"evidence accumulation new/additional captures: {theme_dynamics['evidence_accumulation_new_cell_count']} / {theme_dynamics['evidence_accumulation_additional_capture_count']}")
+    print(f"evidence accumulation network used: {theme_dynamics['evidence_accumulation_network_used']}")
+    print(f"evidence accumulation forbidden hits: {theme_dynamics['evidence_accumulation_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
@@ -1094,6 +1122,13 @@ def main() -> int:
         and report["theme_dynamics"]["analytical_continuity_segment_count"] >= 1
         and not report["theme_dynamics"]["analytical_continuity_network_used"]
         and not report["theme_dynamics"]["analytical_continuity_forbidden_hits"]
+        and report["theme_dynamics"]["evidence_accumulation_module_imported"]
+        and report["theme_dynamics"]["audit_evidence_accumulation_script_exists"]
+        and report["theme_dynamics"]["evidence_accumulation_physical_capture_count"] > 0
+        and report["theme_dynamics"]["evidence_accumulation_qualified_capture_count"] > 0
+        and report["theme_dynamics"]["evidence_accumulation_covered_cell_count"] > 0
+        and not report["theme_dynamics"]["evidence_accumulation_network_used"]
+        and not report["theme_dynamics"]["evidence_accumulation_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
         and warehouse["warehouse_explorer_imported"]

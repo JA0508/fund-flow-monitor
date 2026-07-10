@@ -10,6 +10,42 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.18 Qualified Evidence Accumulation Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/audit_evidence_accumulation.py --source SAMPLE
+python tools/audit_evidence_accumulation.py --source REAL
+python tools/audit_analytical_eligibility.py --source SAMPLE
+python tools/audit_analytical_eligibility.py --source REAL
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.18`.
+- `CHANGELOG.md` contains a `v3.18` entry.
+- `src/evidence_accumulation.py` exists and is importable.
+- `tools/audit_evidence_accumulation.py` exists and can audit SAMPLE / REAL without network access or writes.
+- The physical capture-event inventory is one row per provider snapshot capture, not per sector row, theme row, calculation mode or analytical bucket.
+- The acquisition frame is deterministic, based on configured collection sessions, and separate from analytical 1/5/10 minute materialization buckets.
+- Capture-to-cell assignment uses the documented `[start, end)` boundary convention with the final session endpoint included.
+- Qualified acquisition coverage requires contract-qualified capture events; unresolved REAL legacy captures remain visible but excluded from qualified coverage.
+- Marginal contribution states distinguish `new_cell_coverage` from `additional_capture_in_existing_cell`.
+- Clustered captures in one cell must not inflate covered acquisition-cell count.
+- Equal capture counts can produce different covered-cell counts depending on temporal distribution.
+- `3 dates × 1 snapshot` may support historical availability but must not be treated as qualified temporal coverage without acquisition-frame and provider-contract evidence.
+- Streamlit Data Explanation shows evidence accumulation as read-only context and does not trigger collection, CSV writes or SQLite writes.
+- No scheduler, daemon, fallback provider, prediction wording, scoring language or investment recommendation is introduced.
+
 ## v3.17 Contract-Qualified Analytical Eligibility Checks
 
 Run:

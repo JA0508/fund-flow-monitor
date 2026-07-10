@@ -27,6 +27,7 @@ The app fetches or reads sector fund-flow snapshots, normalizes them with pandas
 - Structural regime signatures combine headline state, scope divergence and member structure so the same headline state can be compared across different observed internal configurations without ML clustering or black-box scoring.
 - Lightweight data contracts validate the practical snapshot shape, especially SAMPLE CSV structure, without blocking valid local cache data unnecessarily.
 - Analytical eligibility separates replayable history from workload-qualified evidence, so legacy unresolved REAL cache can be inspected without being counted as qualified regime, relationship or robustness input.
+- Qualified evidence accumulation separates collector success from temporal coverage growth: a capture has to be contract-qualified and mapped into a predeclared acquisition-frame cell before it increases covered-cell evidence.
 
 ## Engineering Architecture Tradeoff
 
@@ -109,6 +110,10 @@ v3.15 made provider semantics visible, but visibility alone is not enough. v3.16
 **What changed in v3.17?**
 
 v3.17 adds a workload-level eligibility gate. A REAL CSV can be readable and still not qualified for continuity-sensitive analysis if its provider contract is unresolved. SAMPLE data remains eligible for SAMPLE demo analytics, while REAL qualified analytics require explicit verified primary-provider contract identity.
+
+**What changed in v3.18?**
+
+v3.18 adds an acquisition evidence layer. It counts physical capture events once per provider snapshot, maps them into predeclared session cells, and labels whether each qualified event creates new cell coverage or is only an additional capture inside an already-covered cell. This prevents a simple captured-time count from being mistaken for temporal evidence coverage.
 
 ### What is the current runtime provider policy?
 

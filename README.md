@@ -74,6 +74,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - Provider semantics evidence：为当前 AKShare / Eastmoney 实时路径建立语义契约、候选源可比性分类和连续性门禁，默认保持 `primary_only`，不做静默 fallback。
 - Provider-contract-aware continuity：canonical bucket、regime episode、relationship alignment 和 robustness evidence 保留 provider-contract continuity segment，避免不同来源契约历史被静默合并成一条证据线。
 - Contract-qualified analytical readiness：把“CSV 历史可读”与“可进入合格分析工作负载”分开；legacy REAL 缓存仍可审计，但未解析 provider contract 的观察不会抬高 qualified readiness。
+- Qualified evidence accumulation：把物理采集事件、预声明采集单元和边际覆盖贡献分开，避免把 captured_time 数量直接当成有效时间覆盖。
 - 三种主题口径：严格代表口径、代表口径、广度观察。
 - 今日资金温度：基于主题资金状态计算整体主题资金冷热。
 - 关注主题雷达：按 `config/watchlist.json` 展示自选主题状态。
@@ -186,7 +187,7 @@ v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准
 
 公开发布最终审计见 [`docs/PUBLIC_RELEASE_AUDIT.md`](docs/PUBLIC_RELEASE_AUDIT.md)。作品集讲解材料见 [`docs/PORTFOLIO_PRESENTATION.md`](docs/PORTFOLIO_PRESENTATION.md)、[`docs/INTERVIEW_TALKING_POINTS.md`](docs/INTERVIEW_TALKING_POINTS.md) 和 [`docs/RESUME_SNIPPETS.md`](docs/RESUME_SNIPPETS.md)。
 
-工程架构说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数据流与数据状态说明见 [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md)，本地运行、CI 和 Streamlit Cloud 运维说明见 [`docs/OPERATIONS.md`](docs/OPERATIONS.md)。
+工程架构说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数据流与数据状态说明见 [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md)，本地 REAL 证据累积流程见 [`docs/REAL_ACCUMULATION_PROTOCOL.md`](docs/REAL_ACCUMULATION_PROTOCOL.md)，本地运行、CI 和 Streamlit Cloud 运维说明见 [`docs/OPERATIONS.md`](docs/OPERATIONS.md)。
 
 ## Reproducible Demo Commands
 
@@ -209,6 +210,7 @@ python tools/quality_gate.py
 python tools/cloud_preflight.py
 python tools/release_check.py
 python tools/inspect_theme_evidence.py --theme "半导体/芯片链" --source-mode SAMPLE --trace
+python tools/audit_evidence_accumulation.py --source SAMPLE
 python tools/smoke_check.py
 python tools/verify_runtime.py
 python -m pytest -q

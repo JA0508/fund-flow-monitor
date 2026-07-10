@@ -126,6 +126,7 @@ from src.analytical_eligibility import (
     WORKLOAD_THEME_CONTINUITY,
     build_availability_vs_qualified_readiness,
 )
+from src.evidence_accumulation import build_evidence_accumulation_report
 from src.analytical_robustness import (
     compare_relationship_specifications,
     compare_theme_specifications,
@@ -227,6 +228,7 @@ from src.ui_components import (
     render_historical_evidence_notes,
     render_historical_evidence_summary_cards,
     render_analytical_eligibility_summary_cards,
+    render_evidence_accumulation_summary_cards,
     render_hotspot_cards,
     render_intraday_hotspot_overview,
     render_intraday_hotspot_table,
@@ -450,6 +452,38 @@ def main() -> None:
         sample_eligibility_cube_df,
         workload=WORKLOAD_THEME_CONTINUITY,
     )
+    try:
+        real_evidence_accumulation = build_evidence_accumulation_report(source_mode="REAL", data_dir="data/ticks")
+    except Exception as exc:
+        real_evidence_accumulation = {
+            "source_mode": "REAL",
+            "physical_capture_event_count": 0,
+            "qualified_capture_event_count": 0,
+            "covered_acquisition_cell_count": 0,
+            "missing_acquisition_cell_count": 0,
+            "coverage_numerator": 0,
+            "coverage_denominator": 0,
+            "marginal_contribution_counts": {},
+            "warnings": [],
+            "errors": [f"REAL evidence accumulation audit unavailable: {exc}"],
+            "network_used": False,
+        }
+    try:
+        sample_evidence_accumulation = build_evidence_accumulation_report(source_mode="SAMPLE", data_dir=SAMPLE_DIR)
+    except Exception as exc:
+        sample_evidence_accumulation = {
+            "source_mode": "SAMPLE",
+            "physical_capture_event_count": 0,
+            "qualified_capture_event_count": 0,
+            "covered_acquisition_cell_count": 0,
+            "missing_acquisition_cell_count": 0,
+            "coverage_numerator": 0,
+            "coverage_denominator": 0,
+            "marginal_contribution_counts": {},
+            "warnings": [],
+            "errors": [f"SAMPLE evidence accumulation audit unavailable: {exc}"],
+            "network_used": False,
+        }
     real_coverage_matrix_df = build_coverage_matrix(real_history_manifest_df)
     sample_coverage_matrix_df = build_coverage_matrix(sample_history_manifest_df)
     snapshot_quality_report = build_snapshot_quality_report()
@@ -1945,6 +1979,20 @@ def main() -> None:
         render_analytical_eligibility_summary_cards(
             sample_analytical_readiness,
             title="SAMPLE 历史可读性 vs Demo Analytics",
+        )
+        st.markdown("#### Qualified Evidence Accumulation")
+        st.markdown(
+            "- v3.18 将物理采集事件、预声明采集单元和 qualified acquisition event 分开审计。\n"
+            "- 捕获次数不会自动等同于时间覆盖；同一采集单元内的后续捕获会标记为 additional capture。\n"
+            "- 该面板只读现有 CSV 证据，不访问 AKShare，不写 `data/ticks`，也不写本地 warehouse。"
+        )
+        render_evidence_accumulation_summary_cards(
+            real_evidence_accumulation,
+            title="REAL Qualified Evidence Accumulation",
+        )
+        render_evidence_accumulation_summary_cards(
+            sample_evidence_accumulation,
+            title="SAMPLE Demo Evidence Accumulation",
         )
         with st.expander("查看 REAL captured_time 覆盖矩阵", expanded=show_debug_details):
             render_coverage_matrix(real_coverage_matrix_df, title="REAL captured_time 覆盖矩阵")

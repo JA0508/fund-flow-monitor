@@ -13,6 +13,12 @@ data source + snapshot catalog
         v
 standard sector-flow DataFrame
         |
+        +--> physical capture event inventory
+        |         |
+        |         v
+        |   qualified acquisition frame coverage
+        |
+        v
         +--> theme taxonomy + theme pool aggregation
         |         |
         |         v
@@ -101,6 +107,42 @@ Is the observation qualified for a specific analytical workload?
 Historical availability remains a coverage/readability statement. It can say that multiple REAL dates and snapshots exist. Qualified analytical readiness is stricter: REAL observations must carry explicit verified primary-provider contract identity before entering continuity-sensitive workloads such as structural regimes, cross-theme relationships and analytical robustness. Legacy REAL cache rows with unknown, inferred or explicit-ID-only provider-contract lineage remain auditable, but they are not counted as qualified analytical evidence.
 
 SAMPLE synthetic rows are eligible only for SAMPLE demo analytics. This preserves the public demo path while keeping SAMPLE separate from real market history.
+
+## Qualified Evidence Accumulation Layer
+
+v3.18 adds a separate acquisition-evidence layer:
+
+```text
+normalized snapshot CSV
+        |
+        v
+physical capture event
+        |
+        v
+provider contract resolution + acquisition eligibility
+        |
+        v
+qualified acquisition event
+        |
+        v
+predeclared acquisition frame cell
+        |
+        v
+temporal coverage accumulation
+```
+
+Key module and tool:
+
+- `src/evidence_accumulation.py`
+- `tools/audit_evidence_accumulation.py`
+
+The physical capture-event grain is one row per provider snapshot capture, identified by source mode, relative CSV path, trade date and captured time. It is not multiplied by sector rows, theme rows, calculation modes or analytical bucket variants.
+
+The acquisition frame is derived from the configured collection sessions in `src/collection_policy.py`. Each trade date gets deterministic session cells, currently with a default 30-minute cell size. Cell IDs include the acquisition frame ID and session/cell boundaries. The boundary convention is `[start, end)`, with the final configured session endpoint included.
+
+This layer keeps capture count separate from temporal coverage. The first qualified capture in a predeclared cell is marked as `new_cell_coverage`; later qualified captures in the same cell are marked as `additional_capture_in_existing_cell`. Qualified captures outside the configured sessions remain visible as `outside_acquisition_frame`, and unresolved or otherwise unqualified captures are excluded from qualified acquisition coverage.
+
+This means `3 dates × 1 snapshot` can demonstrate historical availability, but it is not automatically the same as qualified multi-day acquisition coverage. The audit reports covered cells, missing cells and marginal contribution states explicitly. It does not fetch AKShare, write CSV files, write SQLite files, create a scheduler or change analytical materialization buckets.
 
 ## Runtime Profile Layer
 

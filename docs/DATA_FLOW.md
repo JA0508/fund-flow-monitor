@@ -69,6 +69,16 @@ v3.17 adds an analytical eligibility gate after continuity resolution. This gate
 - unresolved REAL rows stay visible in audit reports but are excluded from qualified regime, relationship and robustness denominators;
 - SAMPLE rows can qualify only for SAMPLE demo workloads.
 
+v3.18 adds a qualified evidence accumulation layer before downstream analytical claims are interpreted as accumulated evidence:
+
+- physical capture events are counted once per source mode, relative CSV file, trade date and captured time;
+- sector rows, theme rows, calculation modes and 1/5/10 minute analytical buckets do not multiply physical captures;
+- the acquisition frame is predeclared from configured collection sessions and deterministic cell boundaries;
+- a qualified capture can add `new_cell_coverage`, add only an extra capture inside an already-covered cell, sit outside the acquisition frame, or be excluded from the qualified universe;
+- capture count, represented dates and covered acquisition cells are reported separately.
+
+This is why a directory with three readable dates and one snapshot per date may be `multi_day_ready` for historical availability, while still needing explicit acquisition-frame coverage and provider-contract qualification before being treated as qualified accumulated REAL evidence.
+
 ## Raw Data To Theme Observation
 
 ```text
@@ -78,7 +88,16 @@ raw sector / concept rows
 normalized snapshot DataFrame
         |
         v
-provider contract resolution + analytical eligibility
+physical capture event inventory
+        |
+        v
+provider contract resolution + acquisition eligibility
+        |
+        v
+predeclared acquisition frame + coverage contribution
+        |
+        v
+analytical continuity + analytical eligibility
         |
         v
 latest sector frame or historical frame

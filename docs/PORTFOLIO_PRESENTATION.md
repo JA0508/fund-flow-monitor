@@ -111,6 +111,7 @@ In public demo runtime, the app defaults to SAMPLE when no real cache exists and
 - Provider semantics are intentionally conservative: an available endpoint is not automatically comparable, and a reachable fallback is not silently merged into historical continuity.
 - Analytical continuity is also conservative: inferred legacy provider metadata can remain readable, but it is not treated as the same provenance state as an explicitly verified provider contract.
 - Analytical eligibility is the final gate: readable history is not automatically qualified history, so old unresolved cache cannot inflate qualified regime, relationship or robustness evidence.
+- Evidence accumulation adds one more guardrail: a physical collector success is not treated as expanded time coverage unless it is contract-qualified and contributes to a predeclared acquisition-frame cell.
 
 ## GitHub / About Short Description
 

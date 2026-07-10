@@ -1217,6 +1217,46 @@ def render_analytical_eligibility_summary_cards(report: dict, title: str = "历�
         _render_simple_table(["Exclusion Reason", "Count"], rows, "暂无 exclusion reason。")
 
 
+def render_evidence_accumulation_summary_cards(report: dict, title: str = "Qualified Evidence Accumulation") -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(title)}</div>", unsafe_allow_html=True)
+    report = report or {}
+    marginal = report.get("marginal_contribution_counts") or {}
+    resolution = report.get("provider_contract_resolution_counts") or {}
+    coverage = (
+        f"{int(report.get('coverage_numerator', 0) or 0)} / "
+        f"{int(report.get('coverage_denominator', 0) or 0)}"
+    )
+    marginal_text = ", ".join(f"{key}: {value}" for key, value in sorted(marginal.items())) or "--"
+    resolution_text = ", ".join(f"{key}: {value}" for key, value in sorted(resolution.items())) or "--"
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>Source</div><div class='trust-value'>{escape(str(report.get('source_mode') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Physical Captures</div><div class='trust-value'>{int(report.get('physical_capture_event_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Qualified Captures</div><div class='trust-value'>{int(report.get('qualified_capture_event_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Excluded Captures</div><div class='trust-value'>{int(report.get('excluded_capture_event_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Covered Cells</div><div class='trust-value'>{coverage}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Missing Cells</div><div class='trust-value'>{int(report.get('missing_acquisition_cell_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Multi-capture Cells</div><div class='trust-value'>{int(report.get('multi_capture_cell_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Off-frame Captures</div><div class='trust-value'>{int(report.get('off_frame_capture_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>采集框架：{escape(str(report.get('acquisition_frame_id') or '--'))}；单元长度：{int(report.get('acquisition_cell_minutes', 0) or 0)} 分钟；边界：{escape(str(report.get('boundary_convention') or '--'))}。</div>"
+        f"<div class='trust-copy'>Provider resolution：{escape(resolution_text)}。</div>"
+        f"<div class='trust-copy'>Marginal contribution：{escape(marginal_text)}。</div>"
+        "<div class='trust-copy'>物理捕获次数、qualified 捕获次数和预声明采集单元覆盖分别展示；同一单元内的多次捕获不会被重复计为新增时间覆盖。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    warnings = report.get("warnings") or []
+    errors = report.get("errors") or []
+    if warnings or errors:
+        with st.expander("查看 evidence accumulation warnings / errors", expanded=False):
+            for warning in warnings:
+                st.warning(str(warning))
+            for error in errors:
+                st.error(str(error))
+
+
 def render_replay_evidence_card(replay_evidence: dict) -> None:
     st.markdown("<div class='radar-section-title'>历史回放证据</div>", unsafe_allow_html=True)
     provider_counts = replay_evidence.get("provider_counts") or {}
