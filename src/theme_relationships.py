@@ -8,6 +8,7 @@ from typing import Iterable
 
 import pandas as pd
 
+from src.analytical_continuity import CONTINUITY_SEGMENT_COLUMN, attach_continuity_columns
 from src.theme_dynamics import (
     CANONICAL_BUCKET_POLICY,
     DYNAMICS_DEFAULT_BASIS,
@@ -24,6 +25,7 @@ PAIR_GRAIN = (
     "captured_time_bucket",
     "calculation_mode",
     "source_mode",
+    CONTINUITY_SEGMENT_COLUMN,
     "taxonomy_fingerprint",
 )
 
@@ -177,6 +179,7 @@ def build_aligned_theme_pairs(
     regime = _prepare_regime_observations(cube_df, mode)
     if regime.empty:
         return _empty_pairs([f"暂无 {mode} 口径 canonical observations。"])
+    regime = attach_continuity_columns(regime)
 
     source = str(source_mode or "").upper().strip()
     if source:
@@ -196,7 +199,14 @@ def build_aligned_theme_pairs(
     if expected_taxonomy_fp and observed_taxonomy and expected_taxonomy_fp not in observed_taxonomy:
         warnings.append("当前 taxonomy fingerprint 与 canonical observations 中的 lineage 不完全一致。")
 
-    key_cols = ["trade_date", "captured_time_bucket", "calculation_mode", "source_mode", "taxonomy_fingerprint"]
+    key_cols = [
+        "trade_date",
+        "captured_time_bucket",
+        "calculation_mode",
+        "source_mode",
+        CONTINUITY_SEGMENT_COLUMN,
+        "taxonomy_fingerprint",
+    ]
     themes_all = sorted(regime["theme_name"].dropna().astype(str).unique().tolist())
     candidate_pairs = [normalize_theme_pair(left, right) for left, right in combinations(themes_all, 2)]
     rows: list[dict] = []
@@ -237,6 +247,10 @@ def build_aligned_theme_pairs(
                     "theme_b_selected_snapshot_id": right_row.get("selected_snapshot_id"),
                     "theme_a_selected_event_observation_id": left_row.get("selected_event_observation_id"),
                     "theme_b_selected_event_observation_id": right_row.get("selected_event_observation_id"),
+                    "theme_a_provider_contract_id": left_row.get("provider_contract_id"),
+                    "theme_b_provider_contract_id": right_row.get("provider_contract_id"),
+                    "theme_a_provider_contract_resolution_state": left_row.get("provider_contract_resolution_state"),
+                    "theme_b_provider_contract_resolution_state": right_row.get("provider_contract_resolution_state"),
                     "theme_a_headline_state": left_row.get("headline_state") or left_row.get("derived_state"),
                     "theme_b_headline_state": right_row.get("headline_state") or right_row.get("derived_state"),
                     "theme_a_headline_state_code": left_row.get("headline_state_code") if pd.notna(left_row.get("headline_state_code")) else left_row.get("state_code"),
@@ -255,7 +269,10 @@ def build_aligned_theme_pairs(
     result = pd.DataFrame(rows)
     if result.empty:
         return _empty_pairs(warnings)
-    result = result.sort_values(["theme_a", "theme_b", "source_mode", "taxonomy_fingerprint", "trade_date", "captured_time_bucket"], na_position="last").reset_index(drop=True)
+    result = result.sort_values(
+        ["theme_a", "theme_b", "source_mode", CONTINUITY_SEGMENT_COLUMN, "taxonomy_fingerprint", "trade_date", "captured_time_bucket"],
+        na_position="last",
+    ).reset_index(drop=True)
     result.attrs["pair_grain"] = PAIR_GRAIN
     result.attrs["candidate_pair_count"] = len(candidate_pairs)
     result.attrs["relationship_observation_basis"] = DYNAMICS_DEFAULT_BASIS

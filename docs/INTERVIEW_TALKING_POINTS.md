@@ -101,6 +101,10 @@ It makes the analytical specification visible. A result is tied to bucket width,
 
 Because provider availability is not the same as semantic comparability. v3.15 gives the primary AKShare/Eastmoney path a semantic contract and classifies candidate endpoints by metric semantics, time semantics, row grain, source universe, value semantics and unit/sign meaning. If a candidate is related but not equivalent, it can be documented as shadow-only or rejected instead of being silently merged into the same historical continuity path.
 
+**Why did you add provider-contract-aware analytical continuity in v3.16?**
+
+v3.15 made provider semantics visible, but visibility alone is not enough. v3.16 makes continuity a grouping boundary: canonical buckets, regime episodes, relationship pairs and robustness evidence keep observations in separate analytical continuity segments when their provider contract or resolution provenance differs. Physical snapshot IDs still identify the source event; continuity segments decide whether two observations are analytically compatible.
+
 ### What is the current runtime provider policy?
 
 The current policy is `primary_only`. The project can inspect candidate contracts and explain why they are equivalent, conditional, non-equivalent or unknown, but it does not automatically enable fallback. If fallback is ever added, the selected provider contract ID must be preserved in snapshot lineage and mixed-provider history must be segmented explicitly.

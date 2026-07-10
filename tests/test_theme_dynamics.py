@@ -49,6 +49,7 @@ def test_observation_grain_is_explicit() -> None:
         "captured_time_bucket",
         "calculation_mode",
         "source_mode",
+        "analytical_continuity_segment_id",
         "taxonomy_fingerprint",
         "theme_definition_fingerprint",
     )
@@ -72,6 +73,8 @@ def test_build_theme_observation_cube_from_sample_data() -> None:
     assert row["calculation_mode"] == "strict_representative"
     assert row["taxonomy_fingerprint"]
     assert row["theme_definition_fingerprint"]
+    assert row["analytical_continuity_segment_id"]
+    assert row["provider_contract_resolution_state"] == "sample_synthetic"
     assert row["observation_id"]
     assert row["derived_state"]
 
@@ -113,6 +116,35 @@ def test_bucket_collision_materializes_canonical_observation(tmp_path) -> None:
     assert semi_cube.iloc[0]["selected_captured_time"] == "09:30:30"
     assert len(semi_cube.iloc[0]["contributing_event_observation_ids"]) == 2
     assert cube.attrs["bucket_collision_summary"]["collided_bucket_count"] > 0
+
+
+def test_cross_contract_events_do_not_compete_in_one_bucket(tmp_path) -> None:
+    rows = _sample_rows("09:30:00", 40.0) + _sample_rows("09:30:30", 45.0)
+    _write_snapshot(tmp_path, "2026-01-01", rows)
+    events = build_theme_observation_events(source_mode="REAL", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
+    target = events["theme_name"].eq("半导体/芯片链")
+    ordered_index = events[target].sort_values("captured_time").index.tolist()
+    events.loc[ordered_index[0], "provider_contract_id"] = "contract-a"
+    events.loc[ordered_index[0], "provider_contract_resolution_state"] = "explicit_id_only"
+    events.loc[ordered_index[1], "provider_contract_id"] = "contract-b"
+    events.loc[ordered_index[1], "provider_contract_resolution_state"] = "explicit_id_only"
+    cube = materialize_canonical_observations(events)
+    semi_cube = cube[cube["theme_name"].eq("半导体/芯片链")]
+    assert len(semi_cube) == 2
+    assert semi_cube["analytical_continuity_segment_id"].nunique() == 2
+
+
+def test_canonical_id_changes_with_continuity_identity(tmp_path) -> None:
+    _write_snapshot(tmp_path, "2026-01-01", _sample_rows("09:30:00", 40.0))
+    events = build_theme_observation_events(source_mode="REAL", data_dir=str(tmp_path), calculation_modes=["strict_representative"])
+    base = materialize_canonical_observations(events)
+    modified = events.copy()
+    modified["provider_contract_id"] = "different-contract"
+    modified["provider_contract_resolution_state"] = "explicit_id_only"
+    changed = materialize_canonical_observations(modified)
+    base_id = base[base["theme_name"].eq("半导体/芯片链")].iloc[0]["canonical_observation_id"]
+    changed_id = changed[changed["theme_name"].eq("半导体/芯片链")].iloc[0]["canonical_observation_id"]
+    assert base_id != changed_id
 
 
 def test_theme_observation_cube_has_no_duplicate_bucket_grain_after_materialization(tmp_path) -> None:

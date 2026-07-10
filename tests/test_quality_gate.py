@@ -20,6 +20,8 @@ def test_build_quality_gate_commands_contains_expected_checks():
         "public_demo_preflight",
         "smoke_check",
         "verify_runtime",
+        "analytical_continuity_sample",
+        "analytical_continuity_real",
     ]
 
 

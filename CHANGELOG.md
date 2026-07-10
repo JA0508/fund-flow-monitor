@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v3.16
+
+- Provider-contract-aware Analytical Continuity.
+- Added `src/analytical_continuity.py` to resolve provider contract lineage with explicit provenance states: explicit verified, explicit id only, inferred from provider metadata, SAMPLE synthetic and unknown.
+- Bucketed canonical observation grain now includes `analytical_continuity_segment_id`, so observations from different provider-contract continuity segments do not compete for the same canonical bucket.
+- Scope divergence, structural regime episodes and cross-theme relationship alignment now preserve analytical continuity segment boundaries.
+- Analytical robustness reports continuity-universe metadata alongside specification sensitivity so provider-contract changes are not hidden as bucket-width or calculation-mode effects.
+- Added `tools/audit_analytical_continuity.py` for read-only SAMPLE / REAL continuity audits without live AKShare access, CSV writes or SQLite writes.
+- Smoke, runtime and quality-gate checks now recognize analytical continuity readiness.
+- This layer preserves physical snapshot identity while preventing analytically incompatible provider-contract history from being silently treated as one continuous evidence line.
+
 ## v3.15
 
 - Provider Semantics Registry, Source Comparability and Continuity Gate.

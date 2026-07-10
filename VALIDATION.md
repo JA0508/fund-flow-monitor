@@ -1310,3 +1310,21 @@ The reason is simple: the concept fund-flow endpoint can occasionally fail with 
 - Streamlit Data Explanation includes a compact Provider Semantics & Continuity panel without running live probes on render.
 - `smoke_check.py`, `verify_runtime.py`, `cloud_preflight.py` and `release_check.py` recognize provider semantics readiness.
 - Deterministic tests remain offline and do not require live AKShare.
+
+## v3.16 Provider-Contract-Aware Analytical Continuity Checks
+
+- `APP_VERSION` is `v3.16`.
+- `CHANGELOG.md` contains a `v3.16` entry.
+- `src/analytical_continuity.py` exists and can be imported.
+- `tools/audit_analytical_continuity.py` exists and supports SAMPLE / REAL read-only audits.
+- SAMPLE observations resolve to a dedicated synthetic demo provider contract segment.
+- REAL observations with explicit provider contract ID and fingerprint resolve separately from explicit-ID-only, inferred and unknown lineage.
+- Inferred legacy provider metadata is not silently upgraded to explicit verified continuity.
+- Bucketed analytical observation grain includes `analytical_continuity_segment_id`.
+- Canonical materialization does not let observations from different continuity segments compete in one bucket.
+- Scope divergence comparisons preserve continuity segment boundaries.
+- Structural regime episodes split across continuity segment boundaries even when structural signatures match.
+- Cross-theme pair alignment requires the same continuity segment.
+- Analytical robustness reports continuity-universe metadata and does not hide provider-contract changes as bucket or mode sensitivity.
+- `smoke_check.py`, `verify_runtime.py` and `quality_gate.py` recognize analytical continuity readiness.
+- Tests remain offline and deterministic, and do not call live AKShare or write `data/ticks` / `data/warehouse`.

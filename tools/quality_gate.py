@@ -57,6 +57,18 @@ def build_quality_gate_commands(python_executable: str | None = None) -> list[di
             "command": [python, "tools/verify_runtime.py"],
             "env": {},
         },
+        {
+            "name": "analytical_continuity_sample",
+            "label": "Analytical continuity audit (SAMPLE)",
+            "command": [python, "tools/audit_analytical_continuity.py", "--source", "SAMPLE"],
+            "env": {},
+        },
+        {
+            "name": "analytical_continuity_real",
+            "label": "Analytical continuity audit (REAL)",
+            "command": [python, "tools/audit_analytical_continuity.py", "--source", "REAL"],
+            "env": {},
+        },
     ]
 
 

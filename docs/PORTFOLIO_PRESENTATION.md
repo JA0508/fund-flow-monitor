@@ -62,6 +62,7 @@ The project is CSV-first:
 - v3.12 adds structural regime signatures: the app can show when the same headline theme state corresponds to different scope/member structures, using deterministic semantic components rather than clustering or opaque scores.
 - v3.14 adds analytical robustness evidence: each displayed result can carry a specification ID, evidence sufficiency profile, pre-declared bucket sensitivity and denominator context. It reports factual ranges instead of a confidence score.
 - v3.15 adds provider semantics governance: the real AKShare/Eastmoney path has an explicit semantic contract, candidate endpoints are classified by semantic dimensions, and runtime fallback remains disabled unless a source is explicitly eligible and selected.
+- v3.16 extends provider-contract identity into analytical continuity: canonical observations, regime episodes, relationship alignment and robustness universes keep provider-contract continuity segments separate.
 
 ## Runtime and Data Modes
 
@@ -107,6 +108,7 @@ In public demo runtime, the app defaults to SAMPLE when no real cache exists and
 - Cross-theme relationship evidence is intentionally multi-dimensional: semantic overlap, observed headline alignment and structural contrast stay separate instead of becoming one opaque relationship score.
 - Robustness evidence is intentionally not a model-validation claim: bucket width, materialization policy and semantic scope are pre-declared audit dimensions, not parameters optimized against outcomes.
 - Provider semantics are intentionally conservative: an available endpoint is not automatically comparable, and a reachable fallback is not silently merged into historical continuity.
+- Analytical continuity is also conservative: inferred legacy provider metadata can remain readable, but it is not treated as the same provenance state as an explicitly verified provider contract.
 
 ## GitHub / About Short Description
 

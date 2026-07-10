@@ -127,6 +127,7 @@ from src.analytical_robustness import (  # noqa: E402
     compare_theme_specifications,
     validate_analytical_robustness_text,
 )
+from tools.audit_analytical_continuity import build_analytical_continuity_report  # noqa: E402
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -188,6 +189,7 @@ REQUIRED_FILES = (
     "src/theme_taxonomy_audit.py",
     "src/theme_dynamics.py",
     "src/analytical_robustness.py",
+    "src/analytical_continuity.py",
     "src/provider_contracts.py",
     "src/provider_comparability.py",
     "src/provider_registry.py",
@@ -210,6 +212,7 @@ REQUIRED_FILES = (
     "tools/inspect_observation_grain.py",
     "tools/rebuild_local_warehouse.py",
     "tools/audit_analytical_robustness.py",
+    "tools/audit_analytical_continuity.py",
     "tools/audit_provider_semantics.py",
     "tools/diagnose_provider_network.py",
     "config/watchlist.json",
@@ -518,6 +521,13 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         taxonomy=taxonomy_for_evidence,
         data_dir=str(project_root / "sample_data/ticks"),
     )
+    analytical_continuity_report = build_analytical_continuity_report(
+        source_mode="SAMPLE",
+        data_dir=str(project_root / "sample_data/ticks"),
+        theme=evidence_theme,
+        pair=(evidence_theme, relationship_peer),
+        mode="strict_representative",
+    )
     observation_grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(project_root / "sample_data/ticks"),
@@ -708,6 +718,14 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "sample_relationship_robustness_spec_count": int(relationship_robustness.get("evaluated_specification_count", 0) or 0),
             "sample_relationship_robustness_same_sign_range": relationship_robustness.get("same_sign_observed_share_range", {}),
             "analytical_robustness_forbidden_hits": validate_analytical_robustness_text(str(theme_robustness) + str(relationship_robustness)),
+            "analytical_continuity_module_imported": True,
+            "audit_analytical_continuity_script_exists": (project_root / "tools/audit_analytical_continuity.py").exists(),
+            "analytical_continuity_label": analytical_continuity_report.get("continuity_label"),
+            "analytical_continuity_segment_count": int((analytical_continuity_report.get("continuity_summary") or {}).get("continuity_segment_count", 0) or 0),
+            "analytical_continuity_cross_segment_collisions": int(analytical_continuity_report.get("cross_segment_collision_count", 0) or 0),
+            "analytical_continuity_legacy_or_unresolved_count": int(analytical_continuity_report.get("legacy_or_unresolved_contract_observation_count", 0) or 0),
+            "analytical_continuity_network_used": bool(analytical_continuity_report.get("network_used")),
+            "analytical_continuity_forbidden_hits": analytical_continuity_report.get("forbidden_hits", []),
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -920,6 +938,14 @@ def main() -> int:
     print(f"sample relationship robustness spec count: {theme_dynamics['sample_relationship_robustness_spec_count']}")
     print(f"sample relationship robustness same-sign range: {theme_dynamics['sample_relationship_robustness_same_sign_range']}")
     print(f"analytical robustness forbidden hits: {theme_dynamics['analytical_robustness_forbidden_hits']}")
+    print(f"analytical continuity module imported: {theme_dynamics['analytical_continuity_module_imported']}")
+    print(f"audit_analytical_continuity.py exists: {theme_dynamics['audit_analytical_continuity_script_exists']}")
+    print(f"analytical continuity label: {theme_dynamics['analytical_continuity_label']}")
+    print(f"analytical continuity segments: {theme_dynamics['analytical_continuity_segment_count']}")
+    print(f"analytical continuity cross-segment collisions: {theme_dynamics['analytical_continuity_cross_segment_collisions']}")
+    print(f"analytical continuity legacy/unresolved observations: {theme_dynamics['analytical_continuity_legacy_or_unresolved_count']}")
+    print(f"analytical continuity network used: {theme_dynamics['analytical_continuity_network_used']}")
+    print(f"analytical continuity forbidden hits: {theme_dynamics['analytical_continuity_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")
@@ -1041,6 +1067,11 @@ def main() -> int:
         and report["theme_dynamics"]["sample_theme_dynamics_date_count"] >= 2
         and report["theme_dynamics"]["sample_observation_grain_canonical_count"] > 0
         and not report["theme_dynamics"]["theme_dynamics_forbidden_hits"]
+        and report["theme_dynamics"]["analytical_continuity_module_imported"]
+        and report["theme_dynamics"]["audit_analytical_continuity_script_exists"]
+        and report["theme_dynamics"]["analytical_continuity_segment_count"] >= 1
+        and not report["theme_dynamics"]["analytical_continuity_network_used"]
+        and not report["theme_dynamics"]["analytical_continuity_forbidden_hits"]
         and warehouse["warehouse_module_imported"]
         and warehouse["warehouse_schema_initialized"]
         and warehouse["warehouse_explorer_imported"]

@@ -60,6 +60,8 @@ Real AKShare snapshots use the same core shape but are validated by a separate r
 
 Provider contract fields are recommended lineage columns for newly normalized REAL snapshots. Older cache files remain readable; historical evidence can infer the known primary contract from provider/API fields when those fields are present. If a contract cannot be inferred safely, the value remains `unknown_provider_contract` rather than being forced into the primary source.
 
+v3.16 adds downstream analytical continuity columns on top of this lineage. `src/analytical_continuity.py` resolves each observation into an explicit provenance state and derives `analytical_continuity_segment_id`. SAMPLE uses a synthetic demo contract segment; REAL rows with explicit verified, explicit-ID-only, inferred or unknown lineage do not collapse into one analytical segment.
+
 ## Raw Data To Theme Observation
 
 ```text
@@ -349,6 +351,17 @@ A provider segment is a contiguous chronological sequence of snapshot evidence w
 - unsafe for silent continuity: mixed contracts that are non-equivalent or unknown.
 
 The project does not treat every AKShare fund-flow endpoint as interchangeable. A concept-fund-flow ranking, a stock-universe fund-flow table and an industry-board "今日" ranking may all mention fund flow, but they can differ in row grain, source universe, time semantics or value semantics. Those differences block silent substitution into the same continuity path.
+
+v3.16 extends provider contract boundaries into canonical analytics:
+
+```text
+snapshot event
+-> provider contract lineage resolution
+-> analytical_continuity_segment_id
+-> canonical bucket / regime / relationship / robustness universe
+```
+
+Two observations can share the same trade date, captured-time bucket, theme and calculation mode but still remain analytically separate when their provider-contract continuity segment differs.
 
 ## Cross-Theme Semantic-Dynamic Relationship Evidence
 

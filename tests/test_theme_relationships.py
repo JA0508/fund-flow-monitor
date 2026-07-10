@@ -47,7 +47,17 @@ def _taxonomy() -> dict:
     }
 
 
-def _row(theme: str, date: str, bucket: str, state: str, code: int, signature: str, source: str = "SAMPLE") -> dict:
+def _row(
+    theme: str,
+    date: str,
+    bucket: str,
+    state: str,
+    code: int,
+    signature: str,
+    source: str = "SAMPLE",
+    provider_contract_id: str = "sample_synthetic_demo_contract",
+    provider_contract_resolution_state: str = "sample_synthetic",
+) -> dict:
     return {
         "theme_name": theme,
         "theme_id": theme,
@@ -55,6 +65,8 @@ def _row(theme: str, date: str, bucket: str, state: str, code: int, signature: s
         "captured_time_bucket": bucket,
         "calculation_mode": "strict_representative",
         "source_mode": source,
+        "provider_contract_id": provider_contract_id,
+        "provider_contract_resolution_state": provider_contract_resolution_state,
         "taxonomy_fingerprint": "tax-1",
         "theme_definition_fingerprint": f"def-{theme}",
         "derived_state": state,
@@ -107,6 +119,19 @@ def test_real_and_sample_are_not_silently_mixed():
     real_pairs = build_aligned_theme_pairs(_cube(), source_mode="REAL", taxonomy=_taxonomy())
     assert set(sample_pairs["source_mode"]) == {"SAMPLE"}
     assert set(real_pairs["source_mode"]) == {"REAL"}
+
+
+def test_incompatible_continuity_segments_do_not_align_pair_facts():
+    cube = pd.DataFrame(
+        [
+            _row("Alpha", "2026-01-01", "09:30", "强流入", 2, "unused", source="REAL", provider_contract_id="contract-a", provider_contract_resolution_state="explicit_id_only"),
+            _row("Beta", "2026-01-01", "09:30", "强流入", 2, "unused", source="REAL", provider_contract_id="contract-b", provider_contract_resolution_state="explicit_id_only"),
+        ]
+    )
+    pairs = build_aligned_theme_pairs(cube, source_mode="REAL", taxonomy=_taxonomy())
+    alpha_beta = filter_pair_observations(pairs, "Alpha", "Beta")
+    assert int(alpha_beta["is_aligned"].sum()) == 0
+    assert set(alpha_beta["alignment_status"]) == {"missing_theme_a", "missing_theme_b"}
 
 
 def test_headline_agreement_distinguishes_exact_same_sign_and_opposing():

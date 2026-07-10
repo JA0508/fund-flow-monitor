@@ -15,6 +15,8 @@ python tools/inspect_history_evidence.py --data-dir sample_data/ticks --source-m
 python tools/audit_provider_semantics.py --registry
 python tools/audit_provider_semantics.py --primary
 python tools/audit_provider_semantics.py --eligibility
+python tools/audit_analytical_continuity.py --source SAMPLE
+python tools/audit_analytical_continuity.py --source REAL
 python -m pytest -q
 python -m compileall app.py src tests tools
 ```
@@ -29,6 +31,7 @@ python -m compileall app.py src tests tools
 - `smoke_check.py` / `verify_runtime.py` should report historical evidence readiness, SAMPLE replay provenance and captured_time coverage matrix shape without calling live AKShare.
 - `inspect_history_evidence.py` should inspect REAL cache gracefully even when no local real cache exists, and should inspect SAMPLE history with a readable matrix.
 - `audit_provider_semantics.py` should report an explicit primary provider contract, candidate comparability counts, `primary_only` runtime policy, and no silent fallback.
+- `audit_analytical_continuity.py` should report continuity segments, canonical observation counts, cross-segment collision count and no network use.
 - `cloud_preflight.py` should confirm `docs/ARCHITECTURE.md`, `docs/DATA_FLOW.md` and `docs/OPERATIONS.md` exist.
 - `release_check.py` and `cloud_preflight.py` should confirm `docs/REAL_DATA_INGESTION.md`, `tools/collect_real_snapshot.py`, `tools/run_collection_session.py`, `src/collection_policy.py` and `src/ingestion_metrics.py` exist.
 - Optional static report: `python tools/release_check.py --write-report docs/release_readiness_report.md`.
@@ -106,6 +109,8 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 - `python tools/inspect_theme_regimes.py --theme "半导体/芯片链" --source-mode SAMPLE --episodes --transitions --state-equivalent` should show structural signatures, observed episodes and headline-preserving structural transitions without writing CSV/SQLite.
 - `python tools/audit_analytical_robustness.py --source-mode SAMPLE --theme "半导体/芯片链" --bucket-minutes "1,5,10" --evidence-sufficiency --threshold-boundaries --json` should show analytical specification IDs, evidence sufficiency and threshold-boundary evidence without writing CSV/SQLite.
 - `python tools/audit_analytical_robustness.py --source-mode SAMPLE --pair "AI算力/TMT::半导体/芯片链" --mode "strict_representative" --bucket-minutes "1,5,10" --date-concentration --json` should show aligned-observation ranges, represented trade dates, per-date results and denominator context.
+- `python tools/audit_analytical_continuity.py --source SAMPLE --theme "半导体/芯片链" --pair "AI算力/TMT::半导体/芯片链" --json` should show SAMPLE synthetic continuity segments and should not call AKShare or write CSV/SQLite.
+- `python tools/audit_analytical_continuity.py --source REAL --json` should remain readable when no local real cache exists.
 - `python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode "strict_representative" --top-state-alignment --limit 10` should show display sufficiency thresholds, represented trade dates and numerator/denominator context.
 - Bucket collisions should be described as multiple valid captured events sharing one analytical bucket, not as generic duplicate removal.
 - Taxonomy audit warnings such as reused members or ambiguous source names should be reviewed as mapping-governance notes, not app failures.

@@ -9,6 +9,7 @@ from typing import Iterable
 
 import pandas as pd
 
+from src.analytical_continuity import attach_continuity_columns, build_continuity_summary
 from src.history_evidence import build_provider_lineage_summary, build_snapshot_manifest
 from src.theme_dynamics import (
     CANONICAL_BUCKET_POLICY,
@@ -198,6 +199,7 @@ def build_canonical_cube_for_spec(
         limit_dates=limit_dates,
         bucket_minutes=normalize_bucket_minutes(specification.get("captured_time_bucket_minutes")),
     )
+    events = attach_continuity_columns(events)
     canonical = materialize_canonical_observations(
         events,
         policy=normalize_materialization_policy(specification.get("materialization_policy")),
@@ -205,6 +207,7 @@ def build_canonical_cube_for_spec(
     canonical.attrs["bucket_minutes"] = normalize_bucket_minutes(specification.get("captured_time_bucket_minutes"))
     canonical.attrs["analytical_specification"] = specification
     canonical.attrs["materialization_policy"] = specification.get("materialization_policy")
+    canonical.attrs["continuity_universe"] = build_continuity_summary(events)
     return canonical
 
 
@@ -225,6 +228,12 @@ def _provider_lineage_metadata(source_mode: str, data_dir: str | None = None, bu
         "provider_lineage_reason": summary.get("provider_lineage_reason"),
         "lineage_semantics": "metadata only; provider lineage is reported alongside robustness evidence and does not change analytical values.",
     }
+
+
+def _continuity_universe_metadata(cube_df: pd.DataFrame | None) -> dict:
+    if cube_df is None:
+        return build_continuity_summary(pd.DataFrame())
+    return getattr(cube_df, "attrs", {}).get("continuity_universe") or build_continuity_summary(cube_df)
 
 
 def build_evidence_sufficiency_profile(
@@ -300,6 +309,7 @@ def build_evidence_sufficiency_profile(
         "captured_time_bucket_count": bucket_count,
         "alignment_gap_count": gap_count,
         "alignment_gap_share": _share(gap_count, total_rows),
+        **build_continuity_summary(df),
         "history_span_state": "multi_date" if date_count > 1 else ("single_date" if date_count == 1 else "no_observations"),
         "intraday_depth_state": "multi_bucket" if bucket_count > 1 else ("single_bucket" if bucket_count == 1 else "no_observations"),
         "coverage_consistency_state": state,
@@ -412,6 +422,7 @@ def summarize_theme_variant(cube_df: pd.DataFrame, theme_name: str, specificatio
         if not regime_series.empty
         else 0,
         "evidence_sufficiency": build_evidence_sufficiency_profile(series),
+        "continuity_universe": _continuity_universe_metadata(cube_df),
         "threshold_boundary_evidence": threshold,
     }
 
@@ -449,6 +460,8 @@ def compare_theme_specifications(
         "theme_name": theme_name,
         "source_mode": str(source_mode).upper(),
         "provider_lineage": _provider_lineage_metadata(source_mode, data_dir=data_dir, bucket_minutes=buckets[0] if buckets else CAPTURED_TIME_BUCKET_MINUTES),
+        "continuity_universe": results[0].get("continuity_universe") if results else build_continuity_summary(pd.DataFrame()),
+        "continuity_universe_consistent": len({json.dumps(item.get("continuity_universe", {}), sort_keys=True, default=str) for item in results}) <= 1 if results else True,
         "default_specification": build_default_analytical_specification(source_mode, calculation_mode, taxonomy),
         "evaluated_specification_count": len(results),
         "specification_results": results,
@@ -534,6 +547,7 @@ def summarize_relationship_variant(cube_df: pd.DataFrame, theme_a: str, theme_b:
         "simultaneous_headline_change_count": int(transitions.get("simultaneous_headline_change_count", 0)),
         "simultaneous_structural_change_count": int(transitions.get("simultaneous_structural_change_count", 0)),
         "evidence_sufficiency": date_concentration,
+        "continuity_universe": _continuity_universe_metadata(cube_df),
         "per_date_results": date_concentration.get("per_date_results", []),
     }
 
@@ -566,6 +580,8 @@ def compare_relationship_specifications(
         "theme_pair": f"{left}::{right}",
         "source_mode": str(source_mode).upper(),
         "provider_lineage": _provider_lineage_metadata(source_mode, data_dir=data_dir, bucket_minutes=buckets[0] if buckets else CAPTURED_TIME_BUCKET_MINUTES),
+        "continuity_universe": results[0].get("continuity_universe") if results else build_continuity_summary(pd.DataFrame()),
+        "continuity_universe_consistent": len({json.dumps(item.get("continuity_universe", {}), sort_keys=True, default=str) for item in results}) <= 1 if results else True,
         "default_specification": build_default_analytical_specification(source_mode, calculation_mode, taxonomy),
         "evaluated_specification_count": len(results),
         "specification_results": results,

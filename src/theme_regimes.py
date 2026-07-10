@@ -7,6 +7,7 @@ from typing import Iterable
 
 import pandas as pd
 
+from src.analytical_continuity import CONTINUITY_SEGMENT_COLUMN, attach_continuity_columns
 from src.theme_dynamics import (
     BUCKETED_ANALYTICAL_OBSERVATION_GRAIN,
     CANONICAL_BUCKET_POLICY,
@@ -80,6 +81,7 @@ def _lineage_warnings(df: pd.DataFrame) -> list[str]:
     warnings: list[str] = []
     for column, label in (
         ("source_mode", "source mode"),
+        (CONTINUITY_SEGMENT_COLUMN, "analytical continuity segment"),
         ("taxonomy_fingerprint", "taxonomy fingerprint"),
         ("theme_definition_fingerprint", "theme-definition fingerprint"),
         ("calculation_mode", "calculation mode"),
@@ -158,7 +160,7 @@ def attach_regime_signatures_to_observations(
         return empty
 
     mode = normalize_theme_dynamics_mode(calculation_mode) if calculation_mode else None
-    observations = cube_df.copy()
+    observations = attach_continuity_columns(cube_df)
     if mode:
         observations = observations[observations["calculation_mode"].astype(str).eq(mode)].copy()
     if observations.empty:
@@ -173,6 +175,7 @@ def attach_regime_signatures_to_observations(
         "trade_date",
         "captured_time_bucket",
         "source_mode",
+        CONTINUITY_SEGMENT_COLUMN,
         "taxonomy_fingerprint",
         "theme_definition_fingerprint",
     ]
@@ -252,7 +255,14 @@ def filter_regime_observations(
 def _lineage_group_columns(df: pd.DataFrame) -> list[str]:
     return [
         column
-        for column in ("theme_name", "source_mode", "calculation_mode", "taxonomy_fingerprint", "theme_definition_fingerprint")
+        for column in (
+            "theme_name",
+            "source_mode",
+            CONTINUITY_SEGMENT_COLUMN,
+            "calculation_mode",
+            "taxonomy_fingerprint",
+            "theme_definition_fingerprint",
+        )
         if column in df.columns
     ]
 
@@ -613,4 +623,3 @@ def render_theme_regime_brief_section(evidence: dict, heading_level: int = 2) ->
 def validate_theme_regime_text(text: str) -> list[str]:
     value = str(text or "")
     return [word for word in FORBIDDEN_THEME_REGIME_WORDS if word in value]
-

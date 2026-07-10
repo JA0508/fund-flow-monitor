@@ -237,6 +237,14 @@ v3.15 增加数据源语义契约和连续性门禁。当前真实数据主路�
 
 历史证据层会暴露 provider contract count、provider segment count 和 source-homogeneous 状态。这样即使未来引入新的可比来源，也必须先保留 provider contract identity 和 segment 边界，不能把多来源历史伪装成单一连续序列。
 
+## Provider-Contract-Aware Analytical Continuity
+
+v3.16 将 v3.15 的 provider semantic contract 从报告层推进到分析连续性边界。物理快照事件 ID 仍描述“哪个 CSV / 哪个 captured time 生成了这条观察”，但 canonical bucket、scope divergence、structural regime episode、cross-theme pair alignment 和 analytical robustness 现在都会携带 `analytical_continuity_segment_id`。
+
+这个 segment 由 source mode、provider contract ID、contract fingerprint 和 contract resolution provenance 共同决定。SAMPLE 使用独立的 synthetic demo segment；REAL 的 explicit verified、explicit ID only、inferred from provider metadata 和 unknown lineage 不会被静默合并。这样旧缓存仍可读取，但不会被伪装成已经完整验证的 provider-contract 连续历史。
+
+该能力仍是只读证据治理：不调用 AKShare，不写 CSV，不写 SQLite，不改变主题计算公式，也不把 provider-contract 边界解释成任何市场判断。
+
 ## 当前限制
 
 - 免费数据源可能受网络、代理和上游接口变化影响。

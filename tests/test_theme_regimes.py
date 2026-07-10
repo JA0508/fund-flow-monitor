@@ -28,6 +28,9 @@ def _row(
     theme_def: str = "def",
     taxonomy: str = "tax",
     source: str = "SAMPLE",
+    continuity: str = "segment-a",
+    provider_contract_id: str = "sample_synthetic_demo_contract",
+    provider_contract_resolution_state: str = "sample_synthetic",
 ) -> dict:
     bucket = bucket or f"09:{30 + idx:02d}"
     return {
@@ -41,6 +44,9 @@ def _row(
         "selected_captured_at": f"{trade_date}T{bucket}:00",
         "selected_captured_time": f"{bucket}:00",
         "source_mode": source,
+        "analytical_continuity_segment_id": continuity,
+        "provider_contract_id": provider_contract_id,
+        "provider_contract_resolution_state": provider_contract_resolution_state,
         "calculation_mode": mode,
         "taxonomy_fingerprint": taxonomy,
         "theme_definition_fingerprint": theme_def,
@@ -121,6 +127,18 @@ def test_regime_episodes_segment_a_b_a() -> None:
     assert episodes.iloc[0]["span_semantics"] == "observed timestamp span, not continuous regime duration"
 
 
+def test_regime_episodes_split_same_signature_by_continuity_segment() -> None:
+    rows = [
+        _row(0, "强流入", source="REAL", provider_contract_id="contract-a", provider_contract_resolution_state="explicit_id_only", bucket="09:30"),
+        _row(1, "强流入", source="REAL", provider_contract_id="contract-b", provider_contract_resolution_state="explicit_id_only", bucket="09:31"),
+    ]
+    regimes = attach_regime_signatures_to_observations(pd.DataFrame(rows), calculation_mode="strict_representative")
+    episodes = build_regime_episodes(regimes)
+    assert len(episodes) == 2
+    assert episodes["regime_signature"].nunique() == 1
+    assert episodes["analytical_continuity_segment_id"].nunique() == 2
+
+
 def test_transition_trace_counts_headline_preserving_structural_change() -> None:
     regimes = attach_regime_signatures_to_observations(_cube(), calculation_mode="strict_representative")
     trace = build_regime_transition_trace(regimes)
@@ -199,4 +217,3 @@ def test_validate_theme_regime_text_catches_forbidden() -> None:
     assert "概率" in hits
     assert "反转确认" in hits
     assert "未来会涨" in hits
-

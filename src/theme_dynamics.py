@@ -14,6 +14,12 @@ from src.history_evidence import (
     build_snapshot_manifest,
     normalize_captured_time_bucket,
 )
+from src.analytical_continuity import (
+    CONTINUITY_SEGMENT_COLUMN,
+    attach_continuity_columns,
+    build_continuity_summary,
+    resolve_provider_contract_lineage,
+)
 from src.multi_day_trends import _latest_frame_for_date
 from src.sample_data import SAMPLE_DIR, build_sample_snapshot_catalog, load_sample_snapshot_by_date
 from src.snapshot_catalog import build_snapshot_catalog, load_snapshot_by_date
@@ -36,6 +42,7 @@ BUCKETED_ANALYTICAL_OBSERVATION_GRAIN = (
     "captured_time_bucket",
     "calculation_mode",
     "source_mode",
+    CONTINUITY_SEGMENT_COLUMN,
     "taxonomy_fingerprint",
     "theme_definition_fingerprint",
 )
@@ -226,6 +233,7 @@ def _canonical_observation_id(row: pd.Series | dict, selected_event_id: str | No
         "captured_time_bucket": row.get("captured_time_bucket"),
         "calculation_mode": row.get("calculation_mode"),
         "source_mode": row.get("source_mode"),
+        CONTINUITY_SEGMENT_COLUMN: row.get(CONTINUITY_SEGMENT_COLUMN),
         "taxonomy_fingerprint": row.get("taxonomy_fingerprint"),
         "theme_definition_fingerprint": row.get("theme_definition_fingerprint"),
         "materialization_policy": CANONICAL_BUCKET_POLICY,
@@ -400,6 +408,19 @@ def build_theme_observation_events(
                         definition_cache[theme_name] = definition
                     trace = trace_map.get(theme_name, {})
                     member_structure = build_member_structural_divergence(trace.get("all_members", []))
+                    continuity = resolve_provider_contract_lineage(
+                        {
+                            "source_mode": source_mode,
+                            "provider": _safe_first(event_frame, "provider") or lineage.get("provider"),
+                            "provider_id": _safe_first(event_frame, "provider_id") or lineage.get("provider_id"),
+                            "api_name": _safe_first(event_frame, "api_name") or lineage.get("api_name"),
+                            "sector_type": _safe_first(event_frame, "sector_type") or lineage.get("sector_type"),
+                            "data_mode": _safe_first(event_frame, "data_mode") or lineage.get("data_mode") or source_mode,
+                            "provider_contract_id": _safe_first(event_frame, "provider_contract_id") or lineage.get("provider_contract_id"),
+                            "provider_contract_fingerprint": _safe_first(event_frame, "provider_contract_fingerprint") or lineage.get("provider_contract_fingerprint"),
+                        },
+                        source_mode=source_mode,
+                    )
                     event_payload = {
                         "snapshot_event_id": snapshot_event_id,
                         "theme_name": theme_name,
@@ -435,7 +456,15 @@ def build_theme_observation_events(
                             "matched_member_count": int(trace.get("matched_member_count", theme_row.get("source_sector_count") or 0) or 0),
                             "configured_member_count": int(trace.get("configured_member_count", 0) or 0),
                             "provider": _safe_first(event_frame, "provider") or lineage.get("provider"),
+                            "provider_id": _safe_first(event_frame, "provider_id") or lineage.get("provider_id"),
                             "api_name": _safe_first(event_frame, "api_name") or lineage.get("api_name"),
+                            "provider_contract_id": continuity.get("provider_contract_id"),
+                            "provider_contract_fingerprint": continuity.get("provider_contract_fingerprint"),
+                            "provider_contract_resolution_state": continuity.get("provider_contract_resolution_state"),
+                            "provider_contract_resolution_label": continuity.get("provider_contract_resolution_label"),
+                            CONTINUITY_SEGMENT_COLUMN: continuity.get(CONTINUITY_SEGMENT_COLUMN),
+                            "upstream_origin": _safe_first(event_frame, "upstream_origin") or lineage.get("upstream_origin"),
+                            "data_mode": _safe_first(event_frame, "data_mode") or lineage.get("data_mode") or source_mode,
                             "schema_fingerprint": lineage.get("schema_fingerprint"),
                             "contract_status": lineage.get("contract_status"),
                             "contract_ok": bool(lineage.get("contract_ok")) if lineage else None,
@@ -472,6 +501,7 @@ def build_theme_observation_events(
 def analyze_observation_bucket_collisions(events_df: pd.DataFrame) -> pd.DataFrame:
     if events_df is None or events_df.empty:
         return pd.DataFrame()
+    events_df = attach_continuity_columns(events_df)
     rows: list[dict] = []
     for key_values, group in events_df.groupby(list(BUCKETED_ANALYTICAL_OBSERVATION_GRAIN), dropna=False, sort=True):
         base = dict(zip(BUCKETED_ANALYTICAL_OBSERVATION_GRAIN, key_values, strict=False))
@@ -500,6 +530,9 @@ def analyze_observation_bucket_collisions(events_df: pd.DataFrame) -> pd.DataFra
                 "event_observation_ids": event_ids,
                 "snapshot_ids": snapshot_ids,
                 "file_snapshot_ids": ordered["file_snapshot_id"].dropna().astype(str).tolist() if "file_snapshot_id" in ordered.columns else [],
+                "provider_contract_ids": ordered["provider_contract_id"].dropna().astype(str).unique().tolist() if "provider_contract_id" in ordered.columns else [],
+                "provider_contract_resolution_states": ordered["provider_contract_resolution_state"].dropna().astype(str).unique().tolist() if "provider_contract_resolution_state" in ordered.columns else [],
+                "analytical_continuity_segment_ids": ordered[CONTINUITY_SEGMENT_COLUMN].dropna().astype(str).unique().tolist() if CONTINUITY_SEGMENT_COLUMN in ordered.columns else [],
                 "exact_captured_times": captured_time_values,
                 "first_captured_at": min(captured_at_values) if captured_at_values else None,
                 "latest_captured_at": max(captured_at_values) if captured_at_values else None,
@@ -571,6 +604,7 @@ def materialize_canonical_observations(
         empty.attrs["dynamics_basis"] = DYNAMICS_DEFAULT_BASIS
         empty.attrs["bucket_collision_summary"] = build_bucket_collision_summary(pd.DataFrame())
         return empty
+    events_df = attach_continuity_columns(events_df)
     collision_df = analyze_observation_bucket_collisions(events_df)
     collision_lookup = {
         tuple(row.get(column) for column in BUCKETED_ANALYTICAL_OBSERVATION_GRAIN): row.to_dict()
@@ -632,6 +666,7 @@ def materialize_canonical_observations(
     canonical.attrs["bucket_collision_summary"] = build_bucket_collision_summary(collision_df)
     canonical.attrs["analytical_grain"] = BUCKETED_ANALYTICAL_OBSERVATION_GRAIN
     canonical.attrs["raw_event_grain"] = RAW_EVENT_OBSERVATION_GRAIN
+    canonical.attrs["continuity_summary"] = build_continuity_summary(events_df)
     canonical.attrs["true_duplicate_event_row_count"] = int(getattr(events_df, "attrs", {}).get("true_duplicate_event_row_count", 0) or 0)
     canonical.attrs["warnings"] = list(getattr(events_df, "attrs", {}).get("warnings", []))
     canonical.attrs["manifest"] = getattr(events_df, "attrs", {}).get("manifest", pd.DataFrame())
@@ -802,11 +837,13 @@ def classify_scope_divergence(row: pd.Series) -> str:
 def build_scope_divergence_table(cube_df: pd.DataFrame) -> pd.DataFrame:
     if cube_df is None or cube_df.empty:
         return pd.DataFrame()
+    cube_df = attach_continuity_columns(cube_df)
     keys = [
         "theme_name",
         "trade_date",
         "captured_time_bucket",
         "source_mode",
+        CONTINUITY_SEGMENT_COLUMN,
         "taxonomy_fingerprint",
         "theme_definition_fingerprint",
     ]
@@ -842,6 +879,7 @@ def build_scope_divergence_table(cube_df: pd.DataFrame) -> pd.DataFrame:
         row["available_scope_count"] = int(len(codes))
         row["compared_snapshot_ids"] = compared_snapshot_ids
         row["compared_event_observation_ids"] = compared_event_ids
+        row["compared_continuity_segment_ids"] = group[CONTINUITY_SEGMENT_COLUMN].dropna().astype(str).unique().tolist() if CONTINUITY_SEGMENT_COLUMN in group.columns else []
         row["aligned_snapshot_id_consistent"] = bool(len(set(compared_snapshot_ids)) == 1 and compared_snapshot_ids)
         if row["available_scope_count"] < 2:
             row["alignment_status"] = "insufficient_scopes"
@@ -879,6 +917,7 @@ def _lineage_incompatibilities(df: pd.DataFrame) -> list[str]:
     warnings: list[str] = []
     for column, label in (
         ("source_mode", "source mode"),
+        (CONTINUITY_SEGMENT_COLUMN, "analytical continuity segment"),
         ("taxonomy_fingerprint", "taxonomy fingerprint"),
         ("theme_definition_fingerprint", "theme-definition fingerprint"),
     ):

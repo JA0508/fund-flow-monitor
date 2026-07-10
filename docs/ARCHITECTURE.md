@@ -79,6 +79,14 @@ provider contract
 
 The default runtime policy remains `primary_only`. No automatic fallback is enabled, and no snapshot combines rows from two providers. If a future source is used for shadow comparison or fallback, the provider contract identity must remain visible in lineage and the history must not be silently presented as source-homogeneous.
 
+## Analytical Continuity Segment Layer
+
+v3.16 carries provider-contract identity into downstream analytical continuity. Physical snapshot IDs still describe where an observation came from, while `analytical_continuity_segment_id` describes whether observations are analytically compatible for canonical buckets, scope divergence, structural regime episodes, cross-theme pair alignment and robustness evidence.
+
+The segment is derived from source mode, provider contract ID, provider contract fingerprint and resolution provenance. SAMPLE data uses a dedicated synthetic demo segment. REAL cache rows with explicit verified contracts, explicit ID only, inferred provider metadata or unknown lineage remain separate until their provenance is upgraded by a controlled ingestion path.
+
+This layer does not change theme formulas, fetch data, write cache files or create a fallback provider. It is a guardrail that prevents provider-contract boundaries from being hidden inside later analytical outputs.
+
 ## Runtime Profile Layer
 
 Key module:
