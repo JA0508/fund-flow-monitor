@@ -26,6 +26,7 @@ The app fetches or reads sector fund-flow snapshots, normalizes them with pandas
 - Theme dynamics separates raw snapshot-event observations from bucketed analytical observations, audits time-bucket collisions, and materializes canonical bucket observations while preserving contributing lineage.
 - Structural regime signatures combine headline state, scope divergence and member structure so the same headline state can be compared across different observed internal configurations without ML clustering or black-box scoring.
 - Lightweight data contracts validate the practical snapshot shape, especially SAMPLE CSV structure, without blocking valid local cache data unnecessarily.
+- Analytical eligibility separates replayable history from workload-qualified evidence, so legacy unresolved REAL cache can be inspected without being counted as qualified regime, relationship or robustness input.
 
 ## Engineering Architecture Tradeoff
 
@@ -104,6 +105,10 @@ Because provider availability is not the same as semantic comparability. v3.15 g
 **Why did you add provider-contract-aware analytical continuity in v3.16?**
 
 v3.15 made provider semantics visible, but visibility alone is not enough. v3.16 makes continuity a grouping boundary: canonical buckets, regime episodes, relationship pairs and robustness evidence keep observations in separate analytical continuity segments when their provider contract or resolution provenance differs. Physical snapshot IDs still identify the source event; continuity segments decide whether two observations are analytically compatible.
+
+**What changed in v3.17?**
+
+v3.17 adds a workload-level eligibility gate. A REAL CSV can be readable and still not qualified for continuity-sensitive analysis if its provider contract is unresolved. SAMPLE data remains eligible for SAMPLE demo analytics, while REAL qualified analytics require explicit verified primary-provider contract identity.
 
 ### What is the current runtime provider policy?
 

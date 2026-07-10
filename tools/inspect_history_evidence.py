@@ -16,12 +16,13 @@ from src.history_evidence import (  # noqa: E402
     resolve_replay_evidence,
     validate_history_evidence_text,
 )
+from src.sample_data import SAMPLE_DIR  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Inspect local CSV historical evidence without network or writes.")
-    parser.add_argument("--data-dir", default="data/ticks", help="CSV snapshot directory to inspect.")
-    parser.add_argument("--source-mode", default="REAL", choices=("REAL", "SAMPLE"), help="Evidence source mode label.")
+    parser.add_argument("--data-dir", default=None, help="CSV snapshot directory to inspect.")
+    parser.add_argument("--source-mode", "--source", default="REAL", choices=("REAL", "SAMPLE"), help="Evidence source mode label.")
     parser.add_argument("--bucket-minutes", type=int, default=1, help="captured_time bucket size in minutes.")
     parser.add_argument("--date", default=None, help="Optional trade date for replay evidence.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON summary.")
@@ -30,11 +31,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def inspect_history_evidence(
-    data_dir: str = "data/ticks",
+    data_dir: str | None = None,
     source_mode: str = "REAL",
     bucket_minutes: int = 1,
     selected_date: str | None = None,
 ) -> dict:
+    source_mode = str(source_mode or "REAL").upper()
+    data_dir = data_dir or (SAMPLE_DIR if source_mode == "SAMPLE" else "data/ticks")
     manifest = build_snapshot_manifest(data_dir=data_dir, source_mode=source_mode, bucket_minutes=bucket_minutes)
     summary = build_historical_coverage_summary(manifest)
     readiness = classify_historical_evidence_readiness(summary)

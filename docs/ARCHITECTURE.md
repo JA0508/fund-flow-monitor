@@ -87,6 +87,21 @@ The segment is derived from source mode, provider contract ID, provider contract
 
 This layer does not change theme formulas, fetch data, write cache files or create a fallback provider. It is a guardrail that prevents provider-contract boundaries from being hidden inside later analytical outputs.
 
+## Analytical Eligibility Layer
+
+v3.17 separates two questions that were previously easy to confuse:
+
+```text
+Can the CSV history be read and replayed?
+        |
+        v
+Is the observation qualified for a specific analytical workload?
+```
+
+Historical availability remains a coverage/readability statement. It can say that multiple REAL dates and snapshots exist. Qualified analytical readiness is stricter: REAL observations must carry explicit verified primary-provider contract identity before entering continuity-sensitive workloads such as structural regimes, cross-theme relationships and analytical robustness. Legacy REAL cache rows with unknown, inferred or explicit-ID-only provider-contract lineage remain auditable, but they are not counted as qualified analytical evidence.
+
+SAMPLE synthetic rows are eligible only for SAMPLE demo analytics. This preserves the public demo path while keeping SAMPLE separate from real market history.
+
 ## Runtime Profile Layer
 
 Key module:

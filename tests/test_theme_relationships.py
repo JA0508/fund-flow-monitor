@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.provider_contracts import build_provider_contract_short_id
+from src.provider_registry import get_primary_provider_contract
 from src.theme_relationships import (
     build_aligned_theme_pairs,
     build_headline_state_agreement,
@@ -57,6 +59,7 @@ def _row(
     source: str = "SAMPLE",
     provider_contract_id: str = "sample_synthetic_demo_contract",
     provider_contract_resolution_state: str = "sample_synthetic",
+    provider_contract_fingerprint: str = "unknown",
 ) -> dict:
     return {
         "theme_name": theme,
@@ -66,6 +69,7 @@ def _row(
         "calculation_mode": "strict_representative",
         "source_mode": source,
         "provider_contract_id": provider_contract_id,
+        "provider_contract_fingerprint": provider_contract_fingerprint,
         "provider_contract_resolution_state": provider_contract_resolution_state,
         "taxonomy_fingerprint": "tax-1",
         "theme_definition_fingerprint": f"def-{theme}",
@@ -80,6 +84,9 @@ def _row(
 
 
 def _cube() -> pd.DataFrame:
+    primary = get_primary_provider_contract()
+    primary_id = build_provider_contract_short_id(primary)
+    primary_fp = primary.to_dict()["semantic_contract_id"]
     rows = [
         _row("Alpha", "2026-01-01", "09:30", "强流入", 2, "unused"),
         _row("Beta", "2026-01-01", "09:30", "弱流入", 1, "unused"),
@@ -90,8 +97,8 @@ def _cube() -> pd.DataFrame:
         _row("Alpha", "2026-01-03", "09:30", "弱流出", -1, "unused"),
         _row("Beta", "2026-01-03", "09:30", "弱流出", -1, "unused"),
         # Gamma is intentionally missing on 2026-01-03 to preserve an alignment gap.
-        _row("Alpha", "2026-01-01", "09:30", "强流入", 2, "unused", source="REAL"),
-        _row("Beta", "2026-01-01", "09:30", "强流入", 2, "unused", source="REAL"),
+        _row("Alpha", "2026-01-01", "09:30", "强流入", 2, "unused", source="REAL", provider_contract_id=primary_id, provider_contract_resolution_state="explicit_verified", provider_contract_fingerprint=primary_fp),
+        _row("Beta", "2026-01-01", "09:30", "强流入", 2, "unused", source="REAL", provider_contract_id=primary_id, provider_contract_resolution_state="explicit_verified", provider_contract_fingerprint=primary_fp),
     ]
     df = pd.DataFrame(rows)
     df.attrs["materialization_policy"] = "latest_valid_snapshot_in_bucket"
@@ -130,8 +137,8 @@ def test_incompatible_continuity_segments_do_not_align_pair_facts():
     )
     pairs = build_aligned_theme_pairs(cube, source_mode="REAL", taxonomy=_taxonomy())
     alpha_beta = filter_pair_observations(pairs, "Alpha", "Beta")
-    assert int(alpha_beta["is_aligned"].sum()) == 0
-    assert set(alpha_beta["alignment_status"]) == {"missing_theme_a", "missing_theme_b"}
+    assert alpha_beta.empty
+    assert pairs.attrs["analytical_eligibility_summary"]["excluded_observation_count"] == 2
 
 
 def test_headline_agreement_distinguishes_exact_same_sign_and_opposing():

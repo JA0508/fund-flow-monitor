@@ -8,6 +8,12 @@ from typing import Iterable
 import pandas as pd
 
 from src.analytical_continuity import CONTINUITY_SEGMENT_COLUMN, attach_continuity_columns
+from src.analytical_eligibility import (
+    WORKLOAD_REGIME,
+    attach_analytical_eligibility,
+    build_qualified_universe_summary,
+    filter_eligible_observations,
+)
 from src.theme_dynamics import (
     BUCKETED_ANALYTICAL_OBSERVATION_GRAIN,
     CANONICAL_BUCKET_POLICY,
@@ -562,11 +568,20 @@ def build_theme_regime_evidence(
         calculation_modes=THEME_DYNAMICS_MODES,
     )
     regime_all = attach_regime_signatures_to_observations(cube, calculation_mode=mode)
-    series = filter_regime_observations(regime_all, theme_name=theme_name, source_mode=source_mode, calculation_mode=mode)
+    descriptive_series = filter_regime_observations(regime_all, theme_name=theme_name, source_mode=source_mode, calculation_mode=mode)
+    if not descriptive_series.empty:
+        descriptive_series = attach_analytical_eligibility(descriptive_series, workload=WORKLOAD_REGIME)
+    series = filter_eligible_observations(descriptive_series, workload=WORKLOAD_REGIME)
+    qualified_summary = build_qualified_universe_summary(descriptive_series, workload=WORKLOAD_REGIME)
     warnings = list(getattr(regime_all, "attrs", {}).get("warnings", []))
     if source_mode == "SAMPLE":
         warnings.append("当前结构状态签名来自 SAMPLE 合成演示数据，不代表真实行情。")
     warnings.extend(_lineage_warnings(series))
+    excluded_count = int(qualified_summary.get("excluded_observation_count", 0) or 0)
+    if excluded_count:
+        warnings.append(
+            f"{excluded_count} 条结构状态 observations 未进入 {WORKLOAD_REGIME} qualified universe；仍可用于 lineage/descriptive audit。"
+        )
     episodes = build_regime_episodes(series)
     transition_trace = build_regime_transition_trace(series)
     latest = _chronological(series).iloc[-1].to_dict() if not series.empty else {}
@@ -580,9 +595,11 @@ def build_theme_regime_evidence(
         "canonical_observation_basis": REGIME_OBSERVATION_BASIS,
         "materialization_policy": REGIME_CANONICAL_POLICY,
         "signature_dimensions": REGIME_SIGNATURE_DIMENSIONS,
-        "canonical_observation_count": int(len(series)),
+        "canonical_observation_count": int(len(descriptive_series)),
+        "qualified_canonical_observation_count": int(len(series)),
         "regime_signature_count": int(series["regime_signature"].dropna().astype(str).nunique()) if not series.empty else 0,
         "episode_count": int(len(episodes)),
+        "descriptive_episode_count": int(len(build_regime_episodes(descriptive_series))) if not descriptive_series.empty else 0,
         "latest_regime_signature": latest.get("regime_signature"),
         "latest_regime_signature_id": latest.get("regime_signature_id"),
         "latest_headline_state": latest.get("headline_state"),
@@ -591,7 +608,11 @@ def build_theme_regime_evidence(
         "taxonomy_fingerprint": latest.get("taxonomy_fingerprint"),
         "theme_definition_fingerprint": latest.get("theme_definition_fingerprint"),
         "regime_observations": series,
+        "descriptive_regime_observations": descriptive_series,
+        "qualified_regime_observations": series,
         "episodes": episodes,
+        "qualified_episodes": episodes,
+        "qualified_analytical_readiness": qualified_summary,
         "transition_trace": transition_trace,
         "state_equivalent_analysis": state_equivalent,
         "warnings": list(dict.fromkeys(str(item) for item in warnings if item)),
@@ -604,13 +625,15 @@ def render_theme_regime_brief_section(evidence: dict, heading_level: int = 2) ->
         return f"{hashes} 结构状态签名证据\n\n暂无可用结构状态签名证据。"
     transition = evidence.get("transition_trace") or {}
     state_equiv = evidence.get("state_equivalent_analysis") or {}
+    qualified = evidence.get("qualified_analytical_readiness") or {}
     lines = [
         f"{hashes} 结构状态签名证据",
         "",
         f"- 主题：{evidence.get('theme_name')}；来源：{evidence.get('source_mode')}；口径：{evidence.get('calculation_mode')}。",
         f"- 签名维度：headline state / scope structure / member structure；依据：{evidence.get('canonical_observation_basis')}；物化策略：{evidence.get('materialization_policy')}。",
         f"- 最新结构签名：`{evidence.get('latest_regime_signature')}`。",
-        f"- canonical observations：{evidence.get('canonical_observation_count')}；结构签名数：{evidence.get('regime_signature_count')}；episodes：{evidence.get('episode_count')}。",
+        f"- canonical observations：{evidence.get('canonical_observation_count')}；qualified observations：{evidence.get('qualified_canonical_observation_count', 0)}；结构签名数：{evidence.get('regime_signature_count')}；qualified episodes：{evidence.get('episode_count')}。",
+        f"- Qualified readiness：{qualified.get('qualified_readiness_label', '--')}；排除 observations：{qualified.get('excluded_observation_count', 0)}。",
         f"- 已观测结构切换：{transition.get('structural_change_count', 0)}；headline 不变但结构变化：{transition.get('headline_preserving_structural_change_count', 0)}。",
         f"- 当前 headline state `{evidence.get('latest_headline_state')}` 下已观测结构签名数：{state_equiv.get('distinct_regime_signature_count', 0)}，observed share 分母为该 headline state 下的 canonical observations。",
         "- 以上仅描述已缓存历史样本中的结构状态，不预测未来走势，不构成投资建议。",

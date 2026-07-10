@@ -10,6 +10,11 @@ from typing import Iterable
 import pandas as pd
 
 from src.analytical_continuity import attach_continuity_columns, build_continuity_summary
+from src.analytical_eligibility import (
+    WORKLOAD_ROBUSTNESS,
+    build_qualified_universe_summary,
+    filter_eligible_observations,
+)
 from src.history_evidence import build_provider_lineage_summary, build_snapshot_manifest
 from src.theme_dynamics import (
     CANONICAL_BUCKET_POLICY,
@@ -391,9 +396,11 @@ def build_threshold_boundary_proximity(observations_df: pd.DataFrame, top_n: int
 def summarize_theme_variant(cube_df: pd.DataFrame, theme_name: str, specification: dict) -> dict:
     mode = specification.get("calculation_mode", "strict_representative")
     source = specification.get("source_mode", "SAMPLE")
-    series = _theme_series(cube_df, theme_name, mode, source)
+    eligibility_summary = build_qualified_universe_summary(cube_df, workload=WORKLOAD_ROBUSTNESS)
+    qualified_cube = filter_eligible_observations(cube_df, workload=WORKLOAD_ROBUSTNESS)
+    series = _theme_series(qualified_cube, theme_name, mode, source)
     trace = build_state_transition_trace(series)
-    regime = attach_regime_signatures_to_observations(cube_df, calculation_mode=mode)
+    regime = attach_regime_signatures_to_observations(qualified_cube, calculation_mode=mode)
     regime_series = _theme_series(regime, theme_name, mode, source) if not regime.empty else pd.DataFrame()
     threshold = build_threshold_boundary_proximity(series)
     return {
@@ -422,6 +429,7 @@ def summarize_theme_variant(cube_df: pd.DataFrame, theme_name: str, specificatio
         if not regime_series.empty
         else 0,
         "evidence_sufficiency": build_evidence_sufficiency_profile(series),
+        "analytical_eligibility_summary": eligibility_summary,
         "continuity_universe": _continuity_universe_metadata(cube_df),
         "threshold_boundary_evidence": threshold,
     }
@@ -494,9 +502,20 @@ def _pair_observations_for_spec(cube_df: pd.DataFrame, pair: tuple[str, str], sp
 
 
 def build_pair_date_concentration(pair_observations: pd.DataFrame) -> dict:
-    aligned = pair_observations[pair_observations["is_aligned"].astype(bool)].copy() if pair_observations is not None and not pair_observations.empty else pd.DataFrame()
+    if pair_observations is None or pair_observations.empty or "is_aligned" not in pair_observations.columns:
+        aligned = pd.DataFrame()
+    else:
+        aligned = pair_observations[pair_observations["is_aligned"].astype(bool)].copy()
     profile = build_evidence_sufficiency_profile(pair_observations, aligned_only=True)
     rows = []
+    if aligned.empty or "trade_date" not in aligned.columns:
+        return {
+            **profile,
+            "per_date_results": rows,
+            "same_sign_share_by_date_range": _range(item["same_sign_share"] for item in rows),
+            "exact_state_share_by_date_range": _range(item["exact_state_agreement_share"] for item in rows),
+            "date_result_semantics": "pooled result is not averaged from per-date shares; per-date rows are factual slices.",
+        }
     for date, group in aligned.groupby(aligned["trade_date"].astype(str), sort=True):
         headline = build_headline_state_agreement(group)
         rows.append(
@@ -520,6 +539,7 @@ def build_pair_date_concentration(pair_observations: pd.DataFrame) -> dict:
 
 def summarize_relationship_variant(cube_df: pd.DataFrame, theme_a: str, theme_b: str, specification: dict, taxonomy: dict) -> dict:
     pair = normalize_theme_pair(theme_a, theme_b)
+    eligibility_summary = build_qualified_universe_summary(cube_df, workload=WORKLOAD_ROBUSTNESS)
     evidence, pair_df = _pair_observations_for_spec(cube_df, pair, specification, taxonomy)
     headline = evidence.get("headline_state_evidence", {})
     structural = evidence.get("structural_regime_evidence", {})
@@ -547,6 +567,7 @@ def summarize_relationship_variant(cube_df: pd.DataFrame, theme_a: str, theme_b:
         "simultaneous_headline_change_count": int(transitions.get("simultaneous_headline_change_count", 0)),
         "simultaneous_structural_change_count": int(transitions.get("simultaneous_structural_change_count", 0)),
         "evidence_sufficiency": date_concentration,
+        "analytical_eligibility_summary": evidence.get("analytical_eligibility_summary") or eligibility_summary,
         "continuity_universe": _continuity_universe_metadata(cube_df),
         "per_date_results": date_concentration.get("per_date_results", []),
     }

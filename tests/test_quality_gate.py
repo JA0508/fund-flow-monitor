@@ -22,6 +22,8 @@ def test_build_quality_gate_commands_contains_expected_checks():
         "verify_runtime",
         "analytical_continuity_sample",
         "analytical_continuity_real",
+        "analytical_eligibility_sample",
+        "analytical_eligibility_real",
     ]
 
 

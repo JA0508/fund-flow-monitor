@@ -69,6 +69,18 @@ def build_quality_gate_commands(python_executable: str | None = None) -> list[di
             "command": [python, "tools/audit_analytical_continuity.py", "--source", "REAL"],
             "env": {},
         },
+        {
+            "name": "analytical_eligibility_sample",
+            "label": "Analytical eligibility audit (SAMPLE)",
+            "command": [python, "tools/audit_analytical_eligibility.py", "--source", "SAMPLE"],
+            "env": {},
+        },
+        {
+            "name": "analytical_eligibility_real",
+            "label": "Analytical eligibility audit (REAL)",
+            "command": [python, "tools/audit_analytical_eligibility.py", "--source", "REAL"],
+            "env": {},
+        },
     ]
 
 

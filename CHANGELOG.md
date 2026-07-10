@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v3.17
+
+- Contract-Qualified Historical Evidence and Analytical Eligibility.
+- Added `src/analytical_eligibility.py` to separate historical CSV availability from workload-qualified analytical readiness.
+- REAL observations now require explicit verified primary-provider contract identity before they can enter qualified continuity, regime, relationship or robustness analytics.
+- SAMPLE synthetic observations remain eligible for SAMPLE demo analytics only, with source mode preserved.
+- Regime, relationship and robustness evidence now filter denominator universes through the analytical eligibility gate while preserving readable historical evidence for audit.
+- Added `tools/audit_analytical_eligibility.py` for read-only SAMPLE / REAL audits without AKShare calls, CSV writes or SQLite writes.
+- Streamlit Data Explanation now shows historical availability beside contract-qualified analytical readiness so legacy unresolved history cannot inflate qualified readiness.
+- This layer does not change collection, theme formulas, provider contracts or public demo behavior; it only clarifies which observations are eligible for analytical workloads.
+
 ## v3.16
 
 - Provider-contract-aware Analytical Continuity.

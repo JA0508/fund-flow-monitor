@@ -197,6 +197,7 @@ from src.analytical_robustness import (  # noqa: E402
     validate_analytical_robustness_text,
 )
 from tools.audit_analytical_continuity import build_analytical_continuity_report  # noqa: E402
+from tools.audit_analytical_eligibility import build_analytical_eligibility_report  # noqa: E402
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_quality_report,
@@ -1162,6 +1163,12 @@ def _verify_theme_dynamics() -> None:
         pair=(theme, relationship_peer),
         mode="strict_representative",
     )
+    eligibility_report = build_analytical_eligibility_report(
+        source_mode="SAMPLE",
+        data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
+        mode="strict_representative",
+    )
+    eligibility_summary = ((eligibility_report.get("availability_vs_qualified") or {}).get("qualified_summary") or {})
     grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(PROJECT_ROOT / "sample_data/ticks"),
@@ -1219,6 +1226,12 @@ def _verify_theme_dynamics() -> None:
     print(f"  analytical_continuity_legacy_or_unresolved_count: {continuity_report.get('legacy_or_unresolved_contract_observation_count')}")
     print(f"  analytical_continuity_network_used: {continuity_report.get('network_used')}")
     print(f"  analytical_continuity_forbidden_hits: {continuity_report.get('forbidden_hits')}")
+    print(f"  audit_analytical_eligibility.py exists: {(PROJECT_ROOT / 'tools/audit_analytical_eligibility.py').exists()}")
+    print(f"  analytical_eligibility_availability_state: {(eligibility_report.get('historical_availability') or {}).get('readiness_state')}")
+    print(f"  analytical_eligibility_qualified_state: {eligibility_summary.get('qualified_readiness_state')}")
+    print(f"  analytical_eligibility_eligible_count: {eligibility_summary.get('eligible_observation_count')}")
+    print(f"  analytical_eligibility_excluded_count: {eligibility_summary.get('excluded_observation_count')}")
+    print(f"  analytical_eligibility_network_used: {eligibility_report.get('network_used')}")
     print("  theme dynamics 检查只读 SAMPLE CSV，不访问 AKShare，不写 data/ticks 或 data/warehouse。")
 
 

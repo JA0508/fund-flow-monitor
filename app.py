@@ -122,6 +122,10 @@ from src.runtime_profile import (
     get_runtime_profile,
 )
 from src.provider_registry import build_provider_registry_summary, get_primary_provider_contract
+from src.analytical_eligibility import (
+    WORKLOAD_THEME_CONTINUITY,
+    build_availability_vs_qualified_readiness,
+)
 from src.analytical_robustness import (
     compare_relationship_specifications,
     compare_theme_specifications,
@@ -222,6 +226,7 @@ from src.ui_components import (
     render_header,
     render_historical_evidence_notes,
     render_historical_evidence_summary_cards,
+    render_analytical_eligibility_summary_cards,
     render_hotspot_cards,
     render_intraday_hotspot_overview,
     render_intraday_hotspot_table,
@@ -427,6 +432,24 @@ def main() -> None:
     primary_provider_contract = get_primary_provider_contract().to_dict()
     real_history_readiness = classify_historical_evidence_readiness(real_history_summary)
     sample_history_readiness = classify_historical_evidence_readiness(sample_history_summary)
+    try:
+        real_eligibility_cube_df = build_theme_observation_cube(source_mode="REAL", data_dir="data/ticks")
+    except Exception:
+        real_eligibility_cube_df = pd.DataFrame()
+    try:
+        sample_eligibility_cube_df = build_theme_observation_cube(source_mode="SAMPLE", data_dir=SAMPLE_DIR)
+    except Exception:
+        sample_eligibility_cube_df = pd.DataFrame()
+    real_analytical_readiness = build_availability_vs_qualified_readiness(
+        real_history_readiness,
+        real_eligibility_cube_df,
+        workload=WORKLOAD_THEME_CONTINUITY,
+    )
+    sample_analytical_readiness = build_availability_vs_qualified_readiness(
+        sample_history_readiness,
+        sample_eligibility_cube_df,
+        workload=WORKLOAD_THEME_CONTINUITY,
+    )
     real_coverage_matrix_df = build_coverage_matrix(real_history_manifest_df)
     sample_coverage_matrix_df = build_coverage_matrix(sample_history_manifest_df)
     snapshot_quality_report = build_snapshot_quality_report()
@@ -1915,6 +1938,14 @@ def main() -> None:
         )
         render_historical_evidence_summary_cards(real_history_summary, real_history_readiness, title="REAL 本地缓存历史证据")
         render_historical_evidence_summary_cards(sample_history_summary, sample_history_readiness, title="SAMPLE 样例历史证据")
+        render_analytical_eligibility_summary_cards(
+            real_analytical_readiness,
+            title="REAL 历史可读性 vs Contract-Qualified Analytics",
+        )
+        render_analytical_eligibility_summary_cards(
+            sample_analytical_readiness,
+            title="SAMPLE 历史可读性 vs Demo Analytics",
+        )
         with st.expander("查看 REAL captured_time 覆盖矩阵", expanded=show_debug_details):
             render_coverage_matrix(real_coverage_matrix_df, title="REAL captured_time 覆盖矩阵")
         with st.expander("查看 SAMPLE captured_time 覆盖矩阵", expanded=show_debug_details):

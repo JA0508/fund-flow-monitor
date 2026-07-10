@@ -10,6 +10,37 @@ python tools/verify_runtime.py
 
 The script reports the active project path, Python version, AKShare version, whether `stock_sector_fund_flow_rank` exists, current CSV path and row count, snapshot count, latest captured time, latest inflow/outflow leaders, CSV snapshot catalog, DEMO contamination check, unit sanity check, and whether the current cache can build `strict_representative`, `representative`, and `breadth` fund observation theme snapshots.
 
+## v3.17 Contract-Qualified Analytical Eligibility Checks
+
+Run:
+
+```bash
+python tools/quality_gate.py
+python -m pytest -q
+python -m compileall app.py src tests tools
+python tools/release_check.py
+python tools/cloud_preflight.py
+FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
+python tools/smoke_check.py
+python tools/verify_runtime.py
+python tools/audit_analytical_eligibility.py --source SAMPLE
+python tools/audit_analytical_eligibility.py --source REAL
+```
+
+Required checks:
+
+- `APP_VERSION` is `v3.17`.
+- `CHANGELOG.md` contains a `v3.17` entry.
+- `src/analytical_eligibility.py` exists and is importable.
+- `tools/audit_analytical_eligibility.py` exists and can audit SAMPLE / REAL without network access or writes.
+- Historical availability remains a CSV coverage statement only; it must not imply contract-qualified analytical readiness.
+- REAL qualified analytics require explicit verified primary-provider contract ID and fingerprint lineage.
+- REAL observations with unknown, inferred or explicit-ID-only provider-contract resolution remain readable for audit but excluded from qualified analytical workloads.
+- SAMPLE synthetic observations can be eligible for SAMPLE demo analytics only and must keep SAMPLE source labeling.
+- Regime, relationship and robustness denominator universes use analytical eligibility filters.
+- Streamlit Data Explanation shows historical availability and qualified readiness as separate concepts.
+- No AKShare fetch, CSV write, SQLite write, fallback provider, prediction wording or investment recommendation is introduced.
+
 ## v3.13 Cross-Theme Relationship Evidence Checks
 
 Run:

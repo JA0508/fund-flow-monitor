@@ -62,6 +62,13 @@ Provider contract fields are recommended lineage columns for newly normalized RE
 
 v3.16 adds downstream analytical continuity columns on top of this lineage. `src/analytical_continuity.py` resolves each observation into an explicit provenance state and derives `analytical_continuity_segment_id`. SAMPLE uses a synthetic demo contract segment; REAL rows with explicit verified, explicit-ID-only, inferred or unknown lineage do not collapse into one analytical segment.
 
+v3.17 adds an analytical eligibility gate after continuity resolution. This gate keeps historical availability separate from qualified analytical readiness:
+
+- historical availability answers whether CSV snapshots can be read and replayed;
+- qualified readiness answers whether rows satisfy the provider-contract requirements for a workload;
+- unresolved REAL rows stay visible in audit reports but are excluded from qualified regime, relationship and robustness denominators;
+- SAMPLE rows can qualify only for SAMPLE demo workloads.
+
 ## Raw Data To Theme Observation
 
 ```text
@@ -69,6 +76,9 @@ raw sector / concept rows
         |
         v
 normalized snapshot DataFrame
+        |
+        v
+provider contract resolution + analytical eligibility
         |
         v
 latest sector frame or historical frame

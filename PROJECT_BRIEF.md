@@ -87,6 +87,8 @@ v1.1 新增多日主题趋势。它基于本地 CSV 快照目录中的多个缓�
 
 多日趋势独立于当前单日历史回放日期，只分析本地已保存的历史资金流状态，不触发 AKShare 抓取，不写入 CSV，不预测未来走势，不提供投资建议。
 
+v3.17 进一步把“历史快照可读”与“可进入合格分析工作负载”分开。旧 REAL 缓存仍可以用于历史覆盖和 replay 审计，但只有带有 explicit verified primary-provider contract lineage 的 REAL observation 才会进入 qualified regime、relationship 和 robustness evidence。SAMPLE observation 只用于 SAMPLE demo analytics。
+
 ## 主题库治理
 
 v1.2 新增 `config/theme_taxonomy.json`，把主题名称、主题分组、核心行业、相关行业、概念关键词、别名、基金观察用途和重叠说明从代码中抽离为配置。`theme_pool.py` 和 `theme_concepts.py` 会优先读取主题库，加载失败时回退到内置默认规则，避免页面崩溃。

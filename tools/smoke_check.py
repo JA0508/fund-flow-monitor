@@ -128,6 +128,7 @@ from src.analytical_robustness import (  # noqa: E402
     validate_analytical_robustness_text,
 )
 from tools.audit_analytical_continuity import build_analytical_continuity_report  # noqa: E402
+from tools.audit_analytical_eligibility import build_analytical_eligibility_report  # noqa: E402
 from src.theme_history import (  # noqa: E402
     build_theme_history_from_sector_history,
     build_theme_history_matrix,
@@ -190,6 +191,7 @@ REQUIRED_FILES = (
     "src/theme_dynamics.py",
     "src/analytical_robustness.py",
     "src/analytical_continuity.py",
+    "src/analytical_eligibility.py",
     "src/provider_contracts.py",
     "src/provider_comparability.py",
     "src/provider_registry.py",
@@ -213,6 +215,7 @@ REQUIRED_FILES = (
     "tools/rebuild_local_warehouse.py",
     "tools/audit_analytical_robustness.py",
     "tools/audit_analytical_continuity.py",
+    "tools/audit_analytical_eligibility.py",
     "tools/audit_provider_semantics.py",
     "tools/diagnose_provider_network.py",
     "config/watchlist.json",
@@ -528,6 +531,11 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
         pair=(evidence_theme, relationship_peer),
         mode="strict_representative",
     )
+    analytical_eligibility_report = build_analytical_eligibility_report(
+        source_mode="SAMPLE",
+        data_dir=str(project_root / "sample_data/ticks"),
+        mode="strict_representative",
+    )
     observation_grain_report = build_observation_grain_report(
         source_mode="SAMPLE",
         data_dir=str(project_root / "sample_data/ticks"),
@@ -726,6 +734,14 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
             "analytical_continuity_legacy_or_unresolved_count": int(analytical_continuity_report.get("legacy_or_unresolved_contract_observation_count", 0) or 0),
             "analytical_continuity_network_used": bool(analytical_continuity_report.get("network_used")),
             "analytical_continuity_forbidden_hits": analytical_continuity_report.get("forbidden_hits", []),
+            "analytical_eligibility_module_imported": True,
+            "audit_analytical_eligibility_script_exists": (project_root / "tools/audit_analytical_eligibility.py").exists(),
+            "analytical_eligibility_availability_state": (analytical_eligibility_report.get("historical_availability") or {}).get("readiness_state"),
+            "analytical_eligibility_qualified_state": ((analytical_eligibility_report.get("availability_vs_qualified") or {}).get("qualified_summary") or {}).get("qualified_readiness_state"),
+            "analytical_eligibility_eligible_count": int(((analytical_eligibility_report.get("availability_vs_qualified") or {}).get("qualified_summary") or {}).get("eligible_observation_count", 0) or 0),
+            "analytical_eligibility_excluded_count": int(((analytical_eligibility_report.get("availability_vs_qualified") or {}).get("qualified_summary") or {}).get("excluded_observation_count", 0) or 0),
+            "analytical_eligibility_network_used": bool(analytical_eligibility_report.get("network_used")),
+            "analytical_eligibility_forbidden_hits": [],
         },
         "warehouse": warehouse_status,
         "presentation": {
@@ -946,6 +962,12 @@ def main() -> int:
     print(f"analytical continuity legacy/unresolved observations: {theme_dynamics['analytical_continuity_legacy_or_unresolved_count']}")
     print(f"analytical continuity network used: {theme_dynamics['analytical_continuity_network_used']}")
     print(f"analytical continuity forbidden hits: {theme_dynamics['analytical_continuity_forbidden_hits']}")
+    print(f"analytical eligibility module imported: {theme_dynamics['analytical_eligibility_module_imported']}")
+    print(f"audit_analytical_eligibility.py exists: {theme_dynamics['audit_analytical_eligibility_script_exists']}")
+    print(f"analytical eligibility availability/qualified: {theme_dynamics['analytical_eligibility_availability_state']} / {theme_dynamics['analytical_eligibility_qualified_state']}")
+    print(f"analytical eligibility eligible/excluded: {theme_dynamics['analytical_eligibility_eligible_count']} / {theme_dynamics['analytical_eligibility_excluded_count']}")
+    print(f"analytical eligibility network used: {theme_dynamics['analytical_eligibility_network_used']}")
+    print(f"analytical eligibility forbidden hits: {theme_dynamics['analytical_eligibility_forbidden_hits']}")
     warehouse = report["warehouse"]
     print(f"warehouse module imported: {warehouse['warehouse_module_imported']}")
     print(f"warehouse schema initialized: {warehouse['warehouse_schema_initialized']}")

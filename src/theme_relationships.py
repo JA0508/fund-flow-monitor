@@ -9,6 +9,12 @@ from typing import Iterable
 import pandas as pd
 
 from src.analytical_continuity import CONTINUITY_SEGMENT_COLUMN, attach_continuity_columns
+from src.analytical_eligibility import (
+    WORKLOAD_RELATIONSHIP,
+    attach_analytical_eligibility,
+    build_qualified_universe_summary,
+    filter_eligible_observations,
+)
 from src.theme_dynamics import (
     CANONICAL_BUCKET_POLICY,
     DYNAMICS_DEFAULT_BASIS,
@@ -154,12 +160,27 @@ def _prepare_regime_observations(cube_df: pd.DataFrame, calculation_mode: str) -
     return regime
 
 
-def _empty_pairs(warnings: list[str] | None = None) -> pd.DataFrame:
-    df = pd.DataFrame()
+def _empty_pairs(warnings: list[str] | None = None, eligibility_summary: dict | None = None) -> pd.DataFrame:
+    columns = [
+        "theme_a",
+        "theme_b",
+        "theme_pair",
+        "pair_id",
+        "trade_date",
+        "captured_time_bucket",
+        "calculation_mode",
+        "source_mode",
+        CONTINUITY_SEGMENT_COLUMN,
+        "taxonomy_fingerprint",
+        "alignment_status",
+        "is_aligned",
+    ]
+    df = pd.DataFrame(columns=columns)
     df.attrs["pair_grain"] = PAIR_GRAIN
     df.attrs["relationship_observation_basis"] = DYNAMICS_DEFAULT_BASIS
     df.attrs["materialization_policy"] = CANONICAL_BUCKET_POLICY
     df.attrs["warnings"] = warnings or []
+    df.attrs["analytical_eligibility_summary"] = eligibility_summary or {}
     return df
 
 
@@ -190,10 +211,29 @@ def build_aligned_theme_pairs(
     if regime.empty:
         return _empty_pairs(["筛选后暂无可对齐 canonical observations。"])
 
+    regime_with_eligibility = attach_analytical_eligibility(regime, workload=WORKLOAD_RELATIONSHIP)
+    eligibility_summary = build_qualified_universe_summary(regime_with_eligibility, workload=WORKLOAD_RELATIONSHIP)
+    regime = filter_eligible_observations(regime_with_eligibility, workload=WORKLOAD_RELATIONSHIP)
+    excluded_count = int(eligibility_summary.get("excluded_observation_count", 0) or 0)
+    if excluded_count:
+        regime_warning = (
+            f"{excluded_count} 条 regime observations 未进入 {WORKLOAD_RELATIONSHIP} qualified universe；"
+            "relationship denominators 只使用 eligible observations。"
+        )
+    else:
+        regime_warning = ""
+    if regime.empty:
+        warnings = list(getattr(cube_df, "attrs", {}).get("warnings", []))
+        if regime_warning:
+            warnings.append(regime_warning)
+        return _empty_pairs(["筛选后暂无 contract-qualified relationship observations。"] + warnings, eligibility_summary=eligibility_summary)
+
     taxonomy = taxonomy or load_theme_taxonomy()
     expected_taxonomy_fp = build_taxonomy_fingerprint(taxonomy) if taxonomy else None
     observed_taxonomy = sorted(regime["taxonomy_fingerprint"].dropna().astype(str).unique().tolist())
     warnings: list[str] = list(getattr(cube_df, "attrs", {}).get("warnings", []))
+    if regime_warning:
+        warnings.append(regime_warning)
     if len(observed_taxonomy) > 1:
         warnings.append("检测到多个 taxonomy_fingerprint；主题关系证据按 lineage 分组，不静默混合。")
     if expected_taxonomy_fp and observed_taxonomy and expected_taxonomy_fp not in observed_taxonomy:
@@ -278,6 +318,7 @@ def build_aligned_theme_pairs(
     result.attrs["relationship_observation_basis"] = DYNAMICS_DEFAULT_BASIS
     result.attrs["materialization_policy"] = CANONICAL_BUCKET_POLICY
     result.attrs["warnings"] = warnings
+    result.attrs["analytical_eligibility_summary"] = eligibility_summary
     return result
 
 
@@ -561,12 +602,14 @@ def build_theme_relationship_evidence(
 ) -> dict:
     left, right = normalize_theme_pair(theme_a, theme_b)
     pair_obs_all = filter_pair_observations(pair_df, left, right)
+    eligibility_summary = getattr(pair_df, "attrs", {}).get("analytical_eligibility_summary", {}) if pair_df is not None else {}
     if pair_obs_all.empty:
         return {
             "relationship_available": False,
             "theme_a": left,
             "theme_b": right,
             "pair_id": build_theme_pair_id(left, right),
+            "analytical_eligibility_summary": eligibility_summary,
             "warnings": ["未找到该主题对的 canonical alignment evidence。"],
             "errors": [],
         }
@@ -602,6 +645,7 @@ def build_theme_relationship_evidence(
         "co_transition_evidence": transitions,
         "canonical_materialization_basis": DYNAMICS_DEFAULT_BASIS,
         "materialization_policy": CANONICAL_BUCKET_POLICY,
+        "analytical_eligibility_summary": eligibility_summary,
         "warnings": warnings,
         "errors": [],
     }
@@ -696,6 +740,7 @@ def build_theme_relationships_from_cube(
         "alignment_summary": build_pair_alignment_summary(pair_df),
         "topology_summary": build_relationship_topology_summary(pair_df, taxonomy=taxonomy),
         "warnings": list(getattr(pair_df, "attrs", {}).get("warnings", [])),
+        "analytical_eligibility_summary": getattr(pair_df, "attrs", {}).get("analytical_eligibility_summary", {}),
         "relationship_observation_basis": DYNAMICS_DEFAULT_BASIS,
         "materialization_policy": CANONICAL_BUCKET_POLICY,
     }

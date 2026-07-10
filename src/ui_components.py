@@ -1189,6 +1189,34 @@ def render_historical_evidence_summary_cards(summary: dict, readiness: dict, tit
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_analytical_eligibility_summary_cards(report: dict, title: str = "历史可读性 vs Qualified Analytics") -> None:
+    st.markdown(f"<div class='radar-section-title'>{escape(title)}</div>", unsafe_allow_html=True)
+    report = report or {}
+    qualified = report.get("qualified_summary") or {}
+    html = (
+        "<div class='trust-panel'>"
+        "<div class='trust-grid'>"
+        f"<div class='trust-item'><div class='trust-label'>历史可读性</div><div class='trust-value'>{escape(str(report.get('availability_readiness_label') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Qualified Analytics</div><div class='trust-value'>{escape(str(report.get('qualified_readiness_label') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Workload</div><div class='trust-value'>{escape(str(qualified.get('workload') or '--'))}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Input Observations</div><div class='trust-value'>{int(qualified.get('input_observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Eligible Observations</div><div class='trust-value'>{int(qualified.get('eligible_observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Excluded Observations</div><div class='trust-value'>{int(qualified.get('excluded_observation_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Qualified Dates</div><div class='trust-value'>{int(qualified.get('eligible_trade_date_count', 0) or 0)}</div></div>"
+        f"<div class='trust-item'><div class='trust-label'>Qualified Segments</div><div class='trust-value'>{int(qualified.get('eligible_continuity_segment_count', 0) or 0)}</div></div>"
+        "</div>"
+        f"<div class='trust-copy'>{escape(str(report.get('availability_readiness_reason') or ''))}</div>"
+        f"<div class='trust-copy'>{escape(str(report.get('qualified_readiness_reason') or ''))}</div>"
+        "<div class='trust-copy'>历史可读性只说明 CSV 快照可回放；qualified analytics 只统计符合 workload 资格要求的 observations。Legacy/unresolved history 保留可审计，但不会静默进入 qualified 分母。</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+    exclusion_counts = qualified.get("excluded_reason_counts") or {}
+    if exclusion_counts:
+        rows = [[reason, count] for reason, count in sorted(exclusion_counts.items())]
+        _render_simple_table(["Exclusion Reason", "Count"], rows, "暂无 exclusion reason。")
+
+
 def render_replay_evidence_card(replay_evidence: dict) -> None:
     st.markdown("<div class='radar-section-title'>历史回放证据</div>", unsafe_allow_html=True)
     provider_counts = replay_evidence.get("provider_counts") or {}

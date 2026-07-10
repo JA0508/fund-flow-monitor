@@ -73,6 +73,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - 分析稳健性证据：展示分析规格 ID、1/5/10 分钟 bucket 敏感性、证据充分度、阈值边界距离和关系分母上下文，不生成黑箱分数。
 - Provider semantics evidence：为当前 AKShare / Eastmoney 实时路径建立语义契约、候选源可比性分类和连续性门禁，默认保持 `primary_only`，不做静默 fallback。
 - Provider-contract-aware continuity：canonical bucket、regime episode、relationship alignment 和 robustness evidence 保留 provider-contract continuity segment，避免不同来源契约历史被静默合并成一条证据线。
+- Contract-qualified analytical readiness：把“CSV 历史可读”与“可进入合格分析工作负载”分开；legacy REAL 缓存仍可审计，但未解析 provider contract 的观察不会抬高 qualified readiness。
 - 三种主题口径：严格代表口径、代表口径、广度观察。
 - 今日资金温度：基于主题资金状态计算整体主题资金冷热。
 - 关注主题雷达：按 `config/watchlist.json` 展示自选主题状态。

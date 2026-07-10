@@ -12,6 +12,7 @@ from src.history_evidence import (
     build_historical_coverage_summary,
     build_historical_evidence_dimensions,
     build_snapshot_manifest,
+    classify_historical_evidence_readiness,
     normalize_captured_time_bucket,
 )
 from src.analytical_continuity import (
@@ -19,6 +20,12 @@ from src.analytical_continuity import (
     attach_continuity_columns,
     build_continuity_summary,
     resolve_provider_contract_lineage,
+)
+from src.analytical_eligibility import (
+    WORKLOAD_THEME_CONTINUITY,
+    attach_analytical_eligibility,
+    build_availability_vs_qualified_readiness,
+    build_qualified_universe_summary,
 )
 from src.multi_day_trends import _latest_frame_for_date
 from src.sample_data import SAMPLE_DIR, build_sample_snapshot_catalog, load_sample_snapshot_by_date
@@ -962,6 +969,38 @@ def build_theme_dynamics_evidence(
     raw_event_count = int(getattr(cube_df, "attrs", {}).get("raw_event_count", len(cube_df) if cube_df is not None else 0) or 0)
     history_summary = build_historical_coverage_summary(manifest)
     history_dimensions = build_historical_evidence_dimensions(history_summary)
+    history_readiness = build_availability_vs_qualified_readiness(
+        classify_historical_evidence_readiness(history_summary),
+        cube_df,
+        workload=WORKLOAD_THEME_CONTINUITY,
+    )
+    qualified_summary = history_readiness.get("qualified_summary") or build_qualified_universe_summary(
+        cube_df,
+        workload=WORKLOAD_THEME_CONTINUITY,
+    )
+    if lineage_compatible and not series.empty:
+        series_with_eligibility = attach_analytical_eligibility(series, workload=WORKLOAD_THEME_CONTINUITY)
+    else:
+        series_with_eligibility = pd.DataFrame()
+    qualified_series = (
+        series_with_eligibility[series_with_eligibility["is_analytically_eligible"].fillna(False).astype(bool)].copy()
+        if not series_with_eligibility.empty and "is_analytically_eligible" in series_with_eligibility.columns
+        else pd.DataFrame()
+    )
+    if source_mode == "REAL" and not qualified_series.empty:
+        qualified_trace = build_state_transition_trace(qualified_series)
+        qualified_daily_evolution = build_cross_date_state_evolution(qualified_series)
+    elif source_mode == "SAMPLE":
+        qualified_trace = build_state_transition_trace(qualified_series)
+        qualified_daily_evolution = build_cross_date_state_evolution(qualified_series)
+    else:
+        qualified_trace = build_state_transition_trace(pd.DataFrame())
+        qualified_daily_evolution = build_cross_date_state_evolution(pd.DataFrame())
+    excluded_count = int(qualified_summary.get("excluded_observation_count", 0) or 0)
+    if excluded_count:
+        warnings.append(
+            f"{excluded_count} 条 canonical observations 未进入 {WORKLOAD_THEME_CONTINUITY} qualified universe；仍保留为 lineage/descriptive evidence。"
+        )
     schema_counts = series["schema_fingerprint"].dropna().astype(str).value_counts().to_dict() if not series.empty and "schema_fingerprint" in series.columns else {}
     if len(schema_counts) > 1:
         warnings.append("观察序列包含多个 schema fingerprint；已按事实展示，不视为自动失效。")
@@ -991,6 +1030,13 @@ def build_theme_dynamics_evidence(
         "history_span_state": history_dimensions.get("history_span_state"),
         "intraday_depth_state": history_dimensions.get("intraday_depth_state"),
         "coverage_consistency_state": history_dimensions.get("coverage_consistency_state"),
+        "historical_availability_readiness": history_readiness,
+        "qualified_analytical_readiness": qualified_summary,
+        "qualified_dynamics_available": bool(not qualified_series.empty),
+        "qualified_observation_count": int(len(qualified_series)),
+        "qualified_trade_date_count": int(qualified_series["trade_date"].dropna().astype(str).nunique()) if not qualified_series.empty and "trade_date" in qualified_series.columns else 0,
+        "qualified_state_transition_trace": qualified_trace,
+        "qualified_cross_date_state_evolution": qualified_daily_evolution,
         "schema_fingerprint_counts": schema_counts,
         "schema_consistent": len(schema_counts) <= 1,
         "lineage_compatible": lineage_compatible,
@@ -1006,6 +1052,7 @@ def render_theme_dynamics_brief_section(evidence: dict, heading_level: int = 2) 
     scope = evidence.get("scope_divergence_summary", {})
     member = evidence.get("latest_member_structural_divergence", {})
     collisions = evidence.get("bucket_collision_summary") or {}
+    qualified = evidence.get("qualified_analytical_readiness") or {}
     lines = [
         f"{hashes} 主题动态证据",
         "",
@@ -1015,6 +1062,7 @@ def render_theme_dynamics_brief_section(evidence: dict, heading_level: int = 2) 
         f"- 时间桶证据：raw events {evidence.get('raw_event_observation_count', 0)}；canonical observations {evidence.get('canonical_observation_count', 0)}；collided buckets {collisions.get('collided_bucket_count', 0)}。",
         f"- 观测点：{evidence.get('observation_count')}；覆盖日期：{evidence.get('trade_date_count')}；状态路径：{trace.get('state_path_text') or '--'}。",
         f"- 状态占用：正向 {trace.get('positive_state_count', 0)} / 中性 {trace.get('neutral_state_count', 0)} / 负向 {trace.get('negative_state_count', 0)}，分母为 canonical bucket observations。",
+        f"- Qualified analytics：{qualified.get('qualified_readiness_label', '--')}；qualified observations {qualified.get('eligible_observation_count', 0)} / input observations {qualified.get('input_observation_count', 0)}。",
         f"- 最新 scope divergence：{scope.get('scope_divergence_state') or '--'}。",
         f"- 最新成员结构：{member.get('member_sign_agreement') or '--'}；included members：{member.get('included_member_count', 0)}。",
         "- 以上只描述已缓存快照中的历史状态占用与结构分化，不作为预测口径，不预测未来走势，不构成投资建议。",
