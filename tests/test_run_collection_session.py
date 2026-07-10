@@ -7,6 +7,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from tools import run_collection_session
+from src.collection_policy import get_default_collection_policy
+from src.market_session_policy import build_declared_market_session_policy
 
 
 def _args(**overrides) -> argparse.Namespace:
@@ -33,6 +35,16 @@ def _args(**overrides) -> argparse.Namespace:
 
 def _now():
     return datetime(2026, 6, 1, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
+def _eligible_collection_policy():
+    policy = get_default_collection_policy()
+    policy["market_session_policy"] = build_declared_market_session_policy(
+        eligible_dates=["2026-06-01"],
+        coverage_start="2026-06-01",
+        coverage_end="2026-06-02",
+    )
+    return policy
 
 
 def test_script_can_be_imported():
@@ -112,10 +124,11 @@ def test_runner_stop_on_contract_error():
     assert summary["final_status"] == "completed_with_failures"
 
 
-def test_runner_respect_session_blocks_outside_window(tmp_path):
+def test_runner_respect_session_blocks_outside_window(tmp_path, monkeypatch):
     def fake_collector(args):
         raise AssertionError("collector should not run")
 
+    monkeypatch.setattr(run_collection_session, "get_default_collection_policy", _eligible_collection_policy)
     outside = lambda: datetime(2026, 6, 1, 8, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     summary = run_collection_session.run_collection_session(
         _args(respect_session=True, log_path=str(tmp_path / "missing.jsonl")),
@@ -126,6 +139,27 @@ def test_runner_respect_session_blocks_outside_window(tmp_path):
     assert summary["attempted_runs"] == 0
     assert summary["final_status"] == "blocked_by_policy"
     assert summary["policy_status"] == "outside_session"
+
+
+def test_runner_blocks_market_session_ineligible_date_before_collector(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_collector(args):
+        calls.append(args)
+        raise AssertionError("collector should not run")
+
+    monkeypatch.setattr(run_collection_session, "get_default_collection_policy", _eligible_collection_policy)
+    ineligible = lambda: datetime(2026, 6, 2, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    summary = run_collection_session.run_collection_session(
+        _args(respect_session=True, log_path=str(tmp_path / "missing.jsonl")),
+        collector_fn=fake_collector,
+        sleep_fn=lambda seconds: None,
+        now_fn=ineligible,
+    )
+    assert calls == []
+    assert summary["attempted_runs"] == 0
+    assert summary["final_status"] == "blocked_by_policy"
+    assert summary["policy_status"] == "market_session_date_ineligible"
 
 
 def test_collector_args_do_not_force_real_write_when_dry_run():

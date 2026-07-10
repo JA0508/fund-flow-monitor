@@ -23,6 +23,7 @@ from src.collection_policy import (  # noqa: E402
     get_default_collection_policy,
     validate_collection_policy_text,
 )
+from src.market_session_policy import build_declared_market_session_policy  # noqa: E402
 from src.fund_profiles import get_funds, load_fund_profiles, validate_fund_profile  # noqa: E402
 from src.history_evidence import (  # noqa: E402
     build_coverage_matrix,
@@ -446,6 +447,11 @@ def build_smoke_report(project_root: Path = PROJECT_ROOT) -> dict:
     real_cache_summary = build_real_cache_summary(str(project_root / "data/ticks"))
     collector_audit_summary = build_collector_audit_summary(str(project_root / "data/logs/collector_runs.jsonl"))
     collection_policy = get_default_collection_policy()
+    collection_policy["market_session_policy"] = build_declared_market_session_policy(
+        eligible_dates=["2026-06-01"],
+        coverage_start="2026-06-01",
+        coverage_end="2026-06-01",
+    )
     collection_decision = decide_collection_eligibility(
         collection_policy,
         now=pd.Timestamp("2026-06-01 10:00:00", tz="Asia/Shanghai").to_pydatetime(),

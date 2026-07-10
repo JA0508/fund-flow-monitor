@@ -10,9 +10,10 @@ A successful collector run is only an operational event. It becomes qualified ac
 
 1. The normalized snapshot preserves explicit verified primary-provider contract lineage.
 2. The physical capture event is readable from the local CSV cache.
-3. The capture maps to the predeclared acquisition frame.
-4. The capture contributes either a new acquisition cell or an additional capture inside an already-covered cell.
-5. The source remains clearly labeled as REAL and is not mixed with SAMPLE.
+3. The capture date is accepted by the declared offline market-session date policy.
+4. The capture clock time maps to the predeclared acquisition frame.
+5. The capture contributes either a new acquisition cell or an additional capture inside an already-covered cell.
+6. The source remains clearly labeled as REAL and is not mixed with SAMPLE.
 
 Historical availability, analytical eligibility and acquisition coverage answer different questions:
 
@@ -21,6 +22,8 @@ Historical availability, analytical eligibility and acquisition coverage answer 
 | Can CSV snapshots be read and replayed? | Historical evidence |
 | Is a row qualified for analytical workloads? | Analytical eligibility |
 | Does a physical capture add predeclared time coverage? | Evidence accumulation |
+
+Clock-session membership is not enough. A capture at `10:00` is only inside the configured morning clock window; it does not by itself prove that the capture calendar date is an eligible market-session date.
 
 ## Before Collection
 
@@ -39,7 +42,8 @@ Interpretation:
 - `probe_akshare.py` may touch the provider for diagnosis, but it should not write `data/ticks`.
 - `audit_provider_semantics.py` verifies the primary provider contract and runtime policy.
 - `audit_analytical_eligibility.py` separates readable REAL history from qualified analytical readiness.
-- `audit_evidence_accumulation.py` reports physical captures, qualified captures, covered cells and missing cells from existing local CSV only.
+- `audit_evidence_accumulation.py` reports physical captures, market-session date states, qualified captures, covered cells and missing cells from existing local CSV only.
+- `run_collection_session.py --json --no-network --no-log --max-runs 1` shows the current calendar date, market-session date state, active clock session and collection eligibility without writing CSV.
 
 ## Bounded Collection
 
@@ -54,6 +58,7 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 300 --res
 Rules:
 
 - Start with `--dry-run` when validating provider availability and normalization.
+- A normal REAL collection attempt must pass the market-session date gate before the clock-session gate. The default bundled policy is conservative: without declared offline calendar coverage, the date state is `market_calendar_unverified`.
 - Do not use Streamlit page refreshes as a collection mechanism.
 - Do not add `while True`, cron, launchd, Airflow, Celery, Redis or a custom background process inside the app.
 - Do not replace the primary provider with another source unless semantic comparability has been designed and audited separately.
@@ -76,6 +81,7 @@ Confirm:
 - New REAL cache files remain ignored by Git.
 - Provider contract resolution for new captures is explicit verified.
 - Qualified acquisition capture count increases only for eligible events.
+- A capture with unresolved or ineligible market-session date state remains visible in the all-capture inventory but does not enter qualified acquisition coverage.
 - Covered acquisition cell count increases only when a new predeclared cell receives its first qualified capture.
 - Additional captures inside the same cell remain visible but do not inflate temporal coverage.
 - Missing cells remain visible instead of being hidden behind aggregate snapshot counts.
@@ -94,6 +100,7 @@ No-go when:
 - REAL cache exists but provider contract lineage is unresolved.
 - Captures are clustered in one or two cells and do not expand temporal coverage.
 - Captures fall outside configured sessions.
+- Captures occur on dates that are market-session ineligible or calendar-unverified under the declared offline policy.
 - Only SAMPLE evidence is available.
 - The app or tools would need network access or file writes during public demo checks.
 
@@ -103,6 +110,6 @@ No-go when:
 - SQLite remains a rebuildable local index.
 - SAMPLE remains synthetic demo data.
 - REAL cache stays local and ignored by Git.
+- `trade_date` in normalized provider snapshots is the project observation-session date derived from `captured_at`; the current AKShare `今日` ranking path does not expose a provider-reported market reference date that the project preserves.
 - Evidence labels describe observed historical coverage only.
 - This protocol does not provide trading actions, fund selection, account integration or future-market conclusions.
-

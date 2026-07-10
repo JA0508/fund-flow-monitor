@@ -21,6 +21,13 @@ from src.analytical_eligibility import (
 )
 from src.collection_policy import get_default_collection_policy, parse_policy_time
 from src.data_contracts import validate_real_snapshot_dataframe, validate_sample_snapshot_dataframe
+from src.market_session_policy import (
+    STATE_ELIGIBLE,
+    STATE_INELIGIBLE,
+    STATE_UNVERIFIED,
+    evaluate_market_session_date,
+    get_default_market_session_policy,
+)
 from src.provider_contracts import UNKNOWN
 from src.sample_data import SAMPLE_DIR
 
@@ -32,6 +39,8 @@ ASSIGNMENT_ASSIGNED = "assigned_to_cell"
 ASSIGNMENT_OUTSIDE = "outside_configured_session"
 ASSIGNMENT_MISSING_TIME = "missing_capture_time"
 ASSIGNMENT_INVALID_TIME = "ambiguous_or_invalid_time"
+ASSIGNMENT_DATE_INELIGIBLE = STATE_INELIGIBLE
+ASSIGNMENT_CALENDAR_UNVERIFIED = STATE_UNVERIFIED
 
 CONTRIBUTION_NEW_CELL = "new_cell_coverage"
 CONTRIBUTION_ADDITIONAL = "additional_capture_in_existing_cell"
@@ -128,6 +137,7 @@ def _contract_report_for_group(group: pd.DataFrame, source_mode: str) -> dict:
 def build_physical_capture_event_inventory(
     data_dir: str | Path | None = None,
     source_mode: str = "REAL",
+    market_session_policy: dict | None = None,
 ) -> pd.DataFrame:
     """Return one row per physical provider snapshot capture.
 
@@ -137,6 +147,7 @@ def build_physical_capture_event_inventory(
     """
 
     source = _normalize_source(source_mode)
+    date_policy = market_session_policy or get_default_market_session_policy()
     directory = Path(_source_data_dir(source, str(data_dir) if data_dir is not None else None))
     if not directory.exists():
         return pd.DataFrame()
@@ -165,6 +176,7 @@ def build_physical_capture_event_inventory(
             captured_at = _safe_first(capture_group, "captured_at", None)
             contract_report = _contract_report_for_group(capture_group, source)
             lineage = resolve_provider_contract_lineage(_safe_first_row(capture_group), source_mode=source)
+            date_decision = evaluate_market_session_date(trade_date, date_policy)
             event_payload = {
                 "source_mode": source,
                 "relative_path": relative_path,
@@ -194,11 +206,32 @@ def build_physical_capture_event_inventory(
             }
             base.update(lineage)
             eligibility = evaluate_observation_eligibility(base, workload=WORKLOAD_THEME_CONTINUITY)
-            base["is_qualified_acquisition_event"] = bool(base.get("contract_ok")) and bool(
-                eligibility.get("is_analytically_eligible")
+            market_date_ok = source == "SAMPLE" or bool(date_decision.get("is_market_session_date_eligible"))
+            base.update(
+                {
+                    "calendar_date": date_decision.get("calendar_date"),
+                    "market_session_date_state": date_decision.get("market_session_date_state"),
+                    "is_market_session_date_eligible": bool(date_decision.get("is_market_session_date_eligible")),
+                    "calendar_source": date_decision.get("calendar_source"),
+                    "calendar_source_identity": date_decision.get("calendar_source_identity"),
+                    "calendar_policy_identity": date_decision.get("calendar_policy_identity"),
+                    "calendar_coverage_state": date_decision.get("calendar_coverage_state"),
+                    "market_session_date_reason": date_decision.get("decision_reason"),
+                }
+            )
+            base["is_qualified_acquisition_event"] = (
+                bool(base.get("contract_ok"))
+                and bool(eligibility.get("is_analytically_eligible"))
+                and bool(market_date_ok)
             )
             base["acquisition_eligibility_state"] = eligibility.get("analytical_eligibility_state")
-            base["acquisition_eligibility_reason"] = eligibility.get("analytical_eligibility_reason")
+            if not bool(eligibility.get("is_analytically_eligible")):
+                reason = eligibility.get("analytical_eligibility_reason")
+            elif not market_date_ok:
+                reason = date_decision.get("market_session_date_state") or "market_session_date_unresolved"
+            else:
+                reason = eligibility.get("analytical_eligibility_reason")
+            base["acquisition_eligibility_reason"] = reason
             base["qualified_source_scope"] = eligibility.get("qualified_source_scope")
             rows.append(base)
     if not rows:
@@ -331,6 +364,14 @@ def assign_capture_events_to_acquisition_cells(
             assignment_rows.append(_assignment_payload(ASSIGNMENT_INVALID_TIME))
             continue
         date = str(row.get("trade_date") or "")
+        source_mode = str(row.get("source_mode") or "").upper()
+        if source_mode == "REAL" and row.get("market_session_date_state") != STATE_ELIGIBLE:
+            state = str(row.get("market_session_date_state") or STATE_UNVERIFIED)
+            if state == STATE_INELIGIBLE:
+                assignment_rows.append(_assignment_payload(ASSIGNMENT_DATE_INELIGIBLE))
+            else:
+                assignment_rows.append(_assignment_payload(ASSIGNMENT_CALENDAR_UNVERIFIED))
+            continue
         cells = frame_by_date.get(date, pd.DataFrame())
         if cells.empty:
             assignment_rows.append(_assignment_payload(ASSIGNMENT_OUTSIDE))
@@ -525,25 +566,45 @@ def build_evidence_accumulation_report(
     data_dir: str | Path | None = None,
     cell_minutes: int = DEFAULT_ACQUISITION_CELL_MINUTES,
     trade_date: str | None = None,
+    market_session_policy: dict | None = None,
 ) -> dict:
     source = _normalize_source(source_mode)
     directory = _source_data_dir(source, str(data_dir) if data_dir is not None else None)
-    events = build_physical_capture_event_inventory(directory, source_mode=source)
+    date_policy = market_session_policy or get_default_market_session_policy()
+    events = build_physical_capture_event_inventory(directory, source_mode=source, market_session_policy=date_policy)
     if trade_date and not events.empty and "trade_date" in events.columns:
         events = events[events["trade_date"].astype(str).eq(str(trade_date))].copy()
-    trade_dates = events["trade_date"].dropna().astype(str).unique().tolist() if not events.empty and "trade_date" in events.columns else []
+    if source == "REAL" and not events.empty and "market_session_date_state" in events.columns:
+        frame_events = events[events["market_session_date_state"].astype(str).eq(STATE_ELIGIBLE)].copy()
+    else:
+        frame_events = events
+    trade_dates = frame_events["trade_date"].dropna().astype(str).unique().tolist() if not frame_events.empty and "trade_date" in frame_events.columns else []
     frame = build_acquisition_frame(trade_dates, cell_minutes=cell_minutes)
     audit = build_acquisition_coverage_audit(events, frame)
     events_with_contrib = audit.pop("events_df", pd.DataFrame())
     warning_list = []
     if source == "REAL" and audit.get("qualified_capture_event_count", 0) == 0 and audit.get("input_capture_event_count", 0) > 0:
-        warning_list.append("REAL captures are readable but currently do not enter qualified acquisition coverage because provider-contract provenance is unresolved.")
+        warning_list.append("REAL captures are readable but currently do not enter qualified acquisition coverage unless provider-contract provenance and market-session date eligibility are both satisfied.")
     if source == "SAMPLE":
         warning_list.append("SAMPLE acquisition coverage is synthetic demo evidence only and does not represent real market history.")
+    date_state_counts = _counts(events, "market_session_date_state")
+    eligible_frame_dates = sorted(frame["trade_date"].dropna().astype(str).unique().tolist()) if frame is not None and not frame.empty else []
     return {
         "source_mode": source,
         "data_dir": directory,
         "network_used": False,
+        "market_session_date_policy": {
+            "calendar_source": date_policy.get("calendar_source"),
+            "calendar_source_identity": date_policy.get("calendar_source_identity"),
+            "coverage_start": date_policy.get("coverage_start"),
+            "coverage_end": date_policy.get("coverage_end"),
+            "coverage_semantics": date_policy.get("coverage_semantics"),
+            "network_used": False,
+        },
+        "market_session_date_state_counts": date_state_counts,
+        "eligible_acquisition_frame_dates": eligible_frame_dates,
+        "calendar_unverified_capture_count": int(date_state_counts.get(STATE_UNVERIFIED, 0)),
+        "market_session_date_ineligible_capture_count": int(date_state_counts.get(STATE_INELIGIBLE, 0)),
         "acquisition_frame_id": build_acquisition_frame_id(cell_minutes=cell_minutes),
         "acquisition_cell_minutes": max(1, int(cell_minutes or DEFAULT_ACQUISITION_CELL_MINUTES)),
         "configured_sessions": [
@@ -593,6 +654,7 @@ def _events_preview(events_df: pd.DataFrame, limit: int = 20) -> list[dict]:
         "trade_date",
         "captured_time",
         "source_mode",
+        "market_session_date_state",
         CONTRACT_RESOLUTION_COLUMN,
         "is_qualified_acquisition_event",
         "acquisition_assignment_state",
@@ -616,4 +678,3 @@ def summarize_evidence_accumulation(report: dict) -> str:
 
 def validate_evidence_accumulation_text(text: str) -> list[str]:
     return sorted({word for word in FORBIDDEN_EVIDENCE_ACCUMULATION_WORDS if word in str(text or "")})
-

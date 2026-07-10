@@ -42,6 +42,10 @@ def print_report(report: dict) -> None:
     print(f"  qualified captures: {report.get('qualified_capture_event_count', 0)}")
     print(f"  excluded captures: {report.get('excluded_capture_event_count', 0)}")
     print(f"  represented dates: {report.get('represented_dates', [])}")
+    print(f"  market-session date states: {report.get('market_session_date_state_counts', {})}")
+    print(f"  eligible frame dates: {report.get('eligible_acquisition_frame_dates', [])}")
+    policy = report.get("market_session_date_policy") or {}
+    print(f"  calendar source: {policy.get('calendar_source')} / {policy.get('calendar_source_identity')}")
     print(
         "  covered cells: "
         f"{report.get('coverage_numerator', 0)} / {report.get('coverage_denominator', 0)}"

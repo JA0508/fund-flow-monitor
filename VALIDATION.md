@@ -183,7 +183,9 @@ Required checks:
 - `src/collection_policy.py` exists and is importable.
 - `src/ingestion_metrics.py` exists and is importable.
 - `tools/run_collection_session.py` exists and exposes a finite runner CLI.
-- Collection policy states include `eligible`, `outside_session`, `too_soon_since_success`, `max_attempts_reached` and `disabled`.
+- Collection policy states include `eligible`, `market_calendar_unverified`, `market_session_date_ineligible`, `outside_session`, `too_soon_since_success`, `max_attempts_reached` and `disabled`.
+- A 10:00 clock-window capture on a market-session-ineligible or calendar-unverified date must not become collection eligible.
+- `trade_date` in the current provider normalization path is protected as capture-derived project observation-session date, not provider-reported market reference date.
 - `run_collection_session.py` uses a bounded `for` loop with `--max-runs`; it must not run forever.
 - `run_collection_session.py --dry-run --no-log --ignore-session` must not write `data/ticks` or collector logs.
 - Ingestion metrics read `data/logs/collector_runs.jsonl` if present and tolerate missing or malformed logs.

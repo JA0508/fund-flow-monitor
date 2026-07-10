@@ -108,6 +108,17 @@ Historical availability remains a coverage/readability statement. It can say tha
 
 SAMPLE synthetic rows are eligible only for SAMPLE demo analytics. This preserves the public demo path while keeping SAMPLE separate from real market history.
 
+## Market-Session Date Boundary
+
+v3.18 keeps capture-time semantics separate from market-session date eligibility:
+
+- `captured_at` is the project fetch timestamp.
+- `captured_time` is the project fetch clock time.
+- `trade_date` in the current normalized provider path is derived from `captured_at` and acts as a project observation-session date.
+- The AKShare / Eastmoney `indicator="今日"` path is treated as an as-of-capture ranking snapshot; it does not provide an explicit provider market-reference date that the project preserves.
+
+The default bundled market-session date policy is conservative and offline. Without a declared calendar coverage source, REAL dates are `market_calendar_unverified`; a clock-window match such as `10:00` does not qualify a capture by itself. SAMPLE remains synthetic demo evidence and is not used to establish REAL market-session eligibility.
+
 ## Qualified Evidence Accumulation Layer
 
 v3.18 adds a separate acquisition-evidence layer:
@@ -119,7 +130,7 @@ normalized snapshot CSV
 physical capture event
         |
         v
-provider contract resolution + acquisition eligibility
+provider contract resolution + market-session date eligibility + acquisition eligibility
         |
         v
 qualified acquisition event

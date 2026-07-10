@@ -24,6 +24,7 @@ from src.collection_policy import (  # noqa: E402
     get_default_collection_policy,
     validate_collection_policy_text,
 )
+from src.market_session_policy import build_declared_market_session_policy  # noqa: E402
 from src.ingestion_metrics import (  # noqa: E402
     assess_real_cache_coverage,
     build_collection_operations_status,
@@ -661,6 +662,11 @@ def _verify_snapshot_quality() -> None:
 def _verify_collection_orchestration() -> None:
     print("Real-data collection orchestration readiness 检查:")
     policy = get_default_collection_policy()
+    policy["market_session_policy"] = build_declared_market_session_policy(
+        eligible_dates=["2026-06-01"],
+        coverage_start="2026-06-01",
+        coverage_end="2026-06-01",
+    )
     decision = decide_collection_eligibility(
         policy,
         now=pd.Timestamp("2026-06-01 10:00:00", tz="Asia/Shanghai").to_pydatetime(),

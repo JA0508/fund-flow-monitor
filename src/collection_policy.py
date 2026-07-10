@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from src.config import TIMEZONE
+from src.market_session_policy import evaluate_market_session_date, get_default_market_session_policy
 
 
 TRUE_VALUES = {"1", "true", "yes", "y", "on"}
@@ -16,6 +17,7 @@ def get_default_collection_policy() -> dict:
         "timezone": TIMEZONE,
         "min_interval_seconds": 300,
         "max_attempts_per_session": 12,
+        "market_session_policy": get_default_market_session_policy(),
         "sessions": [
             {"name": "morning_session", "label": "上午交易观察窗口", "start": "09:30", "end": "11:30"},
             {"name": "afternoon_session", "label": "下午交易观察窗口", "start": "13:00", "end": "15:00"},
@@ -120,10 +122,20 @@ def decide_collection_eligibility(
     base = {
         "current_time": current.isoformat(),
         "timezone": str(policy.get("timezone") or TIMEZONE),
+        "calendar_date": current.date().isoformat(),
+        "market_session_date_state": None,
+        "is_market_session_date_eligible": None,
+        "calendar_source": None,
+        "calendar_source_identity": None,
+        "calendar_policy_identity": None,
+        "calendar_coverage_state": None,
+        "market_session_date_reason": None,
         "active_session_name": None,
         "latest_success_at": latest_success.isoformat() if latest_success else None,
         "seconds_since_latest_success": None,
         "seconds_until_next_eligible": None,
+        "seconds_until_next_clock_session": None,
+        "seconds_until_next_eligible_semantics": "not_evaluated",
         "attempts_in_active_session": attempts,
         "min_interval_seconds": min_interval,
         "max_attempts_per_session": max_attempts,
@@ -137,6 +149,32 @@ def decide_collection_eligibility(
             "policy_reason": "采集策略已禁用；本地真实数据采集不会启动。",
         }
 
+    date_decision = evaluate_market_session_date(
+        current.date(),
+        policy.get("market_session_policy"),
+    )
+    base.update(
+        {
+            "market_session_date_state": date_decision.get("market_session_date_state"),
+            "is_market_session_date_eligible": bool(date_decision.get("is_market_session_date_eligible")),
+            "calendar_source": date_decision.get("calendar_source"),
+            "calendar_source_identity": date_decision.get("calendar_source_identity"),
+            "calendar_policy_identity": date_decision.get("calendar_policy_identity"),
+            "calendar_coverage_state": date_decision.get("calendar_coverage_state"),
+            "market_session_date_reason": date_decision.get("decision_reason"),
+        }
+    )
+    if not date_decision.get("is_market_session_date_eligible"):
+        seconds = _seconds_until_next_session(policy, current)
+        return {
+            **base,
+            "eligible": False,
+            "policy_status": date_decision.get("market_session_date_state") or "market_calendar_unverified",
+            "policy_reason": date_decision.get("decision_reason") or "当前日期未通过 market-session date eligibility。",
+            "seconds_until_next_clock_session": seconds,
+            "seconds_until_next_eligible_semantics": "not_reported_without_market_session_date_eligibility",
+        }
+
     active_session = find_active_session(policy, current)
     if active_session is None:
         seconds = _seconds_until_next_session(policy, current)
@@ -145,7 +183,9 @@ def decide_collection_eligibility(
             "eligible": False,
             "policy_status": "outside_session",
             "policy_reason": "当前时间不在预设交易观察窗口内。",
-            "seconds_until_next_eligible": seconds,
+            "seconds_until_next_eligible": None,
+            "seconds_until_next_clock_session": seconds,
+            "seconds_until_next_eligible_semantics": "clock_session_boundary_only",
         }
 
     base["active_session_name"] = active_session.get("name")
@@ -168,6 +208,7 @@ def decide_collection_eligibility(
                 "policy_status": "too_soon_since_success",
                 "policy_reason": "距离上次成功采集时间过短，暂不重复写入真实缓存。",
                 "seconds_until_next_eligible": max(0, min_interval - seconds_since),
+                "seconds_until_next_eligible_semantics": "min_interval_with_market_session_date_and_active_clock_session",
             }
 
     return {
@@ -175,6 +216,7 @@ def decide_collection_eligibility(
         "eligible": True,
         "policy_status": "eligible",
         "policy_reason": "当前处于采集观察窗口，且未触发最小间隔或次数上限。",
+        "seconds_until_next_eligible_semantics": "already_eligible",
     }
 
 

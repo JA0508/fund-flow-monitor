@@ -6,10 +6,12 @@
 - Added `src/evidence_accumulation.py` to separate physical capture events from sector rows, theme rows and analytical bucket materialization.
 - Added deterministic acquisition frames based on configured collection sessions, with explicit cell IDs, boundary convention and covered / missing acquisition-cell counts.
 - Added marginal evidence contribution states so clustered captures in the same cell are tracked as additional captures instead of being counted as new temporal coverage.
+- Hardened market-session date eligibility so REAL captures cannot enter qualified acquisition coverage solely because they were fetched inside a configured clock session.
+- Added a conservative offline market-session date policy: dates without declared coverage remain `market_calendar_unverified`, while SAMPLE remains synthetic demo evidence.
 - Added `tools/audit_evidence_accumulation.py` for offline SAMPLE / REAL acquisition coverage audits without AKShare calls, CSV writes or SQLite writes.
 - Streamlit Data Explanation now shows compact REAL and SAMPLE evidence accumulation cards beside historical availability and analytical eligibility.
 - Smoke, runtime and quality-gate checks now verify evidence accumulation assets and SAMPLE acquisition coverage without requiring live network access.
-- This layer does not change provider fetches, theme formulas, warehouse schema or collection policy; it clarifies when existing captures enter a qualified acquisition universe.
+- This layer does not change provider fetches, theme formulas or warehouse schema; it clarifies when existing captures enter a qualified acquisition universe.
 
 ## v3.17
 
