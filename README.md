@@ -34,6 +34,13 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 
 真实采集路径会通过项目统一的 AKShare provider adapter、controlled schema mapping、data contract 和 storage 层处理；公开 SAMPLE fallback 不会写入 `data/ticks`。采集器默认会把本次运行状态写入本地审计日志 `data/logs/collector_runs.jsonl`，该目录同样被 Git 忽略；需要纯校验时可使用 `--no-network` 或 `--dry-run --no-log`，也可运行 `python tools/probe_akshare.py --json` 查看 provider schema fingerprint 和失败分类。v3.6 增加的 `run_collection_session.py` 只是有限次数手动 runner，不是调度器或后台服务；它复用 one-shot collector，并输出 session summary 和 ingestion metrics。采集后可在 `数据说明` tab 查看真实缓存覆盖、freshness 和最新 collector 状态。详细说明见 [`docs/REAL_DATA_INGESTION.md`](docs/REAL_DATA_INGESTION.md)。
 
+v3.18 的 qualified REAL evidence 还会读取 `config/market_session_calendar.json` 作为离线 market-session date gate。该文件是 provider-derived AKShare / Sina trading-date reference，用于项目的 mainland A-share observation-session domain；它不是交易所权威日历，也不会在 app 渲染、CI 或 release checks 中自动刷新。需要人工校验或有意识刷新时使用：
+
+```bash
+python tools/materialize_market_session_calendar.py --validate-only --json
+python tools/materialize_market_session_calendar.py --dry-run --json
+```
+
 ## What to Look at in the Demo
 
 - **第一眼先看状态**：顶部和侧边栏会标明当前是 `SAMPLE`、`CACHE`、`HISTORY` 还是其他状态；公开演示通常默认 `SAMPLE`。
@@ -74,7 +81,7 @@ Fund Flow Monitor（养基宝主题资金流雷达）是一个基于 **Streamlit
 - Provider semantics evidence：为当前 AKShare / Eastmoney 实时路径建立语义契约、候选源可比性分类和连续性门禁，默认保持 `primary_only`，不做静默 fallback。
 - Provider-contract-aware continuity：canonical bucket、regime episode、relationship alignment 和 robustness evidence 保留 provider-contract continuity segment，避免不同来源契约历史被静默合并成一条证据线。
 - Contract-qualified analytical readiness：把“CSV 历史可读”与“可进入合格分析工作负载”分开；legacy REAL 缓存仍可审计，但未解析 provider contract 的观察不会抬高 qualified readiness。
-- Qualified evidence accumulation：把物理采集事件、预声明采集单元和边际覆盖贡献分开，避免把 captured_time 数量直接当成有效时间覆盖。
+- Qualified evidence accumulation：把物理采集事件、离线 market-session date gate、预声明采集单元和边际覆盖贡献分开，避免把 captured_time 数量直接当成有效时间覆盖。
 - 三种主题口径：严格代表口径、代表口径、广度观察。
 - 今日资金温度：基于主题资金状态计算整体主题资金冷热。
 - 关注主题雷达：按 `config/watchlist.json` 展示自选主题状态。

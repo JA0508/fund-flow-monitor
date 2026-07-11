@@ -89,7 +89,7 @@ v1.1 新增多日主题趋势。它基于本地 CSV 快照目录中的多个缓�
 
 v3.17 进一步把“历史快照可读”与“可进入合格分析工作负载”分开。旧 REAL 缓存仍可以用于历史覆盖和 replay 审计，但只有带有 explicit verified primary-provider contract lineage 的 REAL observation 才会进入 qualified regime、relationship 和 robustness evidence。SAMPLE observation 只用于 SAMPLE demo analytics。
 
-v3.18 增加 qualified evidence accumulation protocol。系统把物理采集事件、预声明采集单元和边际覆盖贡献分开：一次采集成功只说明有一个 capture event，不自动说明增加了新的时间覆盖。三天各一个快照可以支持历史可读性判断，但 qualified REAL evidence 还需要 explicit verified provider lineage、声明的 market-session date eligibility，并落入预声明采集框架中的可审计 cell。当前 `trade_date` 来自项目采集时间，不被写成上游市场参考日期。该能力只做采集证据治理，不新增行情接口、不写真实缓存、不做预测或投资建议。
+v3.18 增加 qualified evidence accumulation protocol。系统把物理采集事件、离线 market-session date gate、预声明采集单元和边际覆盖贡献分开：一次采集成功只说明有一个 capture event，不自动说明增加了新的时间覆盖。三天各一个快照可以支持历史可读性判断，但 qualified REAL evidence 还需要 explicit verified provider lineage、由 `config/market_session_calendar.json` 离线验证的 market-session date eligibility，并落入预声明采集框架中的可审计 cell。该 calendar reference 是 provider-derived AKShare / Sina trading-date materialization，用于项目的 mainland A-share observation-session domain，不写成交易所权威日历。当前 `trade_date` 来自项目采集时间，不被写成上游市场参考日期。该能力只做采集证据治理，不新增行情接口、不写真实缓存、不做预测或投资建议。
 
 ## 主题库治理
 

@@ -589,6 +589,19 @@ def build_evidence_accumulation_report(
         warning_list.append("SAMPLE acquisition coverage is synthetic demo evidence only and does not represent real market history.")
     date_state_counts = _counts(events, "market_session_date_state")
     eligible_frame_dates = sorted(frame["trade_date"].dropna().astype(str).unique().tolist()) if frame is not None and not frame.empty else []
+    represented_by_state: dict[str, list[str]] = {}
+    if events is not None and not events.empty and "market_session_date_state" in events.columns and "trade_date" in events.columns:
+        for state, group in events.groupby(events["market_session_date_state"].fillna(STATE_UNVERIFIED).astype(str)):
+            represented_by_state[str(state)] = sorted(group["trade_date"].dropna().astype(str).unique().tolist())
+    target_cells_by_date = _target_cells_by_date(frame)
+    calendar_policy_identity = date_policy.get("calendar_policy_identity")
+    if not calendar_policy_identity:
+        try:
+            from src.market_session_policy import build_market_session_policy_identity
+
+            calendar_policy_identity = build_market_session_policy_identity(date_policy)
+        except Exception:
+            calendar_policy_identity = None
     return {
         "source_mode": source,
         "data_dir": directory,
@@ -596,6 +609,11 @@ def build_evidence_accumulation_report(
         "market_session_date_policy": {
             "calendar_source": date_policy.get("calendar_source"),
             "calendar_source_identity": date_policy.get("calendar_source_identity"),
+            "calendar_policy_identity": calendar_policy_identity,
+            "market_scope": date_policy.get("market_scope"),
+            "source_strategy": date_policy.get("source_strategy"),
+            "source_classification": date_policy.get("source_classification"),
+            "cross_exchange_alignment_state": date_policy.get("cross_exchange_alignment_state"),
             "coverage_start": date_policy.get("coverage_start"),
             "coverage_end": date_policy.get("coverage_end"),
             "coverage_semantics": date_policy.get("coverage_semantics"),
@@ -603,9 +621,15 @@ def build_evidence_accumulation_report(
         },
         "market_session_date_state_counts": date_state_counts,
         "eligible_acquisition_frame_dates": eligible_frame_dates,
+        "qualified_target_date_count": int(len(eligible_frame_dates)),
+        "qualified_target_dates": eligible_frame_dates,
+        "eligible_represented_dates": represented_by_state.get(STATE_ELIGIBLE, []),
+        "closed_or_ineligible_represented_dates": represented_by_state.get(STATE_INELIGIBLE, []),
+        "unverified_represented_dates": represented_by_state.get(STATE_UNVERIFIED, []),
         "calendar_unverified_capture_count": int(date_state_counts.get(STATE_UNVERIFIED, 0)),
         "market_session_date_ineligible_capture_count": int(date_state_counts.get(STATE_INELIGIBLE, 0)),
         "acquisition_frame_id": build_acquisition_frame_id(cell_minutes=cell_minutes),
+        "market_session_policy_id": calendar_policy_identity,
         "acquisition_cell_minutes": max(1, int(cell_minutes or DEFAULT_ACQUISITION_CELL_MINUTES)),
         "configured_sessions": [
             {
@@ -627,6 +651,7 @@ def build_evidence_accumulation_report(
         "missing_acquisition_cell_count": audit.get("missing_acquisition_cell_count", 0),
         "covered_cells_by_date": audit.get("covered_cells_by_date", {}),
         "missing_cells_by_date": audit.get("missing_cells_by_date", {}),
+        "target_cells_by_date": target_cells_by_date,
         "covered_cells_by_session": audit.get("covered_cells_by_session", {}),
         "missing_cells_by_session": audit.get("missing_cells_by_session", {}),
         "capture_count_per_covered_cell": audit.get("capture_count_per_covered_cell", {}),

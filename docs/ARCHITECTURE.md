@@ -117,7 +117,17 @@ v3.18 keeps capture-time semantics separate from market-session date eligibility
 - `trade_date` in the current normalized provider path is derived from `captured_at` and acts as a project observation-session date.
 - The AKShare / Eastmoney `indicator="今日"` path is treated as an as-of-capture ranking snapshot; it does not provide an explicit provider market-reference date that the project preserves.
 
-The default bundled market-session date policy is conservative and offline. Without a declared calendar coverage source, REAL dates are `market_calendar_unverified`; a clock-window match such as `10:00` does not qualify a capture by itself. SAMPLE remains synthetic demo evidence and is not used to establish REAL market-session eligibility.
+The default bundled market-session date policy is offline and materialized in `config/market_session_calendar.json`. The reference is provider-derived from AKShare / Sina trade-date history and reviewed into the repository with explicit non-exchange-authoritative provenance. Runtime policy evaluation reads this JSON; it does not refresh the source during Streamlit rendering, CI, release checks or evidence audits.
+
+The market-session reference carries:
+
+- source classification: `provider_derived`;
+- market scope: provider-derived mainland A-share observation-session domain;
+- source identity and policy identity;
+- coverage start/end and eligible session dates;
+- cross-exchange alignment state that makes clear the project uses a provider-unified observation-session domain, not a separately enumerated SSE or SZSE authoritative calendar.
+
+Within coverage, dates absent from `eligible_session_dates` are not eligible. Outside coverage, dates remain `market_calendar_unverified`. A clock-window match such as `10:00` still does not qualify a capture by itself. SAMPLE remains synthetic demo evidence and is not used to establish REAL market-session eligibility.
 
 ## Qualified Evidence Accumulation Layer
 

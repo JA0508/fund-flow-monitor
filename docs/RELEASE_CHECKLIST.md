@@ -119,6 +119,8 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 0 --dry-r
 - `python tools/audit_analytical_continuity.py --source REAL --json` should remain readable when no local real cache exists.
 - `python tools/audit_evidence_accumulation.py --source SAMPLE --json` should show SAMPLE physical capture events, qualified demo captures and acquisition-cell coverage without treating SAMPLE as real history.
 - `python tools/audit_evidence_accumulation.py --source REAL --json` should show REAL physical captures and exclude unresolved legacy captures from qualified acquisition coverage until explicit verified provider contract lineage exists.
+- `python tools/materialize_market_session_calendar.py --validate-only --json` should validate `config/market_session_calendar.json` without provider access or writes.
+- `python tools/run_collection_session.py --no-network --no-log --max-runs 1 --json` should report market-session policy identity, source classification, market scope and current date eligibility without writing CSV or logs.
 - A collector success should be reconciled with evidence accumulation: it is not sufficient by itself unless the capture is qualified and contributes to a predeclared acquisition cell.
 - `python tools/inspect_theme_relationships.py --source-mode SAMPLE --mode "strict_representative" --top-state-alignment --limit 10` should show display sufficiency thresholds, represented trade dates and numerator/denominator context.
 - Bucket collisions should be described as multiple valid captured events sharing one analytical bucket, not as generic duplicate removal.

@@ -10,7 +10,7 @@ from src.collection_policy import (
     parse_policy_time,
     validate_collection_policy_text,
 )
-from src.market_session_policy import build_declared_market_session_policy
+from src.market_session_policy import build_declared_market_session_policy, get_conservative_market_session_policy
 
 
 def _dt(text: str) -> datetime:
@@ -56,9 +56,12 @@ def test_decision_outside_session():
 
 
 def test_clock_window_is_insufficient_without_market_session_date():
-    decision = decide_collection_eligibility(now=_dt("2026-06-01T10:00:00"))
+    policy = get_default_collection_policy()
+    policy["market_session_policy"] = get_conservative_market_session_policy()
+    decision = decide_collection_eligibility(policy, now=_dt("2026-06-01T10:00:00"))
     assert decision["eligible"] is False
     assert decision["policy_status"] == "market_calendar_unverified"
+    assert decision["source_classification"] == "unresolved"
 
 
 def test_market_session_ineligible_date_blocks_before_clock_session():

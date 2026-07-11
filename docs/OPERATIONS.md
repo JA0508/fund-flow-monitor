@@ -68,6 +68,26 @@ Run provider-governance checks when changing the AKShare adapter, provider metad
 
 The current runtime provider policy is `primary_only`. If a candidate source is reachable but semantically different, it should remain shadow-only or rejected rather than being silently merged into the real cache continuity path.
 
+## Market-Session Calendar Reference
+
+v3.18 includes `config/market_session_calendar.json` as an offline market-session date gate for qualified REAL evidence. It is provider-derived from AKShare / Sina trade-date history and explicitly not exchange-authoritative. Normal app rendering, CI, release checks and evidence audits read the bundled JSON only; they do not refresh it.
+
+Validate the bundled reference before a REAL collection campaign:
+
+```bash
+.venv/bin/python tools/materialize_market_session_calendar.py --validate-only --json
+.venv/bin/python tools/run_collection_session.py --no-network --no-log --max-runs 1 --json
+```
+
+Refresh only when intentionally reviewing the reference:
+
+```bash
+.venv/bin/python tools/materialize_market_session_calendar.py --dry-run --json
+.venv/bin/python tools/materialize_market_session_calendar.py --write --json
+```
+
+The refresh command may contact AKShare / Sina. It must not write `data/ticks`, mutate REAL CSV history, create SQLite files or describe the result as an exchange-authoritative calendar.
+
 ## GitHub Actions CI
 
 The GitHub workflow is `.github/workflows/ci.yml`.

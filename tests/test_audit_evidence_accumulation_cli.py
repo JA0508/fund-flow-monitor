@@ -74,9 +74,11 @@ def test_cli_json_is_offline_and_reports_coverage(tmp_path):
     report = json.loads(result.stdout)
     assert report["network_used"] is False
     assert report["physical_capture_event_count"] == 3
-    assert report["qualified_capture_event_count"] == 0
-    assert report["covered_acquisition_cell_count"] == 0
-    assert report["calendar_unverified_capture_count"] == 3
+    assert report["qualified_capture_event_count"] == 3
+    assert report["covered_acquisition_cell_count"] == 2
+    assert report["calendar_unverified_capture_count"] == 0
+    assert report["market_session_date_policy"]["source_classification"] == "provider_derived"
+    assert report["market_session_date_policy"]["network_used"] is False
 
 
 def test_cli_does_not_create_data_warehouse_or_ticks(tmp_path):

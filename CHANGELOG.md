@@ -3,11 +3,15 @@
 ## v3.18
 
 - Qualified Evidence Accumulation Protocol, Temporal Sampling Frame and Coverage Gap Audit.
+- Materialized `config/market_session_calendar.json` as a provider-derived mainland A-share observation-session date reference with explicit non-exchange-authoritative provenance.
+- Added `tools/materialize_market_session_calendar.py` for manual calendar reference materialization / validation; normal runtime, Streamlit rendering and CI read the bundled JSON offline and do not refresh the provider.
+- Evidence accumulation reports now include market-session policy identity, source classification, market scope, cross-exchange alignment state, qualified target dates and target cells by date.
+- Added cross-exchange session-domain reconciliation helpers so exchange-domain differences are explicit rather than hidden behind a weekday heuristic or a single exchange assumption.
 - Added `src/evidence_accumulation.py` to separate physical capture events from sector rows, theme rows and analytical bucket materialization.
 - Added deterministic acquisition frames based on configured collection sessions, with explicit cell IDs, boundary convention and covered / missing acquisition-cell counts.
 - Added marginal evidence contribution states so clustered captures in the same cell are tracked as additional captures instead of being counted as new temporal coverage.
 - Hardened market-session date eligibility so REAL captures cannot enter qualified acquisition coverage solely because they were fetched inside a configured clock session.
-- Added a conservative offline market-session date policy: dates without declared coverage remain `market_calendar_unverified`, while SAMPLE remains synthetic demo evidence.
+- Added an offline market-session date policy: dates in the materialized reference can be evaluated without network access; dates outside coverage remain `market_calendar_unverified`, while SAMPLE remains synthetic demo evidence.
 - Added `tools/audit_evidence_accumulation.py` for offline SAMPLE / REAL acquisition coverage audits without AKShare calls, CSV writes or SQLite writes.
 - Streamlit Data Explanation now shows compact REAL and SAMPLE evidence accumulation cards beside historical availability and analytical eligibility.
 - Smoke, runtime and quality-gate checks now verify evidence accumulation assets and SAMPLE acquisition coverage without requiring live network access.

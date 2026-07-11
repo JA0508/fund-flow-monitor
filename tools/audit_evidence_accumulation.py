@@ -46,6 +46,12 @@ def print_report(report: dict) -> None:
     print(f"  eligible frame dates: {report.get('eligible_acquisition_frame_dates', [])}")
     policy = report.get("market_session_date_policy") or {}
     print(f"  calendar source: {policy.get('calendar_source')} / {policy.get('calendar_source_identity')}")
+    print(f"  calendar policy identity: {policy.get('calendar_policy_identity')}")
+    print(f"  source classification: {policy.get('source_classification')}")
+    print(f"  source strategy: {policy.get('source_strategy')}")
+    print(f"  market scope: {policy.get('market_scope')}")
+    print(f"  cross-exchange alignment: {policy.get('cross_exchange_alignment_state')}")
+    print(f"  qualified target dates: {report.get('qualified_target_dates', [])}")
     print(
         "  covered cells: "
         f"{report.get('coverage_numerator', 0)} / {report.get('coverage_denominator', 0)}"

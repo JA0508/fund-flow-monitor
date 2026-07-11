@@ -17,6 +17,7 @@ from src.evidence_accumulation import (
     validate_evidence_accumulation_text,
 )
 from src.market_session_policy import build_declared_market_session_policy
+from src.market_session_policy import reconcile_exchange_session_domains
 from src.providers.akshare_sector_flow import normalize_provider_dataframe
 from src.theme_dynamics import get_canonical_materialization_policy
 
@@ -97,8 +98,11 @@ def test_acquisition_frame_identity_is_deterministic_and_separate_from_canonical
     frame_id_a = build_acquisition_frame_id(cell_minutes=30)
     frame_id_b = build_acquisition_frame_id(cell_minutes=30)
     frame_id_c = build_acquisition_frame_id(cell_minutes=15)
+    policy_a = _market_policy(eligible_dates=("2026-06-10",), coverage_start="2026-06-10", coverage_end="2026-06-10")
+    policy_b = _market_policy(eligible_dates=("2026-06-11",), coverage_start="2026-06-11", coverage_end="2026-06-11")
     assert frame_id_a == frame_id_b
     assert frame_id_a != frame_id_c
+    assert policy_a["calendar_policy_identity"] != policy_b["calendar_policy_identity"]
     assert get_canonical_materialization_policy() == "latest_valid_snapshot_in_bucket"
 
 
@@ -221,6 +225,45 @@ def test_offline_contamination_regression_keeps_ineligible_capture_visible(tmp_p
         "2026-06-10": "eligible_market_session_date",
         "2026-06-11": "market_session_date_ineligible",
     }
+
+
+def test_evidence_report_exposes_calendar_policy_denominator_provenance(tmp_path):
+    _write_provider_snapshots(tmp_path, ["10:00:00"], trade_date="2026-06-10")
+    policy = _market_policy(eligible_dates=("2026-06-10",), coverage_start="2026-06-10", coverage_end="2026-06-11")
+    report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30, market_session_policy=policy)
+    assert report["market_session_policy_id"] == policy["calendar_policy_identity"]
+    assert report["market_session_date_policy"]["calendar_policy_identity"] == policy["calendar_policy_identity"]
+    assert report["qualified_target_dates"] == ["2026-06-10"]
+    assert report["qualified_target_date_count"] == 1
+    assert report["target_cells_by_date"] == {"2026-06-10": 8}
+
+
+def test_cross_exchange_reconciled_policy_keeps_only_common_eligible_date_in_denominator(tmp_path):
+    _write_provider_snapshots(tmp_path, ["10:00:00"], trade_date="2026-06-10")
+    _write_provider_snapshots(tmp_path, ["10:00:00"], trade_date="2026-06-11")
+    _write_provider_snapshots(tmp_path, ["10:00:00"], trade_date="2026-07-01")
+    reconciliation = reconcile_exchange_session_domains(
+        ["2026-06-10", "2026-06-11"],
+        ["2026-06-10"],
+        coverage_start="2026-06-10",
+        coverage_end="2026-06-11",
+    )
+    policy = build_declared_market_session_policy(
+        eligible_dates=reconciliation["common_eligible_dates"],
+        coverage_start=reconciliation["overlapping_coverage_start"],
+        coverage_end=reconciliation["overlapping_coverage_end"],
+        calendar_source="unit_test_cross_exchange_reconciled_dates",
+        calendar_source_identity="unit_test_cross_exchange_reconciled_dates_v1",
+    )
+    policy["cross_exchange_alignment_state"] = reconciliation["cross_exchange_alignment_state"]
+    report = build_evidence_accumulation_report("REAL", data_dir=tmp_path, cell_minutes=30, market_session_policy=policy)
+    assert report["physical_capture_event_count"] == 3
+    assert report["qualified_capture_event_count"] == 1
+    assert report["qualified_target_dates"] == ["2026-06-10"]
+    assert report["target_cells_by_date"] == {"2026-06-10": 8}
+    assert report["closed_or_ineligible_represented_dates"] == ["2026-06-11"]
+    assert report["unverified_represented_dates"] == ["2026-07-01"]
+    assert report["coverage_denominator"] == 8
 
 
 def test_validate_evidence_accumulation_text_detects_forbidden_words():

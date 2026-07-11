@@ -31,6 +31,8 @@ Run local read-only checks first:
 
 ```bash
 git status --short
+python tools/materialize_market_session_calendar.py --validate-only --json
+python tools/run_collection_session.py --no-network --no-log --max-runs 1 --json
 python tools/probe_akshare.py --json
 python tools/audit_provider_semantics.py --primary
 python tools/audit_analytical_eligibility.py --source REAL --json
@@ -40,10 +42,33 @@ python tools/audit_evidence_accumulation.py --source REAL --json
 Interpretation:
 
 - `probe_akshare.py` may touch the provider for diagnosis, but it should not write `data/ticks`.
+- `materialize_market_session_calendar.py --validate-only` validates the bundled offline calendar reference and does not fetch or write.
+- `run_collection_session.py --json --no-network --no-log --max-runs 1` shows the current calendar date, market-session date state, active clock session and collection eligibility without writing CSV.
 - `audit_provider_semantics.py` verifies the primary provider contract and runtime policy.
 - `audit_analytical_eligibility.py` separates readable REAL history from qualified analytical readiness.
 - `audit_evidence_accumulation.py` reports physical captures, market-session date states, qualified captures, covered cells and missing cells from existing local CSV only.
-- `run_collection_session.py --json --no-network --no-log --max-runs 1` shows the current calendar date, market-session date state, active clock session and collection eligibility without writing CSV.
+
+## Market-Session Calendar Reference
+
+The default runtime date gate reads `config/market_session_calendar.json` offline. This file is a provider-derived mainland A-share observation-session date reference materialized from AKShare / Sina trade-date history and reviewed into the repository. It is intentionally labeled `provider_derived`; it must not be described as exchange-authoritative.
+
+Operational rules:
+
+- normal Streamlit usage, CI, release checks and evidence audits read the JSON without network access;
+- the manual materialization command is the only path that refreshes the provider-derived reference;
+- the reference includes source identity, market scope, coverage range, policy identity and cross-exchange reconciliation metadata;
+- dates absent from `eligible_session_dates` inside coverage are not eligible;
+- dates outside coverage remain `market_calendar_unverified`.
+
+Manual refresh, when intentionally needed:
+
+```bash
+python tools/materialize_market_session_calendar.py --dry-run --json
+python tools/materialize_market_session_calendar.py --write --json
+python tools/materialize_market_session_calendar.py --validate-only --json
+```
+
+The materialization command may contact AKShare/Sina when not using `--validate-only`; it must never write `data/ticks`, mutate REAL CSV history or fabricate exchange-authoritative status.
 
 ## Bounded Collection
 
@@ -58,7 +83,7 @@ python tools/run_collection_session.py --max-runs 3 --interval-seconds 300 --res
 Rules:
 
 - Start with `--dry-run` when validating provider availability and normalization.
-- A normal REAL collection attempt must pass the market-session date gate before the clock-session gate. The default bundled policy is conservative: without declared offline calendar coverage, the date state is `market_calendar_unverified`.
+- A normal REAL collection attempt must pass the market-session date gate before the clock-session gate. The default bundled policy is offline and provider-derived; it can evaluate dates inside its materialized coverage without network access.
 - Do not use Streamlit page refreshes as a collection mechanism.
 - Do not add `while True`, cron, launchd, Airflow, Celery, Redis or a custom background process inside the app.
 - Do not replace the primary provider with another source unless semantic comparability has been designed and audited separately.

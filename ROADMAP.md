@@ -76,8 +76,8 @@ Fund Flow Monitor 的长期目标是成为面向“养基宝 / 基金投资辅�
 - v3.15 完成 provider semantics registry and continuity gate：为 AKShare / Eastmoney 主路径建立语义契约、候选源可比性分类、连续性资格门禁、provider-aware lineage 和网络路径诊断。
 - v3.16 完成 provider-contract-aware analytical continuity：canonical materialization、scope divergence、regime episodes、relationship alignment 和 robustness universe 保留 provider-contract continuity segment。
 - v3.17 完成 contract-qualified analytical eligibility：把历史可读性与合格分析 readiness 分离，REAL qualified analytics 需要 explicit verified primary-provider lineage。
-- v3.18 完成 qualified evidence accumulation protocol：物理采集事件、预声明采集框架、时间覆盖 cell、边际覆盖贡献和 coverage gap audit。
-- v3.19 以后优先执行 bounded REAL accumulation protocol，在多个交易日积累 explicit-verified primary-provider captures，直到形成 contract-qualified multi-day evidence。
+- v3.18 完成 qualified evidence accumulation protocol：物理采集事件、离线 market-session date gate、预声明采集框架、时间覆盖 cell、边际覆盖贡献和 coverage gap audit。
+- 后续优先执行 bounded REAL accumulation protocol，在多个交易日积累 explicit-verified primary-provider captures，直到形成 contract-qualified multi-day evidence。
 - v4.0 以后再考虑证据面板交互 polish、demo brief 图表截图引用、更细的数据质量规则、外部定时采集运维说明、DuckDB 可选分析后端。
 - 在 Streamlit MVP 验证稳定后，再考虑 FastAPI + React + ECharts 产品化重构。
 - 后端未来负责低频沉淀和统一 API。

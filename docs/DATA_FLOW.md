@@ -75,10 +75,12 @@ v3.18 adds a qualified evidence accumulation layer before downstream analytical 
 
 - physical capture events are counted once per source mode, relative CSV file, trade date and captured time;
 - sector rows, theme rows, calculation modes and 1/5/10 minute analytical buckets do not multiply physical captures;
-- the acquisition frame is predeclared from configured collection sessions, deterministic cell boundaries and dates accepted by the declared market-session date policy;
+- the acquisition frame is predeclared from configured collection sessions, deterministic cell boundaries and dates accepted by the offline market-session date policy;
 - a REAL capture must pass date-level market-session eligibility before clock-session cell assignment can make it qualified;
 - a qualified capture can add `new_cell_coverage`, add only an extra capture inside an already-covered cell, sit outside the acquisition frame, or be excluded from the qualified universe;
 - capture count, represented dates and covered acquisition cells are reported separately.
+
+The default market-session date policy reads `config/market_session_calendar.json`, a provider-derived AKShare / Sina trading-date reference materialized for the project's mainland A-share observation-session domain. It is not exchange-authoritative, and it is not refreshed during app rendering or automated validation. Inside the reference coverage, dates absent from `eligible_session_dates` are ineligible; outside coverage they remain `market_calendar_unverified`.
 
 This is why a directory with three readable dates and one snapshot per date may be `multi_day_ready` for historical availability, while still needing explicit provider-contract qualification, declared market-session date eligibility and acquisition-frame coverage before being treated as qualified accumulated REAL evidence.
 
@@ -126,6 +128,7 @@ The following files are intentionally tracked:
 - `config/theme_taxonomy.json`
 - `config/fund_profiles.json`
 - `config/watchlist.json`
+- `config/market_session_calendar.json`
 - `docs/demo_briefs/sample_observation_brief.md`
 
 These files make the public demo reproducible.

@@ -23,6 +23,7 @@ python tools/cloud_preflight.py
 FUND_FLOW_PUBLIC_DEMO=1 python tools/cloud_preflight.py
 python tools/smoke_check.py
 python tools/verify_runtime.py
+python tools/materialize_market_session_calendar.py --validate-only --json
 python tools/audit_evidence_accumulation.py --source SAMPLE
 python tools/audit_evidence_accumulation.py --source REAL
 python tools/audit_analytical_eligibility.py --source SAMPLE
@@ -34,7 +35,10 @@ Required checks:
 - `APP_VERSION` is `v3.18`.
 - `CHANGELOG.md` contains a `v3.18` entry.
 - `src/evidence_accumulation.py` exists and is importable.
+- `config/market_session_calendar.json` exists and validates as the offline provider-derived market-session reference.
+- `tools/materialize_market_session_calendar.py --validate-only --json` validates the bundled reference without fetching or writing.
 - `tools/audit_evidence_accumulation.py` exists and can audit SAMPLE / REAL without network access or writes.
+- Market-session policy reports source classification, market scope, policy identity and cross-exchange alignment state.
 - The physical capture-event inventory is one row per provider snapshot capture, not per sector row, theme row, calculation mode or analytical bucket.
 - The acquisition frame is deterministic, based on configured collection sessions, and separate from analytical 1/5/10 minute materialization buckets.
 - Capture-to-cell assignment uses the documented `[start, end)` boundary convention with the final session endpoint included.
