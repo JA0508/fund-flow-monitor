@@ -178,5 +178,7 @@ def test_render_theme_research_snapshot_section_is_compliant_and_readable() -> N
     assert "当前状态：强流入" in section
     assert "匹配" in section
     assert "SAMPLE 合成演示数据" in section
+    assert "快照覆盖" in section
+    assert "不等同于 contract-qualified 多日历史" in section
     assert "不预测未来走势" in section
     assert validate_theme_evidence_text(section) == []

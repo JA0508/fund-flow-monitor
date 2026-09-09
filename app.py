@@ -1130,7 +1130,7 @@ def main() -> None:
             snapshot_body = (
                 f"{research_snapshot['theme_name']} 当前状态：{research_snapshot['observed_state']}；"
                 f"{research_snapshot['member_coverage_label']} "
-                f"历史证据：{research_snapshot['history_readiness_label']}。"
+                f"快照覆盖：{research_snapshot['history_readiness_label']}。"
             )
             render_compact_notice(
                 "主题观察结论",
@@ -1138,6 +1138,7 @@ def main() -> None:
                 tone="info" if research_snapshot["research_snapshot_available"] else "warning",
             )
             st.caption(research_snapshot["source_notice"])
+            st.caption(research_snapshot["history_scope_notice"])
             if research_snapshot["limitations"]:
                 st.caption("观察限制：" + "；".join(research_snapshot["limitations"][:3]))
             render_theme_observation_evidence_cards(evidence)
