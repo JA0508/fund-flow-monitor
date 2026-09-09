@@ -319,6 +319,52 @@ def build_theme_evidence_contribution_table(evidence: dict) -> pd.DataFrame:
     return frame[columns]
 
 
+def build_theme_research_snapshot(evidence: dict | None) -> dict:
+    """Turn existing theme evidence into a concise, non-predictive research readout."""
+    evidence = evidence or {}
+    data_evidence = evidence.get("data_evidence") or {}
+    source_mode = str(evidence.get("source_mode") or "REAL").upper()
+    warnings = [str(item) for item in evidence.get("warnings") or [] if str(item).strip()]
+    if source_mode == "SAMPLE":
+        source_notice = "当前主题观察来自 SAMPLE 合成演示数据，不代表真实行情。"
+        warnings = [item for item in warnings if "当前证据来自 SAMPLE 合成演示数据" not in item]
+    else:
+        source_notice = "当前主题观察仅基于已导入 CSV 快照；CSV 是主数据来源。"
+
+    if not evidence.get("evidence_available"):
+        return {
+            "research_snapshot_available": False,
+            "theme_name": str(evidence.get("theme_name") or "所选主题"),
+            "source_mode": source_mode,
+            "observed_state": "暂无主题观察",
+            "aggregate_value": None,
+            "member_coverage_label": "当前没有可用于聚合的主题成员证据。",
+            "history_readiness_label": data_evidence.get("readiness_label") or "历史证据状态未知",
+            "source_notice": source_notice,
+            "limitations": warnings or ["当前主题缺少可用快照或成员匹配证据。"],
+        }
+
+    configured_count = len(evidence.get("configured_core_members") or []) + len(
+        evidence.get("configured_related_members") or []
+    )
+    matched_count = int(evidence.get("matched_member_count", 0) or 0)
+    used_count = int(evidence.get("used_member_count", 0) or 0)
+    return {
+        "research_snapshot_available": True,
+        "theme_name": str(evidence.get("theme_name") or "所选主题"),
+        "source_mode": source_mode,
+        "as_of_trade_date": evidence.get("as_of_trade_date"),
+        "as_of_captured_time": evidence.get("as_of_captured_time"),
+        "observation_mode_label": evidence.get("observation_mode_label") or "--",
+        "observed_state": evidence.get("derived_state") or "状态未映射",
+        "aggregate_value": evidence.get("aggregate_value"),
+        "member_coverage_label": f"当前快照匹配 {matched_count}/{configured_count} 个配置成员；参与聚合 {used_count} 个。",
+        "history_readiness_label": data_evidence.get("readiness_label") or "历史证据状态未知",
+        "source_notice": source_notice,
+        "limitations": warnings,
+    }
+
+
 def render_theme_evidence_markdown(evidence: dict, heading_level: int = 2) -> str:
     hashes = "#" * max(1, min(heading_level, 4))
     if not evidence or not evidence.get("evidence_available"):

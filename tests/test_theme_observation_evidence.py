@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.theme_observation_evidence import (
+    build_theme_research_snapshot,
     build_theme_data_evidence,
     build_theme_evidence_contribution_table,
     build_theme_observation_evidence,
@@ -67,6 +68,35 @@ def test_theme_observation_evidence_observation_id_is_deterministic() -> None:
     second = build_theme_observation_evidence(latest, **kwargs)
     assert first["observation_id"] == second["observation_id"]
     assert not any("SAMPLE" in item for item in first["warnings"])
+
+
+def test_build_theme_research_snapshot_summarizes_existing_sample_evidence() -> None:
+    evidence = build_theme_observation_evidence(
+        pd.DataFrame([_row("半导体", 35.0), _row("半导体设备", -5.0)]),
+        "半导体/芯片链",
+        taxonomy=load_theme_taxonomy(),
+        source_mode="SAMPLE",
+        manifest_df=pd.DataFrame(),
+    )
+
+    snapshot = build_theme_research_snapshot(evidence)
+
+    assert snapshot["research_snapshot_available"] is True
+    assert snapshot["observed_state"] == "强流入"
+    assert snapshot["aggregate_value"] == 35.0
+    assert "匹配" in snapshot["member_coverage_label"]
+    assert "SAMPLE 合成演示数据" in snapshot["source_notice"]
+    assert validate_theme_evidence_text("\n".join(snapshot["limitations"] + [snapshot["source_notice"]])) == []
+
+
+def test_build_theme_research_snapshot_handles_unavailable_evidence() -> None:
+    snapshot = build_theme_research_snapshot(
+        {"theme_name": "不存在主题", "source_mode": "REAL", "warnings": ["当前没有可用快照。"]}
+    )
+
+    assert snapshot["research_snapshot_available"] is False
+    assert snapshot["observed_state"] == "暂无主题观察"
+    assert snapshot["limitations"] == ["当前没有可用快照。"]
 
 
 def test_build_theme_data_evidence_dimensions_and_schema_warning() -> None:

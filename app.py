@@ -175,6 +175,7 @@ from src.theme_history_viz import (
 )
 from src.theme_observation_evidence import (
     build_theme_observation_evidence,
+    build_theme_research_snapshot,
     render_brief_provenance_section,
     validate_theme_evidence_text,
 )
@@ -1124,12 +1125,20 @@ def main() -> None:
                 as_of_trade_date=selected_snapshot_date or header_date,
                 as_of_captured_time=latest_time,
             )
-            if sample_mode:
-                render_compact_notice(
-                    "SAMPLE 主题证据",
-                    "当前主题状态证据基于 sample_data/ticks 合成演示数据，不代表真实行情。",
-                    tone="warning",
-                )
+            research_snapshot = build_theme_research_snapshot(evidence)
+            snapshot_body = (
+                f"{research_snapshot['theme_name']} 当前状态：{research_snapshot['observed_state']}；"
+                f"{research_snapshot['member_coverage_label']} "
+                f"历史证据：{research_snapshot['history_readiness_label']}。"
+            )
+            render_compact_notice(
+                "主题观察结论",
+                snapshot_body,
+                tone="info" if research_snapshot["research_snapshot_available"] else "warning",
+            )
+            st.caption(research_snapshot["source_notice"])
+            if research_snapshot["limitations"]:
+                st.caption("观察限制：" + "；".join(research_snapshot["limitations"][:3]))
             render_theme_observation_evidence_cards(evidence)
             with st.expander("查看成员输入与阈值映射", expanded=False):
                 render_theme_observation_contribution_table(evidence)
