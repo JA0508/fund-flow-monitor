@@ -1058,16 +1058,8 @@ def main() -> None:
                 "当前时间点数量有限，适合观察已保存状态，曲线仍在形成中。",
                 tone="warning",
             )
-        if data_status == "SAMPLE":
-            render_compact_notice(
-                "SAMPLE 演示样例数据",
-                "当前页面只读取 sample_data/ticks 的合成样例，不代表真实行情，不触发 AKShare，也不写入 data/ticks。",
-                tone="warning",
-            )
         if data_status == "HISTORY":
             st.caption("历史回放模式不会触发 AKShare 抓取，也不会写入 CSV。")
-        elif data_status == "SAMPLE":
-            st.caption("SAMPLE 模式只读取 sample_data/ticks 合成样例，不触发 AKShare，也不写入 data/ticks。")
         elif data_status == "EMPTY":
             if sample_mode:
                 st.caption("暂无可用演示样例数据，可运行 python tools/generate_sample_data.py 生成。")
