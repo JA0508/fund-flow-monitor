@@ -365,6 +365,40 @@ def build_theme_research_snapshot(evidence: dict | None) -> dict:
     }
 
 
+def render_theme_research_snapshot_section(evidence: dict | None, heading_level: int = 2) -> str:
+    """Render the existing observation evidence as a concise brief section."""
+    hashes = "#" * max(1, min(heading_level, 4))
+    snapshot = build_theme_research_snapshot(evidence)
+    lines = [f"{hashes} 主题观察结论", ""]
+    if not snapshot["research_snapshot_available"]:
+        lines.extend(
+            [
+                f"- 主题：{snapshot['theme_name']}",
+                "- 当前状态：暂无主题观察。",
+                f"- 观察限制：{'；'.join(snapshot['limitations'])}",
+                f"- 数据说明：{snapshot['source_notice']}",
+                "- 本段只描述已有快照证据，不预测未来走势，不构成投资建议。",
+            ]
+        )
+        return "\n".join(lines)
+
+    lines.extend(
+        [
+            f"- 主题：{snapshot['theme_name']}",
+            f"- 观察日期 / 时间：{snapshot.get('as_of_trade_date') or '--'} / {snapshot.get('as_of_captured_time') or '--'}",
+            f"- 主题口径：{snapshot.get('observation_mode_label') or '--'}",
+            f"- 当前状态：{snapshot['observed_state']}",
+            f"- 成员覆盖：{snapshot['member_coverage_label']}",
+            f"- 历史证据：{snapshot['history_readiness_label']}",
+            f"- 数据说明：{snapshot['source_notice']}",
+        ]
+    )
+    if snapshot["limitations"]:
+        lines.append(f"- 观察限制：{'；'.join(snapshot['limitations'][:3])}")
+    lines.append("- 本段只描述已有快照证据，不预测未来走势，不构成投资建议。")
+    return "\n".join(lines)
+
+
 def render_theme_evidence_markdown(evidence: dict, heading_level: int = 2) -> str:
     hashes = "#" * max(1, min(heading_level, 4))
     if not evidence or not evidence.get("evidence_available"):

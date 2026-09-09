@@ -8,6 +8,7 @@ from src.theme_observation_evidence import (
     build_theme_evidence_contribution_table,
     build_theme_observation_evidence,
     render_brief_provenance_section,
+    render_theme_research_snapshot_section,
     resolve_theme_observation_evidence,
     validate_theme_evidence_text,
 )
@@ -159,4 +160,23 @@ def test_render_brief_provenance_section_is_compliant() -> None:
     section = render_brief_provenance_section(evidence)
     assert "简报证据口径" in section
     assert "SAMPLE" in section
+    assert validate_theme_evidence_text(section) == []
+
+
+def test_render_theme_research_snapshot_section_is_compliant_and_readable() -> None:
+    evidence = build_theme_observation_evidence(
+        pd.DataFrame([_row("半导体", 35.0), _row("半导体设备", -5.0)]),
+        "半导体/芯片链",
+        taxonomy=load_theme_taxonomy(),
+        source_mode="SAMPLE",
+        manifest_df=pd.DataFrame(),
+    )
+
+    section = render_theme_research_snapshot_section(evidence)
+
+    assert "主题观察结论" in section
+    assert "当前状态：强流入" in section
+    assert "匹配" in section
+    assert "SAMPLE 合成演示数据" in section
+    assert "不预测未来走势" in section
     assert validate_theme_evidence_text(section) == []

@@ -177,6 +177,7 @@ from src.theme_observation_evidence import (
     build_theme_observation_evidence,
     build_theme_research_snapshot,
     render_brief_provenance_section,
+    render_theme_research_snapshot_section,
     validate_theme_evidence_text,
 )
 from src.theme_dynamics import (
@@ -1680,6 +1681,9 @@ def main() -> None:
                 as_of_trade_date=selected_snapshot_date or header_date,
                 as_of_captured_time=latest_time,
             )
+            brief_research_snapshot_section = render_theme_research_snapshot_section(brief_provenance_evidence)
+            if not validate_theme_evidence_text(brief_research_snapshot_section):
+                extra_brief_sections.append(brief_research_snapshot_section)
             brief_provenance_section = render_brief_provenance_section(brief_provenance_evidence)
             if not validate_theme_evidence_text(brief_provenance_section):
                 extra_brief_sections.append(brief_provenance_section)
