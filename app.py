@@ -668,20 +668,17 @@ def main() -> None:
         )
         top_in = st.number_input("净流入 Top N", min_value=1, max_value=30, value=DEFAULT_TOP_IN, step=1)
         top_out = st.number_input("净流出 Top N", min_value=1, max_value=40, value=DEFAULT_TOP_OUT, step=1)
-        demo_mode = st.toggle("启用 DEMO 模式", value=False, disabled=sample_mode)
-        if sample_mode:
-            demo_mode = False
-        st.caption("DEMO 仅用于 UI 调试，不代表真实行情。")
-        st.markdown("### 概念资金流辅助")
-        concept_assist_enabled = st.toggle("启用概念资金流辅助", value=False, disabled=sample_mode)
-        if sample_mode:
-            concept_assist_enabled = False
+        demo_mode = False
+        concept_assist_enabled = False
         concept_manual_refresh = False
-        if sample_mode:
-            st.caption("SAMPLE 模式不抓取概念资金流。")
-        elif concept_assist_enabled:
-            concept_manual_refresh = st.button("刷新概念资金流", type="secondary")
-            st.caption("概念资金流低频刷新，用于主题热度辅助观察。")
+        if not sample_mode:
+            demo_mode = st.toggle("启用 DEMO 模式", value=False)
+            st.caption("DEMO 仅用于 UI 调试，不代表真实行情。")
+            st.markdown("### 概念资金流辅助")
+            concept_assist_enabled = st.toggle("启用概念资金流辅助", value=False)
+            if concept_assist_enabled:
+                concept_manual_refresh = st.button("刷新概念资金流", type="secondary")
+                st.caption("概念资金流低频刷新，用于主题热度辅助观察。")
 
     st_autorefresh(interval=refresh_interval * 1000, key="fund_flow_refresh")
     error = None
