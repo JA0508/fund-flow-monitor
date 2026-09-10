@@ -402,6 +402,22 @@ def render_theme_research_snapshot_section(evidence: dict | None, heading_level:
     return "\n".join(lines)
 
 
+def render_theme_extended_evidence_unavailable_section(theme_name: str | None, heading_level: int = 2) -> str:
+    """Record an unavailable optional evidence layer without exposing internal errors."""
+    hashes = "#" * max(1, min(heading_level, 4))
+    theme = str(theme_name or "所选主题")
+    return "\n".join(
+        [
+            f"{hashes} 扩展主题证据状态",
+            "",
+            f"- 主题：{theme}",
+            "- 部分扩展证据（主题动态、结构状态或主题关系）本次未能生成。",
+            "- 基础主题观察、成员覆盖和数据来源口径仍保留；缺失的扩展证据不会被视为支持性结论。",
+            "- 本段只说明已生成证据的边界，不预测未来走势，不构成投资建议。",
+        ]
+    )
+
+
 def render_theme_evidence_markdown(evidence: dict, heading_level: int = 2) -> str:
     hashes = "#" * max(1, min(heading_level, 4))
     if not evidence or not evidence.get("evidence_available"):

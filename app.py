@@ -177,6 +177,7 @@ from src.theme_observation_evidence import (
     build_theme_observation_evidence,
     build_theme_research_snapshot,
     render_brief_provenance_section,
+    render_theme_extended_evidence_unavailable_section,
     render_theme_research_snapshot_section,
     validate_theme_evidence_text,
 )
@@ -1766,7 +1767,14 @@ def main() -> None:
                     if not validate_analytical_robustness_text(robustness_section):
                         extra_brief_sections.append(robustness_section)
             except Exception:
-                pass
+                extended_evidence_notice = render_theme_extended_evidence_unavailable_section(brief_provenance_theme)
+                if not validate_theme_evidence_text(extended_evidence_notice):
+                    extra_brief_sections.append(extended_evidence_notice)
+                render_compact_notice(
+                    "部分扩展主题证据暂不可用",
+                    "基础主题观察和数据来源口径仍可生成；本次简报会明确记录缺失的动态、结构或关系证据。",
+                    tone="warning",
+                )
         theme_history_brief_section = ""
         theme_history_brief_compliance = {
             "forbidden_hits": [],

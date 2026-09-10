@@ -10,6 +10,7 @@ from src.brief_templates import (
     get_brief_template_modes,
     is_portfolio_brief_mode,
     normalize_brief_template_mode,
+    render_brief_markdown_with_extra_sections,
     render_brief_markdown_v2,
     validate_brief_markdown_structure,
     validate_brief_template_text,
@@ -106,3 +107,12 @@ def test_normal_brief_template_text_has_no_forbidden_hits():
     metadata = build_brief_metadata("2026-01-16", "SAMPLE", "严格代表口径")
     text = render_brief_markdown_v2(_sample_brief(), PORTFOLIO_BRIEF_MODE, metadata)
     assert validate_brief_template_text(text) == []
+
+
+def test_extra_evidence_status_section_is_retained_before_limitations():
+    metadata = build_brief_metadata("2026-01-16", "SAMPLE", "严格代表口径")
+    section = "## 扩展主题证据状态\n\n- 部分扩展证据本次未能生成。"
+    text = render_brief_markdown_with_extra_sections(_sample_brief(), metadata=metadata, extra_sections=[section])
+
+    assert "## 扩展主题证据状态" in text
+    assert text.index("## 扩展主题证据状态") < text.index("## 五、样本与限制")

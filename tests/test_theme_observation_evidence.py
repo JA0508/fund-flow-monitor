@@ -8,6 +8,7 @@ from src.theme_observation_evidence import (
     build_theme_evidence_contribution_table,
     build_theme_observation_evidence,
     render_brief_provenance_section,
+    render_theme_extended_evidence_unavailable_section,
     render_theme_research_snapshot_section,
     resolve_theme_observation_evidence,
     validate_theme_evidence_text,
@@ -180,5 +181,15 @@ def test_render_theme_research_snapshot_section_is_compliant_and_readable() -> N
     assert "SAMPLE 合成演示数据" in section
     assert "快照覆盖" in section
     assert "不等同于 contract-qualified 多日历史" in section
+    assert "不预测未来走势" in section
+    assert validate_theme_evidence_text(section) == []
+
+
+def test_render_theme_extended_evidence_unavailable_section_is_compliant() -> None:
+    section = render_theme_extended_evidence_unavailable_section("半导体/芯片链")
+
+    assert "扩展主题证据状态" in section
+    assert "半导体/芯片链" in section
+    assert "未能生成" in section
     assert "不预测未来走势" in section
     assert validate_theme_evidence_text(section) == []
