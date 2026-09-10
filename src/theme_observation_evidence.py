@@ -74,6 +74,19 @@ def normalize_theme_evidence_mode(mode: str | None) -> str:
     return reverse.get(value, "strict_representative")
 
 
+def get_theme_observation_theme_options(*theme_frames: pd.DataFrame | None) -> list[str]:
+    """Collect non-empty theme names in caller-provided priority order."""
+    options: list[str] = []
+    for frame in theme_frames:
+        if frame is None or frame.empty or "theme_name" not in frame.columns:
+            continue
+        for value in frame["theme_name"].dropna().astype(str):
+            theme_name = value.strip()
+            if theme_name and theme_name not in options:
+                options.append(theme_name)
+    return options
+
+
 def _select_data_dir(source_mode: str, data_dir: str | None = None) -> str:
     if data_dir:
         return data_dir

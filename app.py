@@ -176,6 +176,7 @@ from src.theme_history_viz import (
 from src.theme_observation_evidence import (
     build_theme_observation_evidence,
     build_theme_research_snapshot,
+    get_theme_observation_theme_options,
     render_brief_provenance_section,
     render_theme_extended_evidence_unavailable_section,
     render_theme_research_snapshot_section,
@@ -1097,14 +1098,7 @@ def main() -> None:
             render_theme_concept_cards(pd.DataFrame(), max_cards=8)
         render_divergence_cards(watchlist_divergence_df, max_cards=5)
         st.markdown("<div class='radar-section-title'>主题状态证据</div>", unsafe_allow_html=True)
-        evidence_theme_options = (
-            watchlist_radar_df["theme_name"].dropna().astype(str).tolist()
-            if not watchlist_radar_df.empty and "theme_name" in watchlist_radar_df.columns
-            else radar_theme_df["theme_name"].dropna().astype(str).tolist()
-            if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
-            else []
-        )
-        evidence_theme_options = list(dict.fromkeys(evidence_theme_options))
+        evidence_theme_options = get_theme_observation_theme_options(watchlist_radar_df, radar_theme_df)
         if not evidence_theme_options:
             st.markdown(
                 "<div class='rank-panel'><div class='rank-empty'>当前没有可解释的主题观察结果。</div></div>",
@@ -1667,9 +1661,16 @@ def main() -> None:
             source_label,
         )
         extra_brief_sections: list[str] = []
+        brief_theme_options = get_theme_observation_theme_options(watchlist_radar_df, radar_theme_df)
         brief_provenance_theme = (
-            str(radar_theme_df["theme_name"].dropna().astype(str).iloc[0])
-            if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns and not radar_theme_df["theme_name"].dropna().empty
+            st.selectbox(
+                "选择简报主题证据",
+                brief_theme_options,
+                index=0,
+                key="brief_provenance_theme",
+                help="该选择只决定简报中展示哪一个主题的观察证据，不改变主题雷达或其他计算。",
+            )
+            if brief_theme_options
             else None
         )
         if brief_provenance_theme:

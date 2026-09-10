@@ -6,6 +6,7 @@ from src.theme_observation_evidence import (
     build_theme_research_snapshot,
     build_theme_data_evidence,
     build_theme_evidence_contribution_table,
+    get_theme_observation_theme_options,
     build_theme_observation_evidence,
     render_brief_provenance_section,
     render_theme_extended_evidence_unavailable_section,
@@ -99,6 +100,13 @@ def test_build_theme_research_snapshot_handles_unavailable_evidence() -> None:
     assert snapshot["research_snapshot_available"] is False
     assert snapshot["observed_state"] == "暂无主题观察"
     assert snapshot["limitations"] == ["当前没有可用快照。"]
+
+
+def test_get_theme_observation_theme_options_preserves_preferred_order() -> None:
+    preferred = pd.DataFrame({"theme_name": ["半导体/芯片链", "", "AI算力/TMT"]})
+    fallback = pd.DataFrame({"theme_name": ["AI算力/TMT", "新能源链", None]})
+
+    assert get_theme_observation_theme_options(preferred, fallback) == ["半导体/芯片链", "AI算力/TMT", "新能源链"]
 
 
 def test_build_theme_data_evidence_dimensions_and_schema_warning() -> None:
