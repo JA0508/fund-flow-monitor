@@ -194,7 +194,7 @@ v2.4 后，观察简报 tab 可选加入 `Warehouse 主题历史摘要`。标准
 
 公开发布最终审计见 [`docs/PUBLIC_RELEASE_AUDIT.md`](docs/PUBLIC_RELEASE_AUDIT.md)。作品集讲解材料见 [`docs/PORTFOLIO_PRESENTATION.md`](docs/PORTFOLIO_PRESENTATION.md)、[`docs/INTERVIEW_TALKING_POINTS.md`](docs/INTERVIEW_TALKING_POINTS.md) 和 [`docs/RESUME_SNIPPETS.md`](docs/RESUME_SNIPPETS.md)。
 
-工程架构说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数据流与数据状态说明见 [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md)，本地 REAL 证据累积流程见 [`docs/REAL_ACCUMULATION_PROTOCOL.md`](docs/REAL_ACCUMULATION_PROTOCOL.md)，本地运行、CI 和 Streamlit Cloud 运维说明见 [`docs/OPERATIONS.md`](docs/OPERATIONS.md)。
+工程架构说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，数据流与数据状态说明见 [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md)，本地 REAL 证据累积流程见 [`docs/REAL_ACCUMULATION_PROTOCOL.md`](docs/REAL_ACCUMULATION_PROTOCOL.md)，本地运行、CI 和 Streamlit Cloud 运维说明见 [`docs/OPERATIONS.md`](docs/OPERATIONS.md)。需要接手项目时，请先阅读 [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md)。
 
 ## Reproducible Demo Commands
 
