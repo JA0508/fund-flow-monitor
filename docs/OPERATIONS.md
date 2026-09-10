@@ -208,6 +208,29 @@ After a successful local collection, verify evidence without exposing private ca
 
 The full manual protocol is in [`REAL_ACCUMULATION_PROTOCOL.md`](REAL_ACCUMULATION_PROTOCOL.md).
 
+## Controlled Offline REAL Bundle Import
+
+`tools/import_real_snapshot.py` is a narrow recovery path for a raw Eastmoney response bundle that was saved outside the repository when the normal collector could not complete its transport step. It is **not** a replacement for the normal collector, a fallback provider, or a way to turn SAMPLE/DEMO data into REAL evidence.
+
+Start with a validation-only run:
+
+```bash
+.venv/bin/python tools/import_real_snapshot.py --bundle /path/to/raw-response-bundle --dry-run
+```
+
+The importer validates the bundle manifest, page hashes, expected provider contract, current industry-board response shape, normalization, snapshot quality, and market-session date state before it can write. A successful dry run proves that the supplied bundle is internally consistent with the accepted contract; it does **not** independently prove the response was obtained from Eastmoney.
+
+Writing requires both an explicit flag and an operator attestation:
+
+```bash
+.venv/bin/python tools/import_real_snapshot.py \
+  --bundle /path/to/raw-response-bundle \
+  --write \
+  --acknowledge-operator-attested-source
+```
+
+Only use `--write` after reviewing the bundle provenance outside the repository. Do not place cookies, proxy addresses, browser-session material, or raw private captures in Git. After a write, run the same read-only REAL evidence audits above: operator-attested acquisition provenance remains visible and must not be described as independently source-verified merely because import validation passed.
+
 ```bash
 .venv/bin/python tools/verify_runtime.py
 .venv/bin/python tools/smoke_check.py
