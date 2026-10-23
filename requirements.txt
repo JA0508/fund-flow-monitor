@@ -1,3 +1,4 @@
+-c constraints-security.txt
 streamlit
 streamlit-autorefresh
 akshare

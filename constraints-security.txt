@@ -1,0 +1,11 @@
+# Security-related versions verified together on Python 3.13.
+# Constraints do not install otherwise unused transitive packages.
+streamlit==1.66.1
+pillow==13.0.0
+gitpython==3.2.1
+anyio==4.14.2
+certifi==2026.10.19
+python-multipart==0.0.31
+soupsieve==2.9.0
+starlette==1.3.1
+urllib3==2.8.0
