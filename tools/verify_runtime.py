@@ -359,9 +359,9 @@ def _semiconductor_comparison(
     breadth: pd.DataFrame,
 ) -> None:
     print("半导体/芯片链三种模式对比:")
-    strict_row = strict[strict["theme_name"].eq("半导体/芯片链")]
-    representative_row = representative[representative["theme_name"].eq("半导体/芯片链")]
-    breadth_row = breadth[breadth["theme_name"].eq("半导体/芯片链")]
+    strict_row = strict if strict.empty else strict[strict["theme_name"].eq("半导体/芯片链")]
+    representative_row = representative if representative.empty else representative[representative["theme_name"].eq("半导体/芯片链")]
+    breadth_row = breadth if breadth.empty else breadth[breadth["theme_name"].eq("半导体/芯片链")]
     if strict_row.empty:
         print("  strict value: <empty>")
     else:
