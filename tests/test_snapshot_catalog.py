@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from src.snapshot_catalog import (
     build_collector_audit_summary,
@@ -126,7 +127,27 @@ def test_build_real_cache_summary_with_real_cache(tmp_path: Path) -> None:
     assert summary["latest_modified_time"]
     assert summary["latest_data_mode"] == "REAL"
     assert summary["latest_provider"] == "AKShare / Eastmoney"
-    assert summary["staleness_status"] in {"fresh", "stale", "unknown"}
+    assert summary["staleness_status"] in {"today", "historical", "future", "unknown"}
+
+
+@pytest.mark.parametrize(
+    ("snapshot_date", "now", "expected", "warning"),
+    [
+        ("2026-06-01", "2026-06-01 16:00:00+08:00", "today", "不代表"),
+        ("2026-06-01", "2026-06-02 16:00:00+08:00", "historical", "1 天"),
+        ("2026-06-05", "2026-06-07 16:00:00+08:00", "historical", "2 天"),
+        ("2026-06-01", "2026-06-08 16:00:00+08:00", "historical", "7 天"),
+        ("2026-06-03", "2026-06-02 16:00:00+08:00", "future", "未来"),
+        ("2026-06-02", "2026-06-01 17:00:00+00:00", "today", "不代表"),
+    ],
+)
+def test_cache_date_status_does_not_claim_daily_readiness(
+    tmp_path: Path, snapshot_date: str, now: str, expected: str, warning: str,
+) -> None:
+    _write_snapshot(tmp_path / f"sector_flow_{snapshot_date}.csv", _rows(snapshot_date, ["09:30:00"]))
+    summary = build_real_cache_summary(str(tmp_path), now=pd.Timestamp(now))
+    assert summary["staleness_status"] == expected
+    assert any(warning in item for item in summary["warnings"])
 
 
 def test_build_real_cache_summary_counts_empty_and_malformed_files(tmp_path: Path) -> None:

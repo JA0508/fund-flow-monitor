@@ -194,7 +194,7 @@ def get_snapshot_summary(ticks_df: pd.DataFrame) -> dict:
     }
 
 
-def build_real_cache_summary(data_dir: str = "data/ticks") -> dict:
+def build_real_cache_summary(data_dir: str = "data/ticks", *, now: pd.Timestamp | None = None) -> dict:
     root = Path(data_dir)
     catalog = build_snapshot_catalog(data_dir)
     if catalog.empty:
@@ -276,11 +276,20 @@ def build_real_cache_summary(data_dir: str = "data/ticks") -> dict:
     if latest_trade_date:
         try:
             latest_date_ts = pd.Timestamp(str(latest_trade_date))
-            today = pd.Timestamp.now(tz=TIMEZONE).normalize().tz_localize(None)
+            clock = pd.Timestamp.now(tz=TIMEZONE) if now is None else pd.Timestamp(now)
+            clock = clock.tz_localize(TIMEZONE) if clock.tzinfo is None else clock.tz_convert(TIMEZONE)
+            today = clock.normalize().tz_localize(None)
             age_days = int((today - latest_date_ts).days)
-            staleness_status = "fresh" if age_days <= 3 else "stale"
-            if staleness_status == "stale":
-                warnings.append(f"最新真实缓存日期距当前日期约 {age_days} 天，可能已过期。")
+            # Calendar age describes the file, not market-session or provider eligibility.
+            if age_days < 0:
+                staleness_status = "future"
+                warnings.append("最新缓存标注了未来日期，请核对文件日期与系统时钟；不能作为今日行情。")
+            elif age_days == 0:
+                staleness_status = "today"
+                warnings.append("缓存日期为今日，不代表实时、收盘完整或来源资格已通过；请核对捕获时间与证据校验。")
+            else:
+                staleness_status = "historical"
+                warnings.append(f"最新缓存距当前日期 {age_days} 天，仅供历史回放；是否缺少交易日数据需核对交易日历。")
         except Exception:
             staleness_status = "unknown"
     return {
