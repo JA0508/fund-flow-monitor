@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import MutableMapping
+
 
 STANDARD_MODE = "标准模式"
 PORTFOLIO_MODE = "作品集演示模式"
@@ -39,6 +41,16 @@ def is_portfolio_mode(mode: str | None) -> bool:
 
 def should_show_debug_details(mode: str | None) -> bool:
     return not is_portfolio_mode(mode)
+
+
+def sync_brief_theme_from_radar(session_state: MutableMapping[str, object]) -> None:
+    """Keep the brief aligned with the radar until the user chooses a brief theme."""
+    session_state.setdefault("brief_provenance_theme_user_selected", False)
+    if session_state["brief_provenance_theme_user_selected"]:
+        return
+    selected_theme = str(session_state.get("theme_radar_evidence_theme") or "").strip()
+    if selected_theme:
+        session_state["brief_provenance_theme"] = selected_theme
 
 
 def build_status_badge_config(view_status: str) -> dict:

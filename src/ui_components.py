@@ -32,6 +32,7 @@ def inject_global_css() -> None:
         .time-title { text-align: center; font-size: 22px; color: #26e07f; margin: 0.15rem 0 0.45rem; font-weight: 750; line-height: 1.15; }
         .compact-status { border: 1px solid rgba(255,255,255,.12); background: #080808; color: #d1d5db; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.7; margin: 0.2rem 0 0.45rem; text-align: center; }
         .compact-status b { color: #f3f4f6; font-weight: 750; }
+        .status-group + .status-group::before { content: " ｜ "; color: #6b7280; }
         .status-live { color: #26e07f; font-weight: 850; }
         .status-cache { color: #60a5fa; font-weight: 850; }
         .status-demo { color: #ffd166; font-weight: 850; }
@@ -139,7 +140,7 @@ def inject_global_css() -> None:
         .stTabs [data-baseweb="tab"] { background: #080808; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 8px 8px 0 0; color: #aab2c0; padding: 8px 14px; }
         .stTabs [aria-selected="true"] { color: #f0c65a !important; background: #0b0f14 !important; }
         pre, code { background: #0b0f14 !important; color: #d1d5db !important; border-color: rgba(255,255,255,.08) !important; }
-        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } .hotspot-overview { grid-template-columns: 1fr 1fr; } .demo-guide-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .status-group { display: block; } .status-group + .status-group::before { content: ""; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } .hotspot-overview { grid-template-columns: 1fr 1fr; } .demo-guide-grid { grid-template-columns: 1fr; } }
         </style>
         """,
         unsafe_allow_html=True,
@@ -297,26 +298,29 @@ def render_status_bar(
         "HISTORY": "status-history",
         "EMPTY": "status-empty",
     }.get(data_status, "")
-    snapshot_bits = ""
+    snapshot_items: list[str] = []
     if selected_snapshot_date:
-        snapshot_bits += f" ｜ 数据日期：<b>{escape(str(selected_snapshot_date))}</b>"
+        snapshot_items.append(f"数据日期：<b>{escape(str(selected_snapshot_date))}</b>")
     if captured_time_count is not None:
-        snapshot_bits += f" ｜ 时间点：<b>{int(captured_time_count)}</b>"
+        snapshot_items.append(f"时间点：<b>{int(captured_time_count)}</b>")
     if quality_label:
-        snapshot_bits += f" ｜ 质量：<b>{escape(str(quality_label))}</b>"
-    html = (
-        "<div class='compact-status'>"
-        f"数据源：<b>{escape(source_text)}</b> ｜ "
-        f"数据状态：<span class='{status_class}'>{escape(data_status)}</span> ｜ "
-        f"状态说明：<b>{escape(status_note)}</b> ｜ "
-        f"市场状态：<b>{escape(market_text)}</b> ｜ "
-        f"{escape(latest_label)}：<b>{escape(latest_time or '--:--:--')}</b> ｜ "
-        f"刷新：<b>{refresh_interval}秒</b> ｜ "
-        f"板块类型：<b>{escape(sector_type)}</b>"
-        f"{snapshot_bits}"
-        f"{f' ｜ {escape(extra_text)}' if extra_text else ''}"
-        "</div>"
-    )
+        snapshot_items.append(f"质量：<b>{escape(str(quality_label))}</b>")
+    if extra_text:
+        snapshot_items.append(escape(extra_text))
+    status_groups = [
+        (
+            "数据源：<b>"
+            f"{escape(source_text)}</b> ｜ 数据状态：<span class='{status_class}'>{escape(data_status)}</span> ｜ "
+            f"状态说明：<b>{escape(status_note)}</b>"
+        ),
+        f"市场状态：<b>{escape(market_text)}</b> ｜ {escape(latest_label)}：<b>{escape(latest_time or '--:--:--')}</b>",
+        f"刷新：<b>{refresh_interval}秒</b> ｜ 板块类型：<b>{escape(sector_type)}</b>",
+    ]
+    if snapshot_items:
+        status_groups.append(" ｜ ".join(snapshot_items))
+    html = "<div class='compact-status'>" + "".join(
+        f"<span class='status-group'>{group}</span>" for group in status_groups
+    ) + "</div>"
     st.markdown(html, unsafe_allow_html=True)
     if data_status == "DEMO":
         st.markdown(

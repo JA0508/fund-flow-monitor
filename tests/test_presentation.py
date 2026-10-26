@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from src.presentation import (
     PORTFOLIO_MODE,
     STANDARD_MODE,
@@ -11,6 +13,7 @@ from src.presentation import (
     is_portfolio_mode,
     normalize_display_mode,
     should_show_debug_details,
+    sync_brief_theme_from_radar,
     validate_presentation_text,
 )
 
@@ -102,3 +105,65 @@ def test_normal_presentation_copy_has_no_forbidden_words():
         ]
     )
     assert validate_presentation_text(text) == []
+
+
+def test_sync_brief_theme_from_radar_updates_only_until_brief_has_a_manual_choice():
+    state = {
+        "theme_radar_evidence_theme": "半导体/芯片链",
+        "brief_provenance_theme": "新能源链",
+    }
+
+    sync_brief_theme_from_radar(state)
+
+    assert state["brief_provenance_theme"] == "半导体/芯片链"
+    assert state["brief_provenance_theme_user_selected"] is False
+
+    state["brief_provenance_theme"] = "医药主题"
+    state["brief_provenance_theme_user_selected"] = True
+    state["theme_radar_evidence_theme"] = "红利防御"
+
+    sync_brief_theme_from_radar(state)
+
+    assert state["brief_provenance_theme"] == "医药主题"
+
+
+def test_theme_radar_places_selected_theme_evidence_before_market_overview():
+    app_source = Path(__file__).parents[1].joinpath("app.py").read_text(encoding="utf-8")
+    radar_body = app_source.split("    with tab_radar:", maxsplit=1)[1].split("    with tab_intraday:", maxsplit=1)[0]
+    assert radar_body.index('key="theme_radar_evidence_theme"') < radar_body.index("render_market_temperature_card")
+    assert radar_body.index("render_theme_observation_evidence_cards(evidence)") < radar_body.index("render_theme_radar_cards")
+
+
+def test_live_curve_keeps_one_complete_sample_status_explanation():
+    app_source = Path(__file__).parents[1].joinpath("app.py").read_text(encoding="utf-8")
+    curve_body = app_source.split("    with tab_curve:", maxsplit=1)[1].split("    with tab_radar:", maxsplit=1)[0]
+    assert "render_status_badge(status_badge_config)" not in curve_body
+    assert "render_status_bar(" in curve_body
+    assert 'data_source_label="SAMPLE synthetic CSV" if sample_mode else None' in curve_body
+    assert 'extra_status = f"数据来源：{source_label}"' not in app_source
+    assert 'extra_status = f"主题口径：{theme_mode_label}"' in app_source
+
+
+def test_sidebar_hides_multi_day_settings_until_requested():
+    app_source = Path(__file__).parents[1].joinpath("app.py").read_text(encoding="utf-8")
+    sidebar_body = app_source.split("    with st.sidebar:", maxsplit=1)[1].split("    st_autorefresh", maxsplit=1)[0]
+    assert 'with st.expander("多日趋势设置", expanded=False):' in sidebar_body
+    assert sidebar_body.index('with st.expander("多日趋势设置", expanded=False):') < sidebar_body.index('key="multi_day_trend_mode_label"')
+
+
+def test_brief_defaults_to_the_theme_currently_selected_on_the_radar():
+    app_source = Path(__file__).parents[1].joinpath("app.py").read_text(encoding="utf-8")
+    brief_body = app_source.split("    with tab_brief:", maxsplit=1)[1].split("    with tab_rank:", maxsplit=1)[0]
+    assert 'st.session_state.get("theme_radar_evidence_theme")' in brief_body
+    assert "brief_theme_index = (" in brief_body
+    assert "index=brief_theme_index" in brief_body
+
+
+def test_brief_keeps_optional_warehouse_history_out_of_the_primary_theme_selection_path():
+    app_source = Path(__file__).parents[1].joinpath("app.py").read_text(encoding="utf-8")
+    brief_body = app_source.split("    with tab_brief:", maxsplit=1)[1].split("    with tab_rank:", maxsplit=1)[0]
+    assert 'with st.expander("可选：本地 Warehouse 历史摘要", expanded=False):' in brief_body
+    assert brief_body.index('key="brief_provenance_theme"') < brief_body.index(
+        'with st.expander("可选：本地 Warehouse 历史摘要", expanded=False):'
+    )
+    assert 'value=False,' in brief_body[brief_body.index('key="brief_include_theme_history"') - 300 : brief_body.index('key="brief_include_theme_history"')]

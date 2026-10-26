@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -110,11 +111,11 @@ from src.presentation import (
     build_demo_walkthrough_steps,
     build_portfolio_intro_context,
     build_screenshot_checklist,
-    build_status_badge_config,
     get_display_mode_options,
     is_portfolio_mode,
     normalize_display_mode,
     should_show_debug_details,
+    sync_brief_theme_from_radar,
 )
 from src.runtime_profile import (
     build_runtime_profile_notice,
@@ -257,7 +258,6 @@ from src.ui_components import (
     render_warehouse_notes,
     render_warehouse_status_cards,
     render_csv_warehouse_consistency_cards,
-    render_status_badge,
     render_status_bar,
     render_observation_brief_cards,
     render_theme_concept_cards,
@@ -286,6 +286,8 @@ from src.ui_components import (
 )
 from src.utils import get_china_now
 from src.watchlist import filter_watchlist_theme_df, get_watchlist_themes, load_watchlist
+from src.daily_status_ui import render_daily_status
+from src.watchlist_ui import render_personal_watchlist
 from src.warehouse_explorer import (
     build_csv_warehouse_consistency_report,
     build_warehouse_explorer_summary,
@@ -306,6 +308,32 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+
+def _sync_brief_theme_from_radar() -> None:
+    sync_brief_theme_from_radar(st.session_state)
+
+
+def _mark_brief_theme_user_selected() -> None:
+    st.session_state["brief_provenance_theme_user_selected"] = True
+
+
+def _research_navigation_changed() -> None:
+    st.session_state["research_navigation_only"] = True
+
+
+def _prepare_research_navigation() -> bool:
+    # Detach conditional widgets from Streamlit's end-of-run widget cleanup.
+    for key in (
+        "multi_day_evidence_theme", "theme_dynamics_theme", "theme_dynamics_mode_label",
+        "relationship_theme_a", "relationship_theme_b", "robustness_kind",
+        "theme_history_source_type", "theme_history_mode_label", "theme_history_latest_per_day",
+        "theme_history_top_n", "theme_history_chart_option", "theme_history_visual_top_n",
+        "theme_history_selected_themes",
+    ):
+        if key in st.session_state:
+            st.session_state[key] = st.session_state[key]
+    return bool(st.session_state.pop("research_navigation_only", False))
 
 
 def _make_demo_data(sector_type: str, now) -> pd.DataFrame:
@@ -413,6 +441,22 @@ def _load_cache_ticks(trade_date: str, sector_type: str) -> pd.DataFrame:
     return ticks
 
 
+def _render_requested_eligibility(source_mode, data_dir, readiness, title):
+    if not st.button(f"运行 {source_mode} 历史资格分析", key=f"run_eligibility_{source_mode}"):
+        st.caption(f"{source_mode} 历史资格分析未运行；历史可读性不代表已通过资格校验。")
+        return
+    with st.spinner(f"正在分析 {source_mode} 历史证据，耗时取决于历史捕获数量…"):
+        try:
+            cube = build_theme_observation_cube(source_mode=source_mode, data_dir=data_dir)
+            report = build_availability_vs_qualified_readiness(
+                readiness, cube, workload=WORKLOAD_THEME_CONTINUITY,
+            )
+        except Exception as exc:
+            st.error(f"{source_mode} 历史资格分析失败（{type(exc).__name__}）；未生成资格结论。")
+            return
+    render_analytical_eligibility_summary_cards(report, title=title)
+
+
 def main() -> None:
     inject_global_css()
 
@@ -423,10 +467,10 @@ def main() -> None:
     now = get_china_now()
     trade_date = now.strftime("%Y-%m-%d")
     market_status = get_market_status(now)
+    navigation_only = _prepare_research_navigation()
     can_fetch = market_status in FETCH_ALLOWED_STATUSES
+    should_fetch = can_fetch and not navigation_only
     snapshot_catalog_df = build_snapshot_catalog()
-    real_cache_summary = build_real_cache_summary()
-    collector_audit_summary = build_collector_audit_summary()
     latest_snapshot_date = get_latest_snapshot_date(snapshot_catalog_df)
     sample_catalog_df = build_sample_snapshot_catalog()
     latest_sample_date = get_latest_sample_date(sample_catalog_df)
@@ -438,24 +482,6 @@ def main() -> None:
     primary_provider_contract = get_primary_provider_contract().to_dict()
     real_history_readiness = classify_historical_evidence_readiness(real_history_summary)
     sample_history_readiness = classify_historical_evidence_readiness(sample_history_summary)
-    try:
-        real_eligibility_cube_df = build_theme_observation_cube(source_mode="REAL", data_dir="data/ticks")
-    except Exception:
-        real_eligibility_cube_df = pd.DataFrame()
-    try:
-        sample_eligibility_cube_df = build_theme_observation_cube(source_mode="SAMPLE", data_dir=SAMPLE_DIR)
-    except Exception:
-        sample_eligibility_cube_df = pd.DataFrame()
-    real_analytical_readiness = build_availability_vs_qualified_readiness(
-        real_history_readiness,
-        real_eligibility_cube_df,
-        workload=WORKLOAD_THEME_CONTINUITY,
-    )
-    sample_analytical_readiness = build_availability_vs_qualified_readiness(
-        sample_history_readiness,
-        sample_eligibility_cube_df,
-        workload=WORKLOAD_THEME_CONTINUITY,
-    )
     try:
         real_evidence_accumulation = build_evidence_accumulation_report(source_mode="REAL", data_dir="data/ticks")
     except Exception as exc:
@@ -651,13 +677,13 @@ def main() -> None:
                 "代表口径": "representative",
                 "广度观察": "breadth",
             }[theme_mode_label]
-        st.markdown("### 多日趋势")
-        multi_day_mode_label = st.selectbox(
-            "多日趋势口径",
-            ("严格代表口径", "代表口径", "广度观察"),
-            index=0,
-            key="multi_day_trend_mode_label",
-        )
+        with st.expander("多日趋势设置", expanded=False):
+            multi_day_mode_label = st.selectbox(
+                "多日趋势口径",
+                ("严格代表口径", "代表口径", "广度观察"),
+                index=0,
+                key="multi_day_trend_mode_label",
+            )
         multi_day_mode = {
             "严格代表口径": "strict_representative",
             "代表口径": "representative",
@@ -684,7 +710,8 @@ def main() -> None:
                 concept_manual_refresh = st.button("刷新概念资金流", type="secondary")
                 st.caption("概念资金流低频刷新，用于主题热度辅助观察。")
 
-    st_autorefresh(interval=refresh_interval * 1000, key="fund_flow_refresh")
+    if not sample_mode and not history_mode_requested:
+        st_autorefresh(interval=refresh_interval * 1000, key="fund_flow_refresh")
     error = None
     concept_error = None
     data_status = "CACHE"
@@ -752,14 +779,14 @@ def main() -> None:
         concept_attempt_due = should_refresh_concept_cache(last_concept_attempt_at, now, max_age_minutes=5)
         concept_should_fetch = (
             (concept_assist_enabled or is_concept_main)
-            and can_fetch
+            and should_fetch
             and (
                 concept_manual_refresh
                 or ((not concept_summary.get("has_concept_cache") or concept_refresh_due) and concept_attempt_due)
             )
         )
 
-        if can_fetch and not is_concept_main:
+        if should_fetch and not is_concept_main:
             try:
                 raw = fetch_sector_flow(sector_type=sector_type, indicator="今日")
                 snapshot = normalize_sector_flow(raw, sector_type=sector_type, captured_at=now)
@@ -779,7 +806,7 @@ def main() -> None:
             latest_label = "最新缓存"
         else:
             data_status = "CACHE"
-            status_note = "非交易时间，当前展示最近缓存"
+            status_note = "页签切换只读展示缓存" if navigation_only else "非交易时间，当前展示最近缓存"
             latest_label = "最新缓存"
 
         if concept_should_fetch:
@@ -900,6 +927,14 @@ def main() -> None:
     if display_mode != "基金观察池":
         radar_theme_df = build_theme_snapshot(raw_latest_df, theme_mode="strict_representative")
     watchlist = load_watchlist()
+    watchlist = render_personal_watchlist(
+        watchlist,
+        [item["theme_name"] for item in load_theme_taxonomy().get("themes", []) if item.get("theme_name")],
+        project_root / "data/preferences/watchlist.json",
+        enabled=os.environ.get("FUND_FLOW_PERSONAL") == "1" and not runtime_profile.get("public_demo_enabled"),
+    )
+    if watchlist.get("_load_warning"):
+        st.warning(watchlist["_load_warning"])
     watchlist_themes = get_watchlist_themes(watchlist)
     concept_summary_df = pd.DataFrame()
     if concept_assist_enabled and not concept_latest_df.empty:
@@ -1000,9 +1035,9 @@ def main() -> None:
     snapshot_count = int(active_summary.get("row_count", 0) or 0)
     captured_time_count = int(active_summary.get("captured_time_count", 0) or 0)
     source_label = "演示样例数据" if sample_mode else "真实数据 / 本地缓存"
-    extra_status = f"数据来源：{source_label}"
+    extra_status = None
     if display_mode == "基金观察池":
-        extra_status += f" ｜ 主题口径：{theme_mode_label}"
+        extra_status = f"主题口径：{theme_mode_label}"
     theme_note = None
     if display_mode == "基金观察池":
         theme_note = (
@@ -1015,7 +1050,6 @@ def main() -> None:
             )
         )
 
-    status_badge_config = build_status_badge_config(data_status)
     portfolio_intro_context = build_portfolio_intro_context(
         app_version=APP_VERSION,
         view_status=data_status,
@@ -1026,14 +1060,18 @@ def main() -> None:
     screenshot_checklist = build_screenshot_checklist()
 
     render_header(header_date, latest_time)
+    real_cache_summary = build_real_cache_summary()
+    collector_audit_summary = build_collector_audit_summary()
+    render_daily_status(data_status, real_cache_summary, collector_audit_summary)
     render_portfolio_intro_card(portfolio_intro_context, compact=not portfolio_mode)
     render_public_demo_guide(data_status, source_label, compact=not portfolio_mode)
     tab_curve, tab_radar, tab_intraday, tab_multi_day, tab_holdings, tab_brief, tab_rank, tab_data = st.tabs(
-        ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "观察简报", "排行榜", "数据说明")
+        ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "观察简报", "排行榜", "数据说明"),
+        on_change=_research_navigation_changed,
+        key="research_tab",
     )
 
     with tab_curve:
-        render_status_badge(status_badge_config)
         render_status_bar(
             market_status=market_status,
             refresh_interval=refresh_interval,
@@ -1084,6 +1122,54 @@ def main() -> None:
             tone="info",
         )
         render_theme_taxonomy_status(taxonomy, taxonomy_warnings, coverage_report, taxonomy_consistency)
+        with st.container(border=True):
+            st.markdown("<div class='radar-section-title'>先查看一个主题的观察结论</div>", unsafe_allow_html=True)
+            evidence_theme_options = get_theme_observation_theme_options(watchlist_radar_df, radar_theme_df)
+            if not evidence_theme_options:
+                st.markdown(
+                    "<div class='rank-panel'><div class='rank-empty'>当前没有可解释的主题观察结果。</div></div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                evidence_theme = st.selectbox(
+                    "选择主题查看计算证据",
+                    evidence_theme_options,
+                    index=0,
+                    key="theme_radar_evidence_theme",
+                    on_change=_sync_brief_theme_from_radar,
+                )
+                evidence = build_theme_observation_evidence(
+                    raw_latest_df,
+                    evidence_theme,
+                    theme_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                    taxonomy=taxonomy,
+                    source_mode=active_source_mode,
+                    manifest_df=active_history_manifest_df,
+                    as_of_trade_date=selected_snapshot_date or header_date,
+                    as_of_captured_time=latest_time,
+                )
+                research_snapshot = build_theme_research_snapshot(evidence)
+                snapshot_body = (
+                    f"{research_snapshot['theme_name']} 当前状态：{research_snapshot['observed_state']}；"
+                    f"{research_snapshot['member_coverage_label']} "
+                    f"快照覆盖：{research_snapshot['history_readiness_label']}。"
+                )
+                render_compact_notice(
+                    "主题观察结论",
+                    snapshot_body,
+                    tone="info" if research_snapshot["research_snapshot_available"] else "warning",
+                )
+                st.caption(research_snapshot["source_notice"])
+                st.caption(research_snapshot["history_scope_notice"])
+                if research_snapshot["limitations"]:
+                    st.caption("观察限制：" + "；".join(research_snapshot["limitations"][:3]))
+                render_theme_observation_evidence_cards(evidence)
+                with st.expander("查看成员输入与阈值映射", expanded=False):
+                    render_theme_observation_contribution_table(evidence)
+                    st.markdown("<div class='radar-section-title'>状态阈值</div>", unsafe_allow_html=True)
+                    render_theme_observation_threshold_table(evidence)
+
+        st.markdown("<div class='radar-section-title'>全市场主题概览</div>", unsafe_allow_html=True)
         render_market_temperature_card(build_market_temperature(radar_theme_df))
         render_theme_radar_cards(watchlist_radar_df, max_cards=8)
         if concept_assist_enabled:
@@ -1097,51 +1183,6 @@ def main() -> None:
         else:
             render_theme_concept_cards(pd.DataFrame(), max_cards=8)
         render_divergence_cards(watchlist_divergence_df, max_cards=5)
-        st.markdown("<div class='radar-section-title'>主题状态证据</div>", unsafe_allow_html=True)
-        evidence_theme_options = get_theme_observation_theme_options(watchlist_radar_df, radar_theme_df)
-        if not evidence_theme_options:
-            st.markdown(
-                "<div class='rank-panel'><div class='rank-empty'>当前没有可解释的主题观察结果。</div></div>",
-                unsafe_allow_html=True,
-            )
-        else:
-            evidence_theme = st.selectbox(
-                "选择主题查看计算证据",
-                evidence_theme_options,
-                index=0,
-                key="theme_radar_evidence_theme",
-            )
-            evidence = build_theme_observation_evidence(
-                raw_latest_df,
-                evidence_theme,
-                theme_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
-                taxonomy=taxonomy,
-                source_mode=active_source_mode,
-                manifest_df=active_history_manifest_df,
-                as_of_trade_date=selected_snapshot_date or header_date,
-                as_of_captured_time=latest_time,
-            )
-            research_snapshot = build_theme_research_snapshot(evidence)
-            snapshot_body = (
-                f"{research_snapshot['theme_name']} 当前状态：{research_snapshot['observed_state']}；"
-                f"{research_snapshot['member_coverage_label']} "
-                f"快照覆盖：{research_snapshot['history_readiness_label']}。"
-            )
-            render_compact_notice(
-                "主题观察结论",
-                snapshot_body,
-                tone="info" if research_snapshot["research_snapshot_available"] else "warning",
-            )
-            st.caption(research_snapshot["source_notice"])
-            st.caption(research_snapshot["history_scope_notice"])
-            if research_snapshot["limitations"]:
-                st.caption("观察限制：" + "；".join(research_snapshot["limitations"][:3]))
-            render_theme_observation_evidence_cards(evidence)
-            with st.expander("查看成员输入与阈值映射", expanded=False):
-                render_theme_observation_contribution_table(evidence)
-                st.markdown("<div class='radar-section-title'>状态阈值</div>", unsafe_allow_html=True)
-                render_theme_observation_threshold_table(evidence)
-
     with tab_intraday:
         st.markdown(
             f"<div class='concept-note'>本页基于所选数据日期 <b>{selected_snapshot_date or '--'}</b> 的本地 CSV 资金流快照，观察主题资金在日内的变化。"
@@ -1164,433 +1205,434 @@ def main() -> None:
                 render_hotspot_cards("分化观察主题", intraday_sections["neutral_hotspots"], max_cards=6)
             render_intraday_hotspot_table(intraday_hotspot_pool_df, max_rows=30)
 
-    with tab_multi_day:
-        st.markdown(
-            "<div class='concept-note'>本页基于本地 CSV 快照目录中的多个交易日缓存，观察主题资金在不同日期之间的变化。"
-            "结果仅用于解释已保存的历史资金流状态，不预测未来走势，不构成投资建议。"
-            f"当前多日趋势口径：<b>{multi_day_mode_label}</b>。"
-            f"当前来源：<b>{'演示样例数据目录 sample_data/ticks' if sample_mode else '真实缓存目录 data/ticks'}</b>。</div>",
-            unsafe_allow_html=True,
-        )
-        if multi_day_date_count < 2:
+    if tab_multi_day.open:
+        with tab_multi_day:
             st.markdown(
-                "<div class='rank-panel'><div class='rank-empty'>当前本地 CSV 日期不足，暂无法判断多日趋势。请等待更多缓存日期或使用历史回放查看单日情况。</div></div>",
+                "<div class='concept-note'>本页基于本地 CSV 快照目录中的多个交易日缓存，观察主题资金在不同日期之间的变化。"
+                "结果仅用于解释已保存的历史资金流状态，不预测未来走势，不构成投资建议。"
+                f"当前多日趋势口径：<b>{multi_day_mode_label}</b>。"
+                f"当前来源：<b>{'演示样例数据目录 sample_data/ticks' if sample_mode else '真实缓存目录 data/ticks'}</b>。</div>",
                 unsafe_allow_html=True,
             )
-        else:
-            if multi_day_date_count <= 2:
+            if multi_day_date_count < 2:
                 st.markdown(
-                    "<div class='concept-note'>当前参与多日趋势的缓存日期较少，结果只适合作为轻量历史观察。</div>",
-                    unsafe_allow_html=True,
-                )
-            render_multi_day_trend_overview(multi_day_summary, date_count=available_multi_day_count)
-            render_multi_day_trend_cards("多日偏强 / 由弱转强主题", multi_day_sections["strength_trends"], max_cards=6)
-            render_multi_day_trend_cards("多日改善主题", multi_day_sections["improving_trends"], max_cards=6)
-            render_multi_day_trend_cards("多日承压 / 走弱主题", multi_day_sections["pressure_trends"], max_cards=6)
-            with st.expander("多日分化主题", expanded=False):
-                render_multi_day_trend_cards("多日分化主题", multi_day_sections["mixed_trends"], max_cards=6)
-            render_multi_day_trend_table(multi_day_trend_pool_df, max_rows=30)
-            trend_evidence_options = (
-                multi_day_trend_pool_df["theme_name"].dropna().astype(str).tolist()
-                if not multi_day_trend_pool_df.empty and "theme_name" in multi_day_trend_pool_df.columns
-                else []
-            )
-            if trend_evidence_options:
-                with st.expander("查看多日主题状态证据", expanded=False):
-                    trend_evidence_theme = st.selectbox(
-                        "选择多日主题证据",
-                        list(dict.fromkeys(trend_evidence_options)),
-                        index=0,
-                        key="multi_day_evidence_theme",
-                    )
-                    trend_evidence = build_theme_observation_evidence(
-                        raw_latest_df,
-                        trend_evidence_theme,
-                        theme_mode=multi_day_mode,
-                        taxonomy=taxonomy,
-                        source_mode=active_source_mode,
-                        manifest_df=active_history_manifest_df,
-                        as_of_trade_date=selected_snapshot_date or header_date,
-                        as_of_captured_time=latest_time,
-                    )
-                    render_theme_observation_evidence_cards(trend_evidence)
-                    render_theme_observation_contribution_table(trend_evidence)
-            st.markdown("<div class='radar-section-title'>主题动态证据 / Theme Dynamics Evidence</div>", unsafe_allow_html=True)
-            dynamics_theme_options = (
-                multi_day_trend_pool_df["theme_name"].dropna().astype(str).tolist()
-                if not multi_day_trend_pool_df.empty and "theme_name" in multi_day_trend_pool_df.columns
-                else radar_theme_df["theme_name"].dropna().astype(str).tolist()
-                if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
-                else []
-            )
-            dynamics_theme_options = list(dict.fromkeys(dynamics_theme_options))
-            if not dynamics_theme_options:
-                st.markdown(
-                    "<div class='rank-panel'><div class='rank-empty'>当前暂无可构建动态证据的主题。</div></div>",
+                    "<div class='rank-panel'><div class='rank-empty'>当前本地 CSV 日期不足，暂无法判断多日趋势。请等待更多缓存日期或使用历史回放查看单日情况。</div></div>",
                     unsafe_allow_html=True,
                 )
             else:
-                with st.expander("查看主题动态证据（只读）", expanded=False):
-                    d_col1, d_col2 = st.columns(2)
-                    with d_col1:
-                        dynamics_theme = st.selectbox(
-                            "动态证据主题",
-                            dynamics_theme_options,
-                            index=0,
-                            key="theme_dynamics_theme",
-                        )
-                    with d_col2:
-                        dynamics_mode_label = st.selectbox(
-                            "动态证据口径",
-                            ("严格代表口径", "代表口径", "广度观察"),
-                            index=("严格代表口径", "代表口径", "广度观察").index(multi_day_mode_label)
-                            if multi_day_mode_label in ("严格代表口径", "代表口径", "广度观察")
-                            else 0,
-                            key="theme_dynamics_mode_label",
-                        )
-                    dynamics_mode = {
-                        "严格代表口径": "strict_representative",
-                        "代表口径": "representative",
-                        "广度观察": "breadth",
-                    }[dynamics_mode_label]
-                    dynamics_cube_df = build_theme_observation_cube(
-                        taxonomy=taxonomy,
-                        source_mode=active_source_mode,
-                        data_dir=active_catalog_dir,
-                    )
-                    dynamics_evidence = build_theme_dynamics_evidence(
-                        dynamics_cube_df,
-                        theme_name=dynamics_theme,
-                        source_mode=active_source_mode,
-                        calculation_mode=dynamics_mode,
-                        taxonomy=taxonomy,
-                        data_dir=active_catalog_dir,
-                    )
-                    if active_source_mode == "SAMPLE":
-                        render_compact_notice(
-                            "SAMPLE 动态证据说明",
-                            "当前主题动态证据来自 sample_data/ticks 合成演示数据，不代表真实行情。",
-                            tone="warning",
-                        )
-                    render_theme_dynamics_evidence_panel(dynamics_evidence)
-                    st.markdown("<div class='radar-section-title'>结构状态签名 / Structural Regime Evidence</div>", unsafe_allow_html=True)
-                    regime_evidence = build_theme_regime_evidence(
-                        theme_name=dynamics_theme,
-                        source_mode=active_source_mode,
-                        calculation_mode=dynamics_mode,
-                        taxonomy=taxonomy,
-                        data_dir=active_catalog_dir,
-                        cube_df=dynamics_cube_df,
-                    )
-                    if active_source_mode == "SAMPLE":
-                        render_compact_notice(
-                            "SAMPLE 结构签名说明",
-                            "当前结构状态签名来自 sample_data/ticks 合成演示数据，只描述已缓存历史样本，不代表真实行情。",
-                            tone="warning",
-                        )
-                    render_theme_regime_evidence_panel(regime_evidence)
-                    st.markdown("<div class='radar-section-title'>主题关系证据 / Cross-Theme Relationship Evidence</div>", unsafe_allow_html=True)
-                    if len(dynamics_theme_options) < 2:
-                        st.markdown(
-                            "<div class='rank-panel'><div class='rank-empty'>当前至少需要两个主题才能构建 cross-theme relationship evidence。</div></div>",
-                            unsafe_allow_html=True,
-                        )
-                    else:
-                        r_col1, r_col2 = st.columns(2)
-                        with r_col1:
-                            relationship_theme_a = st.selectbox(
-                                "Theme A",
-                                dynamics_theme_options,
-                                index=0,
-                                key="relationship_theme_a",
-                            )
-                        theme_b_options = [item for item in dynamics_theme_options if item != relationship_theme_a]
-                        with r_col2:
-                            relationship_theme_b = st.selectbox(
-                                "Theme B",
-                                theme_b_options,
-                                index=0,
-                                key="relationship_theme_b",
-                            )
-                        relationship_bundle = build_theme_relationships_from_cube(
-                            dynamics_cube_df,
-                            calculation_mode=dynamics_mode,
-                            source_mode=active_source_mode,
-                            taxonomy=taxonomy,
-                        )
-                        relationship_evidence = build_theme_relationship_evidence(
-                            relationship_bundle.get("pair_observations"),
-                            relationship_theme_a,
-                            relationship_theme_b,
-                            taxonomy=taxonomy,
-                        )
-                        if active_source_mode == "SAMPLE":
-                            render_compact_notice(
-                                "SAMPLE 主题关系证据说明",
-                                "当前 cross-theme relationship evidence 来自 sample_data/ticks 合成演示数据。它只描述 aligned canonical observations，不代表真实行情。",
-                                tone="warning",
-                            )
-                        render_theme_relationship_evidence_panel(relationship_evidence)
-                        topology = relationship_bundle.get("topology_summary")
-                        if topology is not None and not topology.empty:
-                            with st.expander("Cross-theme topology factual rows", expanded=False):
-                                display_summary = getattr(topology, "attrs", {}).get("display_sufficiency", {})
-                                if display_summary:
-                                    st.caption(
-                                        "Display sufficiency: "
-                                        f"min aligned observations = {display_summary.get('minimum_aligned_observations')}; "
-                                        f"min represented trade dates = {display_summary.get('minimum_represented_trade_dates')}; "
-                                        f"excluded pair count = {display_summary.get('excluded_pair_count')}."
-                                    )
-                                columns = [
-                                    "theme_pair",
-                                    "aligned_observations",
-                                    "represented_trade_dates",
-                                    "alignment_gaps",
-                                    "taxonomy_jaccard",
-                                    "same_sign_count",
-                                    "same_sign_observed_share",
-                                    "exact_state_agreement_count",
-                                    "exact_state_observed_share",
-                                    "same_regime_count",
-                                    "same_regime_observed_share",
-                                    "headline_aligned_regime_different_count",
-                                    "display_eligible",
-                                    "denominator_context",
-                                ]
-                                st.dataframe(topology[[column for column in columns if column in topology.columns]].head(12), hide_index=True)
-                    st.markdown("<div class='radar-section-title'>分析稳健性与证据充分度 / Analytical Robustness Evidence</div>", unsafe_allow_html=True)
-                    robustness_options = ("当前主题", "当前主题对") if len(dynamics_theme_options) >= 2 else ("当前主题",)
-                    robustness_kind = st.radio(
-                        "稳健性审计对象",
-                        robustness_options,
-                        horizontal=True,
-                        key="robustness_kind",
-                    )
-                    robustness_buckets = (1, 5, 10)
-                    if robustness_kind == "当前主题":
-                        robustness_theme_result = compare_theme_specifications(
-                            dynamics_theme,
-                            source_mode=active_source_mode,
-                            calculation_mode=dynamics_mode,
-                            bucket_minutes=robustness_buckets,
-                            taxonomy=taxonomy,
-                            data_dir=active_catalog_dir,
-                        )
-                        if active_source_mode == "SAMPLE":
-                            render_compact_notice(
-                                "SAMPLE 稳健性审计说明",
-                                "当前 analytical robustness evidence 来自 sample_data/ticks 合成演示数据，只用于展示规格敏感性和证据充分度流程，不代表真实行情。",
-                                tone="warning",
-                            )
-                        render_analytical_robustness_panel({"theme_robustness": robustness_theme_result}, analysis_type="theme")
-                    elif len(dynamics_theme_options) >= 2:
-                        robustness_pair_result = compare_relationship_specifications(
-                            relationship_theme_a,
-                            relationship_theme_b,
-                            source_mode=active_source_mode,
-                            calculation_mode=dynamics_mode,
-                            bucket_minutes=robustness_buckets,
-                            taxonomy=taxonomy,
-                            data_dir=active_catalog_dir,
-                        )
-                        if active_source_mode == "SAMPLE":
-                            render_compact_notice(
-                                "SAMPLE 关系稳健性审计说明",
-                                "当前 relationship robustness evidence 来自 sample_data/ticks 合成演示数据；观察区间、分子/分母和日期覆盖只描述合成样本。",
-                                tone="warning",
-                            )
-                        render_analytical_robustness_panel({"relationship_robustness": robustness_pair_result}, analysis_type="relationship")
-        st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
-        render_historical_evidence_notes(
-            "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
-            "它不会访问 AKShare，不会写 CSV，不会写 SQLite，也不做绩效评估或预测。"
-        )
-        if sample_mode:
-            render_compact_notice(
-                "SAMPLE 历史证据说明",
-                "当前历史证据来自 sample_data/ticks 合成演示数据，仅用于展示 lineage / coverage / provenance 流程，不代表真实行情。",
-                tone="warning",
-            )
-        render_historical_evidence_summary_cards(
-            active_history_summary,
-            active_history_readiness,
-            title="当前数据源历史覆盖证据",
-        )
-        if selected_snapshot_date:
-            replay_evidence = resolve_replay_evidence(
-                selected_snapshot_date,
-                active_history_manifest_df,
-                source_mode="SAMPLE" if sample_mode else "REAL",
-                mode="SAMPLE" if sample_mode else ("HISTORY" if is_history_replay else data_status),
-            )
-            render_replay_evidence_card(replay_evidence)
-        with st.expander("查看 captured_time 覆盖矩阵", expanded=show_debug_details):
-            render_coverage_matrix(active_coverage_matrix_df, title="当前数据源 captured_time 覆盖矩阵")
-        st.markdown("<div class='radar-section-title'>Warehouse 主题历史观察（只读）</div>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='concept-note'>该区域基于本地 SQLite warehouse 中已有的 sector-level 历史索引，"
-            "按 theme_taxonomy.json 和现有主题口径聚合为主题级历史观察。CSV 仍是主数据来源，页面不会自动重建 warehouse，也不会写 SQLite 或 CSV。</div>",
-            unsafe_allow_html=True,
-        )
-        theme_history_conn = None
-        try:
-            theme_history_conn, theme_history_status = load_warehouse_if_exists(warehouse_path)
-            if theme_history_conn is None:
-                st.markdown(
-                    "<div class='rank-panel'><div class='rank-empty'>当前未创建本地 warehouse。可在本地运行 "
-                    "<code>python tools/rebuild_local_warehouse.py --include-sample --clear</code> 后查看主题历史聚合。</div></div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                available_sources = get_warehouse_available_source_types(theme_history_conn)
-                source_options = ["ALL"] + [source for source in ("SAMPLE", "LOCAL") if source in available_sources]
-                if len(source_options) == 1:
+                if multi_day_date_count <= 2:
                     st.markdown(
-                        "<div class='rank-panel'><div class='rank-empty'>warehouse 中暂无可查询 source_type。</div></div>",
+                        "<div class='concept-note'>当前参与多日趋势的缓存日期较少，结果只适合作为轻量历史观察。</div>",
+                        unsafe_allow_html=True,
+                    )
+                render_multi_day_trend_overview(multi_day_summary, date_count=available_multi_day_count)
+                render_multi_day_trend_cards("多日偏强 / 由弱转强主题", multi_day_sections["strength_trends"], max_cards=6)
+                render_multi_day_trend_cards("多日改善主题", multi_day_sections["improving_trends"], max_cards=6)
+                render_multi_day_trend_cards("多日承压 / 走弱主题", multi_day_sections["pressure_trends"], max_cards=6)
+                with st.expander("多日分化主题", expanded=False):
+                    render_multi_day_trend_cards("多日分化主题", multi_day_sections["mixed_trends"], max_cards=6)
+                render_multi_day_trend_table(multi_day_trend_pool_df, max_rows=30)
+                trend_evidence_options = (
+                    multi_day_trend_pool_df["theme_name"].dropna().astype(str).tolist()
+                    if not multi_day_trend_pool_df.empty and "theme_name" in multi_day_trend_pool_df.columns
+                    else []
+                )
+                if trend_evidence_options:
+                    with st.expander("查看多日主题状态证据", expanded=False):
+                        trend_evidence_theme = st.selectbox(
+                            "选择多日主题证据",
+                            list(dict.fromkeys(trend_evidence_options)),
+                            index=0,
+                            key="multi_day_evidence_theme",
+                        )
+                        trend_evidence = build_theme_observation_evidence(
+                            raw_latest_df,
+                            trend_evidence_theme,
+                            theme_mode=multi_day_mode,
+                            taxonomy=taxonomy,
+                            source_mode=active_source_mode,
+                            manifest_df=active_history_manifest_df,
+                            as_of_trade_date=selected_snapshot_date or header_date,
+                            as_of_captured_time=latest_time,
+                        )
+                        render_theme_observation_evidence_cards(trend_evidence)
+                        render_theme_observation_contribution_table(trend_evidence)
+                st.markdown("<div class='radar-section-title'>主题动态证据 / Theme Dynamics Evidence</div>", unsafe_allow_html=True)
+                dynamics_theme_options = (
+                    multi_day_trend_pool_df["theme_name"].dropna().astype(str).tolist()
+                    if not multi_day_trend_pool_df.empty and "theme_name" in multi_day_trend_pool_df.columns
+                    else radar_theme_df["theme_name"].dropna().astype(str).tolist()
+                    if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
+                    else []
+                )
+                dynamics_theme_options = list(dict.fromkeys(dynamics_theme_options))
+                if not dynamics_theme_options:
+                    st.markdown(
+                        "<div class='rank-panel'><div class='rank-empty'>当前暂无可构建动态证据的主题。</div></div>",
                         unsafe_allow_html=True,
                     )
                 else:
-                    h_col1, h_col2, h_col3, h_col4 = st.columns(4)
-                    with h_col1:
-                        history_source = st.selectbox(
-                            "主题历史 source_type",
-                            source_options,
-                            index=0,
-                            key="theme_history_source_type",
+                    with st.expander("查看主题动态证据（只读）", expanded=False):
+                        d_col1, d_col2 = st.columns(2)
+                        with d_col1:
+                            dynamics_theme = st.selectbox(
+                                "动态证据主题",
+                                dynamics_theme_options,
+                                index=0,
+                                key="theme_dynamics_theme",
+                            )
+                        with d_col2:
+                            dynamics_mode_label = st.selectbox(
+                                "动态证据口径",
+                                ("严格代表口径", "代表口径", "广度观察"),
+                                index=("严格代表口径", "代表口径", "广度观察").index(multi_day_mode_label)
+                                if multi_day_mode_label in ("严格代表口径", "代表口径", "广度观察")
+                                else 0,
+                                key="theme_dynamics_mode_label",
+                            )
+                        dynamics_mode = {
+                            "严格代表口径": "strict_representative",
+                            "代表口径": "representative",
+                            "广度观察": "breadth",
+                        }[dynamics_mode_label]
+                        dynamics_cube_df = build_theme_observation_cube(
+                            taxonomy=taxonomy,
+                            source_mode=active_source_mode,
+                            data_dir=active_catalog_dir,
                         )
-                    with h_col2:
-                        history_mode_label = st.selectbox(
-                            "主题历史口径",
-                            get_theme_history_mode_options(),
-                            index=get_theme_history_mode_options().index("代表口径"),
-                            key="theme_history_mode_label",
+                        dynamics_evidence = build_theme_dynamics_evidence(
+                            dynamics_cube_df,
+                            theme_name=dynamics_theme,
+                            source_mode=active_source_mode,
+                            calculation_mode=dynamics_mode,
+                            taxonomy=taxonomy,
+                            data_dir=active_catalog_dir,
                         )
-                    with h_col3:
-                        history_latest_per_day = st.checkbox("每日期最新快照", value=True, key="theme_history_latest_per_day")
-                    with h_col4:
-                        history_top_n = st.selectbox("主题历史 Top N", [3, 5, 8], index=1, key="theme_history_top_n")
-                    date_range = get_warehouse_date_range(
-                        theme_history_conn,
-                        None if history_source == "ALL" else history_source,
-                    )
-                    render_theme_history_notes(
-                        f"可用日期范围：{date_range.get('min_date') or '--'} 至 {date_range.get('max_date') or '--'}，"
-                        f"共 {date_range.get('date_count', 0)} 个日期。当前 source_type：{history_source}。"
-                    )
-                    sector_history_df = load_sector_history_from_warehouse(
-                        theme_history_conn,
-                        source_type=None if history_source == "ALL" else history_source,
-                        latest_per_day=history_latest_per_day,
-                        limit_days=60,
-                    )
-                    theme_history_df = build_theme_history_from_sector_history(
-                        sector_history_df,
-                        taxonomy,
-                        theme_mode=normalize_theme_history_mode(history_mode_label),
-                    )
-                    theme_history_summary = summarize_theme_history(theme_history_df, top_n=int(history_top_n))
-                    theme_history_quality = build_theme_history_quality_report(sector_history_df, theme_history_df)
-                    render_theme_history_summary_cards(theme_history_summary, theme_history_quality)
-                    render_theme_history_notes(summarize_theme_history_quality(theme_history_quality))
-                    if history_source == "SAMPLE" or (
-                        history_source == "ALL" and set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper()) == {"SAMPLE"}
-                    ):
-                        render_compact_notice(
-                            "SAMPLE 主题历史说明",
-                            "当前主题历史来自 SAMPLE 合成演示数据，仅用于展示主题级历史聚合流程，不代表真实行情。",
-                            tone="warning",
+                        if active_source_mode == "SAMPLE":
+                            render_compact_notice(
+                                "SAMPLE 动态证据说明",
+                                "当前主题动态证据来自 sample_data/ticks 合成演示数据，不代表真实行情。",
+                                tone="warning",
+                            )
+                        render_theme_dynamics_evidence_panel(dynamics_evidence)
+                        st.markdown("<div class='radar-section-title'>结构状态签名 / Structural Regime Evidence</div>", unsafe_allow_html=True)
+                        regime_evidence = build_theme_regime_evidence(
+                            theme_name=dynamics_theme,
+                            source_mode=active_source_mode,
+                            calculation_mode=dynamics_mode,
+                            taxonomy=taxonomy,
+                            data_dir=active_catalog_dir,
+                            cube_df=dynamics_cube_df,
                         )
-                    matrix_df = build_theme_history_matrix(theme_history_df)
-                    timeline_df = build_theme_status_timeline(theme_history_df)
-                    st.markdown("<div class='radar-section-title'>主题历史图表</div>", unsafe_allow_html=True)
-                    if theme_history_df.empty:
+                        if active_source_mode == "SAMPLE":
+                            render_compact_notice(
+                                "SAMPLE 结构签名说明",
+                                "当前结构状态签名来自 sample_data/ticks 合成演示数据，只描述已缓存历史样本，不代表真实行情。",
+                                tone="warning",
+                            )
+                        render_theme_regime_evidence_panel(regime_evidence)
+                        st.markdown("<div class='radar-section-title'>主题关系证据 / Cross-Theme Relationship Evidence</div>", unsafe_allow_html=True)
+                        if len(dynamics_theme_options) < 2:
+                            st.markdown(
+                                "<div class='rank-panel'><div class='rank-empty'>当前至少需要两个主题才能构建 cross-theme relationship evidence。</div></div>",
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            r_col1, r_col2 = st.columns(2)
+                            with r_col1:
+                                relationship_theme_a = st.selectbox(
+                                    "Theme A",
+                                    dynamics_theme_options,
+                                    index=0,
+                                    key="relationship_theme_a",
+                                )
+                            theme_b_options = [item for item in dynamics_theme_options if item != relationship_theme_a]
+                            with r_col2:
+                                relationship_theme_b = st.selectbox(
+                                    "Theme B",
+                                    theme_b_options,
+                                    index=0,
+                                    key="relationship_theme_b",
+                                )
+                            relationship_bundle = build_theme_relationships_from_cube(
+                                dynamics_cube_df,
+                                calculation_mode=dynamics_mode,
+                                source_mode=active_source_mode,
+                                taxonomy=taxonomy,
+                            )
+                            relationship_evidence = build_theme_relationship_evidence(
+                                relationship_bundle.get("pair_observations"),
+                                relationship_theme_a,
+                                relationship_theme_b,
+                                taxonomy=taxonomy,
+                            )
+                            if active_source_mode == "SAMPLE":
+                                render_compact_notice(
+                                    "SAMPLE 主题关系证据说明",
+                                    "当前 cross-theme relationship evidence 来自 sample_data/ticks 合成演示数据。它只描述 aligned canonical observations，不代表真实行情。",
+                                    tone="warning",
+                                )
+                            render_theme_relationship_evidence_panel(relationship_evidence)
+                            topology = relationship_bundle.get("topology_summary")
+                            if topology is not None and not topology.empty:
+                                with st.expander("Cross-theme topology factual rows", expanded=False):
+                                    display_summary = getattr(topology, "attrs", {}).get("display_sufficiency", {})
+                                    if display_summary:
+                                        st.caption(
+                                            "Display sufficiency: "
+                                            f"min aligned observations = {display_summary.get('minimum_aligned_observations')}; "
+                                            f"min represented trade dates = {display_summary.get('minimum_represented_trade_dates')}; "
+                                            f"excluded pair count = {display_summary.get('excluded_pair_count')}."
+                                        )
+                                    columns = [
+                                        "theme_pair",
+                                        "aligned_observations",
+                                        "represented_trade_dates",
+                                        "alignment_gaps",
+                                        "taxonomy_jaccard",
+                                        "same_sign_count",
+                                        "same_sign_observed_share",
+                                        "exact_state_agreement_count",
+                                        "exact_state_observed_share",
+                                        "same_regime_count",
+                                        "same_regime_observed_share",
+                                        "headline_aligned_regime_different_count",
+                                        "display_eligible",
+                                        "denominator_context",
+                                    ]
+                                    st.dataframe(topology[[column for column in columns if column in topology.columns]].head(12), hide_index=True)
+                        st.markdown("<div class='radar-section-title'>分析稳健性与证据充分度 / Analytical Robustness Evidence</div>", unsafe_allow_html=True)
+                        robustness_options = ("当前主题", "当前主题对") if len(dynamics_theme_options) >= 2 else ("当前主题",)
+                        robustness_kind = st.radio(
+                            "稳健性审计对象",
+                            robustness_options,
+                            horizontal=True,
+                            key="robustness_kind",
+                        )
+                        robustness_buckets = (1, 5, 10)
+                        if robustness_kind == "当前主题":
+                            robustness_theme_result = compare_theme_specifications(
+                                dynamics_theme,
+                                source_mode=active_source_mode,
+                                calculation_mode=dynamics_mode,
+                                bucket_minutes=robustness_buckets,
+                                taxonomy=taxonomy,
+                                data_dir=active_catalog_dir,
+                            )
+                            if active_source_mode == "SAMPLE":
+                                render_compact_notice(
+                                    "SAMPLE 稳健性审计说明",
+                                    "当前 analytical robustness evidence 来自 sample_data/ticks 合成演示数据，只用于展示规格敏感性和证据充分度流程，不代表真实行情。",
+                                    tone="warning",
+                                )
+                            render_analytical_robustness_panel({"theme_robustness": robustness_theme_result}, analysis_type="theme")
+                        elif len(dynamics_theme_options) >= 2:
+                            robustness_pair_result = compare_relationship_specifications(
+                                relationship_theme_a,
+                                relationship_theme_b,
+                                source_mode=active_source_mode,
+                                calculation_mode=dynamics_mode,
+                                bucket_minutes=robustness_buckets,
+                                taxonomy=taxonomy,
+                                data_dir=active_catalog_dir,
+                            )
+                            if active_source_mode == "SAMPLE":
+                                render_compact_notice(
+                                    "SAMPLE 关系稳健性审计说明",
+                                    "当前 relationship robustness evidence 来自 sample_data/ticks 合成演示数据；观察区间、分子/分母和日期覆盖只描述合成样本。",
+                                    tone="warning",
+                                )
+                            render_analytical_robustness_panel({"relationship_robustness": robustness_pair_result}, analysis_type="relationship")
+            st.markdown("<div class='radar-section-title'>Historical Evidence（只读）</div>", unsafe_allow_html=True)
+            render_historical_evidence_notes(
+                "该区域只解释 CSV 快照的来源、覆盖日期、captured_time 覆盖、schema fingerprint 和数据契约状态。"
+                "它不会访问 AKShare，不会写 CSV，不会写 SQLite，也不做绩效评估或预测。"
+            )
+            if sample_mode:
+                render_compact_notice(
+                    "SAMPLE 历史证据说明",
+                    "当前历史证据来自 sample_data/ticks 合成演示数据，仅用于展示 lineage / coverage / provenance 流程，不代表真实行情。",
+                    tone="warning",
+                )
+            render_historical_evidence_summary_cards(
+                active_history_summary,
+                active_history_readiness,
+                title="当前数据源历史覆盖证据",
+            )
+            if selected_snapshot_date:
+                replay_evidence = resolve_replay_evidence(
+                    selected_snapshot_date,
+                    active_history_manifest_df,
+                    source_mode="SAMPLE" if sample_mode else "REAL",
+                    mode="SAMPLE" if sample_mode else ("HISTORY" if is_history_replay else data_status),
+                )
+                render_replay_evidence_card(replay_evidence)
+            with st.expander("查看 captured_time 覆盖矩阵", expanded=show_debug_details):
+                render_coverage_matrix(active_coverage_matrix_df, title="当前数据源 captured_time 覆盖矩阵")
+            st.markdown("<div class='radar-section-title'>Warehouse 主题历史观察（只读）</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div class='concept-note'>该区域基于本地 SQLite warehouse 中已有的 sector-level 历史索引，"
+                "按 theme_taxonomy.json 和现有主题口径聚合为主题级历史观察。CSV 仍是主数据来源，页面不会自动重建 warehouse，也不会写 SQLite 或 CSV。</div>",
+                unsafe_allow_html=True,
+            )
+            theme_history_conn = None
+            try:
+                theme_history_conn, theme_history_status = load_warehouse_if_exists(warehouse_path)
+                if theme_history_conn is None:
+                    st.markdown(
+                        "<div class='rank-panel'><div class='rank-empty'>当前未创建本地 warehouse。可在本地运行 "
+                        "<code>python tools/rebuild_local_warehouse.py --include-sample --clear</code> 后查看主题历史聚合。</div></div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    available_sources = get_warehouse_available_source_types(theme_history_conn)
+                    source_options = ["ALL"] + [source for source in ("SAMPLE", "LOCAL") if source in available_sources]
+                    if len(source_options) == 1:
                         st.markdown(
-                            "<div class='rank-panel'><div class='rank-empty'>暂无主题历史数据，暂不展示图表。</div></div>",
+                            "<div class='rank-panel'><div class='rank-empty'>warehouse 中暂无可查询 source_type。</div></div>",
                             unsafe_allow_html=True,
                         )
                     else:
-                        chart_options = get_theme_history_chart_options()
-                        default_chart = "主题历史热力矩阵" if portfolio_mode else "主题净流入折线图"
-                        chart_col1, chart_col2 = st.columns([1.1, 1.5])
-                        with chart_col1:
-                            chart_option = st.selectbox(
-                                "主题历史图表类型",
-                                chart_options,
-                                index=chart_options.index(default_chart),
-                                key="theme_history_chart_option",
+                        h_col1, h_col2, h_col3, h_col4 = st.columns(4)
+                        with h_col1:
+                            history_source = st.selectbox(
+                                "主题历史 source_type",
+                                source_options,
+                                index=0,
+                                key="theme_history_source_type",
                             )
-                            visual_top_n = st.selectbox(
-                                "图表 Top N",
-                                [3, 5, 8, 10],
-                                index=1,
-                                key="theme_history_visual_top_n",
+                        with h_col2:
+                            history_mode_label = st.selectbox(
+                                "主题历史口径",
+                                get_theme_history_mode_options(),
+                                index=get_theme_history_mode_options().index("代表口径"),
+                                key="theme_history_mode_label",
                             )
-                        theme_candidates = (
-                            sorted(theme_history_df["theme_name"].dropna().astype(str).unique().tolist())
-                            if "theme_name" in theme_history_df.columns
-                            else []
+                        with h_col3:
+                            history_latest_per_day = st.checkbox("每日期最新快照", value=True, key="theme_history_latest_per_day")
+                        with h_col4:
+                            history_top_n = st.selectbox("主题历史 Top N", [3, 5, 8], index=1, key="theme_history_top_n")
+                        date_range = get_warehouse_date_range(
+                            theme_history_conn,
+                            None if history_source == "ALL" else history_source,
                         )
-                        with chart_col2:
-                            selected_visual_themes = st.multiselect(
-                                "选择主题（可选）",
-                                theme_candidates,
-                                default=[],
-                                help="不选择时按最新日期绝对资金流自动选取 Top N。",
-                                key="theme_history_selected_themes",
-                            )
-                        normalized_chart_option = normalize_theme_history_chart_option(chart_option)
-                        is_sample_only_history = bool(
-                            set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper()) == {"SAMPLE"}
+                        render_theme_history_notes(
+                            f"可用日期范围：{date_range.get('min_date') or '--'} 至 {date_range.get('max_date') or '--'}，"
+                            f"共 {date_range.get('date_count', 0)} 个日期。当前 source_type：{history_source}。"
                         )
-                        visual_summary = build_theme_history_visual_summary(theme_history_df, timeline_df, top_n=int(visual_top_n))
-                        visual_notes = build_theme_history_visual_notes(
-                            source_type=history_source,
-                            theme_mode=history_mode_label,
+                        sector_history_df = load_sector_history_from_warehouse(
+                            theme_history_conn,
+                            source_type=None if history_source == "ALL" else history_source,
                             latest_per_day=history_latest_per_day,
-                            is_sample_only=is_sample_only_history,
+                            limit_days=60,
                         )
-                        render_theme_history_visual_summary_cards(visual_summary)
-                        render_theme_history_visual_notes(visual_notes)
-                        if is_sample_only_history:
+                        theme_history_df = build_theme_history_from_sector_history(
+                            sector_history_df,
+                            taxonomy,
+                            theme_mode=normalize_theme_history_mode(history_mode_label),
+                        )
+                        theme_history_summary = summarize_theme_history(theme_history_df, top_n=int(history_top_n))
+                        theme_history_quality = build_theme_history_quality_report(sector_history_df, theme_history_df)
+                        render_theme_history_summary_cards(theme_history_summary, theme_history_quality)
+                        render_theme_history_notes(summarize_theme_history_quality(theme_history_quality))
+                        if history_source == "SAMPLE" or (
+                            history_source == "ALL" and set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper()) == {"SAMPLE"}
+                        ):
                             render_compact_notice(
-                                "SAMPLE 图表说明",
-                                "当前图表基于 SAMPLE 合成演示数据生成，不代表真实行情。",
+                                "SAMPLE 主题历史说明",
+                                "当前主题历史来自 SAMPLE 合成演示数据，仅用于展示主题级历史聚合流程，不代表真实行情。",
                                 tone="warning",
                             )
-                        if history_source == "ALL" and len(set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper())) > 1:
-                            render_compact_notice(
-                                "ALL 来源说明",
-                                "ALL 包含多个 source_type，解释图表时请注意 LOCAL 与 SAMPLE 的数据来源差异。",
-                                tone="info",
+                        matrix_df = build_theme_history_matrix(theme_history_df)
+                        timeline_df = build_theme_status_timeline(theme_history_df)
+                        st.markdown("<div class='radar-section-title'>主题历史图表</div>", unsafe_allow_html=True)
+                        if theme_history_df.empty:
+                            st.markdown(
+                                "<div class='rank-panel'><div class='rank-empty'>暂无主题历史数据，暂不展示图表。</div></div>",
+                                unsafe_allow_html=True,
                             )
-                        if normalized_chart_option == "主题净流入折线图":
-                            line_df = prepare_theme_history_line_data(
-                                theme_history_df,
-                                selected_themes=selected_visual_themes,
-                                top_n=int(visual_top_n),
-                            )
-                            render_theme_history_line_chart(line_df)
-                        elif normalized_chart_option == "主题历史热力矩阵":
-                            heatmap_df = prepare_theme_history_heatmap_data(theme_history_df, top_n=int(visual_top_n))
-                            render_theme_history_heatmap(heatmap_df)
-                        elif normalized_chart_option == "最新主题表现柱状图":
-                            latest_bar_df = prepare_latest_theme_bar_data(theme_history_df, top_n=int(visual_top_n))
-                            render_latest_theme_bar_chart(latest_bar_df)
                         else:
-                            timeline_compact_df = prepare_status_timeline_compact(
-                                timeline_df,
-                                selected_themes=selected_visual_themes,
-                                max_rows=80,
+                            chart_options = get_theme_history_chart_options()
+                            default_chart = "主题历史热力矩阵" if portfolio_mode else "主题净流入折线图"
+                            chart_col1, chart_col2 = st.columns([1.1, 1.5])
+                            with chart_col1:
+                                chart_option = st.selectbox(
+                                    "主题历史图表类型",
+                                    chart_options,
+                                    index=chart_options.index(default_chart),
+                                    key="theme_history_chart_option",
+                                )
+                                visual_top_n = st.selectbox(
+                                    "图表 Top N",
+                                    [3, 5, 8, 10],
+                                    index=1,
+                                    key="theme_history_visual_top_n",
+                                )
+                            theme_candidates = (
+                                sorted(theme_history_df["theme_name"].dropna().astype(str).unique().tolist())
+                                if "theme_name" in theme_history_df.columns
+                                else []
                             )
-                            with st.expander("查看 compact 主题状态时间线", expanded=show_debug_details):
-                                render_status_timeline_compact_table(timeline_compact_df)
-                    with st.expander("查看主题历史矩阵", expanded=show_debug_details):
-                        render_theme_history_matrix(matrix_df, "主题历史矩阵")
-                    with st.expander("查看主题状态时间线", expanded=show_debug_details):
-                        render_theme_status_timeline(timeline_df, "主题状态时间线")
-        finally:
-            safe_close_connection(theme_history_conn)
+                            with chart_col2:
+                                selected_visual_themes = st.multiselect(
+                                    "选择主题（可选）",
+                                    theme_candidates,
+                                    default=[],
+                                    help="不选择时按最新日期绝对资金流自动选取 Top N。",
+                                    key="theme_history_selected_themes",
+                                )
+                            normalized_chart_option = normalize_theme_history_chart_option(chart_option)
+                            is_sample_only_history = bool(
+                                set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper()) == {"SAMPLE"}
+                            )
+                            visual_summary = build_theme_history_visual_summary(theme_history_df, timeline_df, top_n=int(visual_top_n))
+                            visual_notes = build_theme_history_visual_notes(
+                                source_type=history_source,
+                                theme_mode=history_mode_label,
+                                latest_per_day=history_latest_per_day,
+                                is_sample_only=is_sample_only_history,
+                            )
+                            render_theme_history_visual_summary_cards(visual_summary)
+                            render_theme_history_visual_notes(visual_notes)
+                            if is_sample_only_history:
+                                render_compact_notice(
+                                    "SAMPLE 图表说明",
+                                    "当前图表基于 SAMPLE 合成演示数据生成，不代表真实行情。",
+                                    tone="warning",
+                                )
+                            if history_source == "ALL" and len(set(sector_history_df.get("source_type", pd.Series(dtype=str)).dropna().astype(str).str.upper())) > 1:
+                                render_compact_notice(
+                                    "ALL 来源说明",
+                                    "ALL 包含多个 source_type，解释图表时请注意 LOCAL 与 SAMPLE 的数据来源差异。",
+                                    tone="info",
+                                )
+                            if normalized_chart_option == "主题净流入折线图":
+                                line_df = prepare_theme_history_line_data(
+                                    theme_history_df,
+                                    selected_themes=selected_visual_themes,
+                                    top_n=int(visual_top_n),
+                                )
+                                render_theme_history_line_chart(line_df)
+                            elif normalized_chart_option == "主题历史热力矩阵":
+                                heatmap_df = prepare_theme_history_heatmap_data(theme_history_df, top_n=int(visual_top_n))
+                                render_theme_history_heatmap(heatmap_df)
+                            elif normalized_chart_option == "最新主题表现柱状图":
+                                latest_bar_df = prepare_latest_theme_bar_data(theme_history_df, top_n=int(visual_top_n))
+                                render_latest_theme_bar_chart(latest_bar_df)
+                            else:
+                                timeline_compact_df = prepare_status_timeline_compact(
+                                    timeline_df,
+                                    selected_themes=selected_visual_themes,
+                                    max_rows=80,
+                                )
+                                with st.expander("查看 compact 主题状态时间线", expanded=show_debug_details):
+                                    render_status_timeline_compact_table(timeline_compact_df)
+                        with st.expander("查看主题历史矩阵", expanded=show_debug_details):
+                            render_theme_history_matrix(matrix_df, "主题历史矩阵")
+                        with st.expander("查看主题状态时间线", expanded=show_debug_details):
+                            render_theme_status_timeline(timeline_df, "主题状态时间线")
+            finally:
+                safe_close_connection(theme_history_conn)
 
     with tab_holdings:
         st.markdown(
@@ -1647,12 +1689,6 @@ def main() -> None:
             key="brief_template_mode",
             help="模板只影响 Markdown 展示结构，不改变主题雷达、日内热点、多日趋势或持仓相关池的计算结果。",
         )
-        include_theme_history_brief = st.checkbox(
-            "包含 Warehouse 主题历史摘要",
-            value=portfolio_mode,
-            key="brief_include_theme_history",
-            help="只读读取本地 warehouse 中已有主题历史；不会自动重建 warehouse，也不会写 SQLite 或 CSV。",
-        )
         brief_metadata = build_brief_metadata(
             selected_snapshot_date or header_date,
             data_status,
@@ -1662,16 +1698,38 @@ def main() -> None:
         )
         extra_brief_sections: list[str] = []
         brief_theme_options = get_theme_observation_theme_options(watchlist_radar_df, radar_theme_df)
+        radar_selected_theme = st.session_state.get("theme_radar_evidence_theme")
+        brief_theme_index = (
+            brief_theme_options.index(radar_selected_theme)
+            if radar_selected_theme in brief_theme_options
+            else 0
+        )
+        if "brief_provenance_theme" in st.session_state:
+            brief_theme_index = None
         brief_provenance_theme = (
             st.selectbox(
                 "选择简报主题证据",
                 brief_theme_options,
-                index=0,
+                index=brief_theme_index,
                 key="brief_provenance_theme",
-                help="该选择只决定简报中展示哪一个主题的观察证据，不改变主题雷达或其他计算。",
+                on_change=_mark_brief_theme_user_selected,
+                help="首次打开时默认沿用主题雷达当前选择；该选择只决定简报中展示哪一个主题的观察证据，不改变主题雷达或其他计算。",
             )
             if brief_theme_options
             else None
+        )
+        with st.expander("可选：本地 Warehouse 历史摘要", expanded=False):
+            include_theme_history_brief = st.checkbox(
+                "在简报中附加主题历史摘要",
+                value=False,
+                key="brief_include_theme_history",
+                help="只读读取本地 warehouse 中已有主题历史；不会自动重建 warehouse，也不会写 SQLite 或 CSV。",
+            )
+            st.caption("未勾选时，简报仍会保留当前主题观察、来源口径和可用的扩展证据。")
+        include_extended_brief = st.checkbox(
+            "附加扩展证据（动态、结构、关系与稳健性，耗时较长）",
+            value=False,
+            key="brief_include_extended_evidence",
         )
         if brief_provenance_theme:
             brief_provenance_evidence = build_theme_observation_evidence(
@@ -1690,92 +1748,96 @@ def main() -> None:
             brief_provenance_section = render_brief_provenance_section(brief_provenance_evidence)
             if not validate_theme_evidence_text(brief_provenance_section):
                 extra_brief_sections.append(brief_provenance_section)
-            try:
-                brief_dynamics_cube = build_theme_observation_cube(
-                    taxonomy=taxonomy,
-                    source_mode=active_source_mode,
-                    data_dir=active_catalog_dir,
-                )
-                brief_dynamics_evidence = build_theme_dynamics_evidence(
-                    brief_dynamics_cube,
-                    theme_name=brief_provenance_theme,
-                    source_mode=active_source_mode,
-                    calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
-                    taxonomy=taxonomy,
-                    data_dir=active_catalog_dir,
-                )
-                brief_dynamics_section = render_theme_dynamics_brief_section(brief_dynamics_evidence)
-                if not validate_theme_dynamics_text(brief_dynamics_section):
-                    extra_brief_sections.append(brief_dynamics_section)
-                brief_regime_evidence = build_theme_regime_evidence(
-                    theme_name=brief_provenance_theme,
-                    source_mode=active_source_mode,
-                    calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
-                    taxonomy=taxonomy,
-                    data_dir=active_catalog_dir,
-                    cube_df=brief_dynamics_cube,
-                )
-                brief_regime_section = render_theme_regime_brief_section(brief_regime_evidence)
-                if not validate_theme_regime_text(brief_regime_section):
-                    extra_brief_sections.append(brief_regime_section)
-                relationship_theme_candidates = (
-                    radar_theme_df["theme_name"].dropna().astype(str).tolist()
-                    if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
-                    else []
-                )
-                relationship_theme_candidates = [item for item in dict.fromkeys(relationship_theme_candidates) if item != brief_provenance_theme]
-                if relationship_theme_candidates:
-                    brief_relationship_bundle = build_theme_relationships_from_cube(
+            if include_extended_brief:
+                try:
+                    brief_dynamics_cube = build_theme_observation_cube(
+                        taxonomy=taxonomy,
+                        source_mode=active_source_mode,
+                        data_dir=active_catalog_dir,
+                    )
+                    brief_dynamics_evidence = build_theme_dynamics_evidence(
                         brief_dynamics_cube,
-                        calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
-                        source_mode=active_source_mode,
-                        taxonomy=taxonomy,
-                    )
-                    brief_relationship_evidence = build_theme_relationship_evidence(
-                        brief_relationship_bundle.get("pair_observations"),
-                        brief_provenance_theme,
-                        relationship_theme_candidates[0],
-                        taxonomy=taxonomy,
-                    )
-                    brief_relationship_section = render_theme_relationship_brief_section(brief_relationship_evidence)
-                    if not validate_theme_relationship_text(brief_relationship_section):
-                        extra_brief_sections.append(brief_relationship_section)
-                    brief_relationship_robustness = compare_relationship_specifications(
-                        brief_provenance_theme,
-                        relationship_theme_candidates[0],
+                        theme_name=brief_provenance_theme,
                         source_mode=active_source_mode,
                         calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
-                        bucket_minutes=(1, 5, 10),
                         taxonomy=taxonomy,
                         data_dir=active_catalog_dir,
                     )
-                    same_sign_range = brief_relationship_robustness.get("same_sign_observed_share_range", {})
-                    aligned_range = brief_relationship_robustness.get("aligned_observation_count_range", {})
-                    date_range = brief_relationship_robustness.get("represented_trade_date_count_range", {})
-                    robustness_section = "\n".join(
-                        [
-                            "## 分析规格与证据充分度说明",
-                            "",
-                            f"- 主题对：`{brief_relationship_robustness.get('theme_pair')}`；source_mode：`{active_source_mode}`。",
-                            "- 规格范围：预声明 1/5/10 分钟 captured-time bucket，默认物化策略保持 `latest_valid_snapshot_in_bucket`。",
-                            f"- aligned observations 区间：{aligned_range.get('min')}–{aligned_range.get('max')}；represented trade dates 区间：{date_range.get('min')}–{date_range.get('max')}。",
-                            f"- same-sign observed share 区间：{same_sign_range.get('min')}–{same_sign_range.get('max')}；该区间只描述已评估规格下的历史观察差异。",
-                            "- 以上不构成置信分数，不是显著性检验，也不预测未来走势。",
-                        ]
+                    brief_dynamics_section = render_theme_dynamics_brief_section(brief_dynamics_evidence)
+                    if not validate_theme_dynamics_text(brief_dynamics_section):
+                        extra_brief_sections.append(brief_dynamics_section)
+                    brief_regime_evidence = build_theme_regime_evidence(
+                        theme_name=brief_provenance_theme,
+                        source_mode=active_source_mode,
+                        calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                        taxonomy=taxonomy,
+                        data_dir=active_catalog_dir,
+                        cube_df=brief_dynamics_cube,
                     )
-                    if active_source_mode == "SAMPLE":
-                        robustness_section += "\n- SAMPLE 说明：该稳健性说明基于合成演示数据，不代表真实行情。"
-                    if not validate_analytical_robustness_text(robustness_section):
-                        extra_brief_sections.append(robustness_section)
-            except Exception:
-                extended_evidence_notice = render_theme_extended_evidence_unavailable_section(brief_provenance_theme)
-                if not validate_theme_evidence_text(extended_evidence_notice):
-                    extra_brief_sections.append(extended_evidence_notice)
-                render_compact_notice(
-                    "部分扩展主题证据暂不可用",
-                    "基础主题观察和数据来源口径仍可生成；本次简报会明确记录缺失的动态、结构或关系证据。",
-                    tone="warning",
-                )
+                    brief_regime_section = render_theme_regime_brief_section(brief_regime_evidence)
+                    if not validate_theme_regime_text(brief_regime_section):
+                        extra_brief_sections.append(brief_regime_section)
+                    relationship_theme_candidates = (
+                        radar_theme_df["theme_name"].dropna().astype(str).tolist()
+                        if not radar_theme_df.empty and "theme_name" in radar_theme_df.columns
+                        else []
+                    )
+                    relationship_theme_candidates = [item for item in dict.fromkeys(relationship_theme_candidates) if item != brief_provenance_theme]
+                    if relationship_theme_candidates:
+                        brief_relationship_bundle = build_theme_relationships_from_cube(
+                            brief_dynamics_cube,
+                            calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                            source_mode=active_source_mode,
+                            taxonomy=taxonomy,
+                        )
+                        brief_relationship_evidence = build_theme_relationship_evidence(
+                            brief_relationship_bundle.get("pair_observations"),
+                            brief_provenance_theme,
+                            relationship_theme_candidates[0],
+                            taxonomy=taxonomy,
+                        )
+                        brief_relationship_section = render_theme_relationship_brief_section(brief_relationship_evidence)
+                        if not validate_theme_relationship_text(brief_relationship_section):
+                            extra_brief_sections.append(brief_relationship_section)
+                        brief_relationship_robustness = compare_relationship_specifications(
+                            brief_provenance_theme,
+                            relationship_theme_candidates[0],
+                            source_mode=active_source_mode,
+                            calculation_mode=theme_mode if display_mode == "基金观察池" else "strict_representative",
+                            bucket_minutes=(1, 5, 10),
+                            taxonomy=taxonomy,
+                            data_dir=active_catalog_dir,
+                        )
+                        same_sign_range = brief_relationship_robustness.get("same_sign_observed_share_range", {})
+                        aligned_range = brief_relationship_robustness.get("aligned_observation_count_range", {})
+                        date_range = brief_relationship_robustness.get("represented_trade_date_count_range", {})
+                        robustness_section = "\n".join(
+                            [
+                                "## 分析规格与证据充分度说明",
+                                "",
+                                f"- 主题对：`{brief_relationship_robustness.get('theme_pair')}`；source_mode：`{active_source_mode}`。",
+                                "- 规格范围：预声明 1/5/10 分钟 captured-time bucket，默认物化策略保持 `latest_valid_snapshot_in_bucket`。",
+                                f"- aligned observations 区间：{aligned_range.get('min')}–{aligned_range.get('max')}；represented trade dates 区间：{date_range.get('min')}–{date_range.get('max')}。",
+                                f"- same-sign observed share 区间：{same_sign_range.get('min')}–{same_sign_range.get('max')}；该区间只描述已评估规格下的历史观察差异。",
+                                "- 以上不构成置信分数，不是显著性检验，也不预测未来走势。",
+                            ]
+                        )
+                        if active_source_mode == "SAMPLE":
+                            robustness_section += "\n- SAMPLE 说明：该稳健性说明基于合成演示数据，不代表真实行情。"
+                        if not validate_analytical_robustness_text(robustness_section):
+                            extra_brief_sections.append(robustness_section)
+                except Exception:
+                    extended_evidence_notice = render_theme_extended_evidence_unavailable_section(brief_provenance_theme)
+                    if not validate_theme_evidence_text(extended_evidence_notice):
+                        extra_brief_sections.append(extended_evidence_notice)
+                    render_compact_notice(
+                        "部分扩展主题证据暂不可用",
+                        "基础主题观察和数据来源口径仍可生成；本次简报会明确记录缺失的动态、结构或关系证据。",
+                        tone="warning",
+                    )
+            else:
+                extra_brief_sections.append("## 扩展证据未运行\n\n本次未运行动态、结构、关系及稳健性分析；不代表这些证据已通过校验。基础主题观察和来源口径保留。")
+                st.caption("扩展证据未运行；本次简报保留基础主题观察与来源口径。")
         theme_history_brief_section = ""
         theme_history_brief_compliance = {
             "forbidden_hits": [],
@@ -1984,12 +2046,12 @@ def main() -> None:
         )
         render_historical_evidence_summary_cards(real_history_summary, real_history_readiness, title="REAL 本地缓存历史证据")
         render_historical_evidence_summary_cards(sample_history_summary, sample_history_readiness, title="SAMPLE 样例历史证据")
-        render_analytical_eligibility_summary_cards(
-            real_analytical_readiness,
+        _render_requested_eligibility(
+            "REAL", "data/ticks", real_history_readiness,
             title="REAL 历史可读性 vs Contract-Qualified Analytics",
         )
-        render_analytical_eligibility_summary_cards(
-            sample_analytical_readiness,
+        _render_requested_eligibility(
+            "SAMPLE", SAMPLE_DIR, sample_history_readiness,
             title="SAMPLE 历史可读性 vs Demo Analytics",
         )
         st.markdown("#### Qualified Evidence Accumulation")

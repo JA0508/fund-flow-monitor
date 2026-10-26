@@ -137,6 +137,14 @@ If Streamlit Cloud shows `EMPTY` on first visit:
 
 ## Data Modes
 
+### Local Personal Watchlist
+
+For a single-user local instance only, set `FUND_FLOW_PERSONAL=1` to enable the sidebar's personal watchlist editor. Public demo mode always disables this feature, even when this flag is set. Do not enable it on a shared or publicly reachable server: this is one local profile, not per-user authentication or isolation.
+
+Selecting themes does not write anything until `保存关注` is clicked. Saved selections are stored in Git-ignored `data/preferences/watchlist.json`, separately from the checked-in example configuration. A new session restores the saved selection, including an explicitly empty list. Failed writes retain the previous file. This feature does not enable collection or change REAL/SAMPLE data mode.
+
+### Market Data Labels
+
 - `LIVE`: real-time AKShare fetch for local use when available.
 - `CACHE`: local real CSV cache from `data/ticks`.
 - `HISTORY`: read-only historical CSV replay.
