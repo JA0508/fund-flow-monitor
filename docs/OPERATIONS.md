@@ -165,6 +165,26 @@ Use the explicit local collector when you want a real AKShare sector fund-flow s
 
 The collector fetches one AKShare snapshot, normalizes it into the project schema, validates the real snapshot contract, and writes through the existing CSV cache layer. Output goes to `data/ticks/sector_flow_YYYY-MM-DD.csv`, which is ignored by Git. `--dry-run` is the safest first check because it exercises fetch/normalize/validate without writing a CSV.
 
+When Python requests is disconnected but the identical endpoint works with curl,
+explicitly select the provider-local direct transport for a read-only check:
+
+```bash
+FUND_FLOW_PROVIDER_TRANSPORT=curl_direct .venv/bin/python tools/collect_real_snapshot.py --dry-run --no-log --fetch-attempts 1 --output-dir /tmp/fund-flow-readonly-check
+```
+
+Use a fresh, nonexistent temporary output directory to avoid reading any existing
+cache. This option keeps AKShare's parameters, pagination and parsing, and all
+normalization/contract checks. It is not a fallback data source. Only the fixed
+Eastmoney HTTPS endpoint is allowed; redirects and curl config files are disabled.
+Requests are capped at ten per provider attempt, 15 seconds and 4 MiB each.
+The system `curl` executable must be version 8.4.0 or newer so the size limit also
+applies to unknown-length responses. Older/unverifiable versions fail closed.
+Both AKShare's legacy `requests` and newer `akshare.utils.http` bindings are
+supported without modifying their global modules. No system proxy settings are changed.
+Omitting the variable retains the original requests transport; unknown values
+fail closed. Successful dry-runs do not prove source-date freshness or ten-day
+availability, and do not authorize REAL writes.
+
 For provider-boundary diagnosis without writing cache files:
 
 ```bash

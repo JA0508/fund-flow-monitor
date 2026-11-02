@@ -15,6 +15,7 @@ from src.config import DATA_SOURCE, TIMEZONE
 from src.provider_contracts import build_provider_contract_short_id
 from src.provider_registry import get_primary_provider_contract
 from src.utils import safe_to_float
+from src.providers.provider_transport import call_sector_provider
 
 
 PROVIDER_NAME = "AKShare / Eastmoney"
@@ -419,7 +420,7 @@ def fetch_raw_sector_flow(
         try:
             if not hasattr(ak, API_NAME):
                 raise AttributeError(f"当前 AKShare 版本缺少 {API_NAME} 接口")
-            df = ak.stock_sector_fund_flow_rank(indicator=indicator, sector_type=sector_type)
+            df = call_sector_provider(ak.stock_sector_fund_flow_rank, indicator=indicator, sector_type=sector_type)
             if not isinstance(df, pd.DataFrame):
                 _raise_boundary_error(
                     "AKShare 返回结果不是 DataFrame。",
