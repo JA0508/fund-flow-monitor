@@ -82,6 +82,7 @@ def test_build_pool_sections_summary_and_reasons_are_safe():
             {"theme_name": "D", "first_value": 0, "latest_value": 1, "value_change": 1, "abs_value_change": 1, "rank_change": 0, "positive_ratio": 0.5, "negative_ratio": 0, "latest_status": "分歧/中性"},
         ]
     )
+    metrics = metrics.assign(total_time_count=2)
     pool = build_intraday_hotspot_pool(metrics, top_n=10)
     assert {"hotspot_type", "hotspot_label", "hotspot_reason", "display_priority"}.issubset(pool.columns)
     sections = split_hotspot_sections(pool)
@@ -101,4 +102,4 @@ def test_single_snapshot_does_not_crash():
     metrics = calculate_intraday_theme_metrics(history)
     pool = build_intraday_hotspot_pool(metrics)
     assert history["captured_time"].nunique() == 1
-    assert not pool.empty
+    assert pool.empty

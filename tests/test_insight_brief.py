@@ -16,6 +16,26 @@ from src.insight_brief import (
 FORBIDDEN = ["买入", "卖出", "加仓", "减仓", "抄底", "逃顶", "推荐买", "建议买", "建仓", "清仓", "未来会涨", "未来会跌"]
 
 
+def test_single_capture_does_not_produce_intraday_brief_claims():
+    from src.intraday_hotspots import (
+        calculate_intraday_theme_metrics,
+        build_intraday_hotspot_pool,
+        build_intraday_hotspot_summary,
+    )
+
+    history = pd.DataFrame({
+        "theme_name": ["医药"],
+        "captured_time": ["13:17:12"],
+        "main_net_inflow_billion": [-40.0],
+    })
+    metrics = calculate_intraday_theme_metrics(history)
+    pool = build_intraday_hotspot_pool(metrics)
+    summary = summarize_intraday_for_brief(build_intraday_hotspot_summary(pool), pool)
+    assert pool.empty
+    assert summary["intraday_available"] is False
+    assert summary["key_intraday_themes"] == []
+
+
 def test_build_data_context_summary_status_labels():
     summary = {"captured_time_count": 3, "latest_captured_time": "10:30:00"}
     assert build_data_context_summary("2026-06-03", "LIVE", summary, "严格代表口径")["data_context_label"] == "实时观察"

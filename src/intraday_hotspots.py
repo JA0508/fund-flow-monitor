@@ -161,7 +161,13 @@ def build_intraday_hotspot_pool(
 ) -> pd.DataFrame:
     if theme_metrics_df is None or theme_metrics_df.empty:
         return pd.DataFrame()
-    df = theme_metrics_df.copy()
+    counts = pd.to_numeric(
+        theme_metrics_df.get("total_time_count", pd.Series(index=theme_metrics_df.index, dtype=float)),
+        errors="coerce",
+    )
+    df = theme_metrics_df.loc[counts.ge(2)].copy()
+    if df.empty:
+        return pd.DataFrame()
     classifications = df.apply(classify_intraday_hotspot, axis=1)
     df["hotspot_type"] = [item[0] for item in classifications]
     df["hotspot_reason"] = [_clean_reason(item[1]) for item in classifications]
