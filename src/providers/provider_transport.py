@@ -14,6 +14,15 @@ ENDPOINT = "https://push2.eastmoney.com/api/qt/clist/get"
 MAX_BYTES = 4 * 1024 * 1024
 
 
+def normalize_today_sector_params(params):
+    """Use code ordering across pages; retain the industry universe and fields."""
+    params = dict(params or {})
+    if str(params.get("stat")) != "1" or params.get("fs") != "m:90 t:2":
+        return params
+    obsolete = {"stat", "fid0", "ut", "rt", "_"}
+    return {**{key: value for key, value in params.items() if key not in obsolete}, "fid": "f12"}
+
+
 def _require_supported_curl():
     try:
         result = subprocess.run(["curl", "--disable", "--version"], capture_output=True,
@@ -49,7 +58,7 @@ def call_sector_provider(provider, **kwargs):
         if url != ENDPOINT or count >= 10:
             raise ValueError("Provider request outside transport boundary")
         count += 1
-        return _curl_get(url, params, headers)
+        return _curl_get(url, normalize_today_sector_params(params), headers)
 
     # Clone only this function's globals; never monkey-patch AKShare or requests.
     overrides = {name: SimpleNamespace(get=get) for name in bindings}
