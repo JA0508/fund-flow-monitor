@@ -2,6 +2,14 @@ import ast
 from pathlib import Path
 
 
+def test_sidebar_adapts_to_small_devices():
+    tree = ast.parse((Path(__file__).resolve().parents[1] / "app.py").read_text())
+    config = next(node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                  and isinstance(node.func, ast.Attribute) and node.func.attr == "set_page_config")
+    assert next(ast.literal_eval(kw.value) for kw in config.keywords
+                if kw.arg == "initial_sidebar_state") == "auto"
+
+
 def test_daily_navigation_has_only_three_primary_destinations():
     tree = ast.parse((Path(__file__).resolve().parents[1] / "app.py").read_text())
     primary = [node for node in ast.walk(tree) if isinstance(node, ast.Assign)

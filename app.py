@@ -307,7 +307,7 @@ st.set_page_config(
     page_title=APP_CN_NAME,
     page_icon=":material/query_stats:",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 
