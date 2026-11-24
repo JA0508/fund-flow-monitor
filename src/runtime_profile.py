@@ -159,7 +159,7 @@ def build_runtime_profile_notice(profile: dict) -> str:
             return (
                 "当前为公开演示安全配置：默认使用 SAMPLE 合成演示数据和作品集演示模式。"
                 "SAMPLE 不代表真实行情；页面不会自动读取真实账户或持仓，也不提供交易建议或预测。"
-                "真实数据 / 本地缓存模式仍可在本地环境中手动选择。"
+                "公开演示仅允许 SAMPLE；个人真实数据请使用独立的本机运行环境。"
             )
         return (
             "当前已开启公开演示安全配置，但未找到 SAMPLE 合成演示数据。"
@@ -179,7 +179,7 @@ def build_runtime_profile_sidebar_defaults(profile: dict) -> dict:
     sample_first_visit_fallback = bool(profile.get("sample_first_visit_fallback"))
     sample_ready = bool(profile.get("sample_data_available"))
     return {
-        "data_source_default": "SAMPLE" if (public_demo_enabled or sample_first_visit_fallback) and sample_ready else "LOCAL",
+        "data_source_default": "SAMPLE" if public_demo_enabled or (sample_first_visit_fallback and sample_ready) else "LOCAL",
         "presentation_default": "作品集演示模式" if public_demo_enabled or sample_first_visit_fallback else "标准模式",
         "enable_live_fetch_default": False if public_demo_enabled or sample_first_visit_fallback else True,
         "enable_sample_default": bool(sample_ready),

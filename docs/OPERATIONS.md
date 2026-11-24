@@ -20,7 +20,12 @@ FUND_FLOW_PUBLIC_DEMO=1 .venv/bin/streamlit run app.py
 
 Expected public-demo behavior:
 
-- Default data source is SAMPLE when sample CSV files are available.
+- Public demo permits only SAMPLE, including when an old session selected REAL.
+- Missing sample CSVs must not fall back to LOCAL or live acquisition.
+- Run public demos from a separate checkout without private caches, collection logs,
+  preferences, or warehouse mounts. The source selector is not filesystem or tenant
+  isolation: diagnostic panels still inspect local artifacts. Do not expose a personal
+  working copy as a public demo.
 - Default presentation mode is portfolio/demo mode.
 - SAMPLE is always labeled as synthetic demo data.
 - The app should not write `data/ticks` or create `data/warehouse/fund_flow.sqlite` just by opening the page.

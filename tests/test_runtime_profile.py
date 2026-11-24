@@ -155,6 +155,14 @@ def test_validate_runtime_profile_text_forbidden():
     assert "未来会涨" in validate_runtime_profile_text("未来会涨")
 
 
+def test_public_demo_without_sample_never_defaults_to_local():
+    defaults = build_runtime_profile_sidebar_defaults({
+        "public_demo_enabled": True, "sample_data_available": False,
+    })
+    assert defaults["data_source_default"] == "SAMPLE"
+    assert defaults["enable_live_fetch_default"] is False
+
+
 def test_normal_runtime_notice_has_no_forbidden(monkeypatch, tmp_path):
     monkeypatch.delenv("FUND_FLOW_PUBLIC_DEMO", raising=False)
     notice = build_runtime_profile_notice(get_runtime_profile(Path(tmp_path)))

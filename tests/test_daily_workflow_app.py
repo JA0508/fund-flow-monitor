@@ -4,6 +4,16 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 
 
+def test_public_demo_rejects_stale_real_source_selection(monkeypatch):
+    monkeypatch.setenv("FUND_FLOW_PUBLIC_DEMO", "1")
+    app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py", default_timeout=120)
+    app.session_state["data_source_mode"] = "真实数据 / 本地缓存"
+    app.run()
+    assert not app.exception
+    assert app.selectbox(key="data_source_mode").options == ["演示样例数据"]
+    assert app.session_state["data_source_mode"] == "演示样例数据"
+
+
 def test_calendar_opens_selected_sample_brief_and_rejects_missing_date(monkeypatch):
     monkeypatch.setenv("FUND_FLOW_PUBLIC_DEMO", "1")
     app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py", default_timeout=120).run()

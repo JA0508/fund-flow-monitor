@@ -607,15 +607,17 @@ def main() -> None:
         show_debug_details = should_show_debug_details(presentation_mode_label)
         st.caption("作品集演示模式会减少调试噪音，但保留 SAMPLE / DEMO / warning 等关键边界提示。")
         st.markdown("### 数据来源")
+        public_demo = bool(runtime_profile.get("public_demo_enabled"))
+        source_options = ("演示样例数据",) if public_demo else ("真实数据 / 本地缓存", "演示样例数据")
+        if public_demo:
+            st.session_state["data_source_mode"] = "演示样例数据"
         data_source_mode = st.selectbox(
             "数据来源模式",
-            ("真实数据 / 本地缓存", "演示样例数据"),
-            index=1 if runtime_sidebar_defaults.get("data_source_default") == "SAMPLE" else 0,
+            source_options,
+            index=0 if public_demo else (1 if runtime_sidebar_defaults.get("data_source_default") == "SAMPLE" else 0),
             key="data_source_mode",
         )
         sample_mode = data_source_mode == "演示样例数据"
-        if runtime_profile.get("public_demo_enabled") and not sample_mode:
-            st.caption("Public demo profile 已开启；你仍可手动切换真实数据 / 本地缓存模式，本页面不会把 SAMPLE 伪装成真实行情。")
         if not sample_mode and snapshot_catalog_df.empty:
             st.warning(
                 "当前没有本地真实缓存。公开部署或首次运行时，建议切换到 SAMPLE 演示样例数据体验完整功能。",
