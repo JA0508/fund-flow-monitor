@@ -147,8 +147,9 @@ def test_live_curve_keeps_one_complete_sample_status_explanation():
 def test_sidebar_hides_multi_day_settings_until_requested():
     app_source = Path(__file__).parents[1].joinpath("app.py").read_text(encoding="utf-8")
     sidebar_body = app_source.split("    with st.sidebar:", maxsplit=1)[1].split("    st_autorefresh", maxsplit=1)[0]
-    assert 'with st.expander("多日趋势设置", expanded=False):' in sidebar_body
-    assert sidebar_body.index('with st.expander("多日趋势设置", expanded=False):') < sidebar_body.index('key="multi_day_trend_mode_label"')
+    assert 'advanced_settings = st.expander("高级设置", expanded=False)' in sidebar_body
+    assert 'with advanced_settings:' in sidebar_body
+    assert sidebar_body.index('with advanced_settings:') < sidebar_body.index('key="multi_day_trend_mode_label"')
 
 
 def test_brief_defaults_to_the_theme_currently_selected_on_the_radar():

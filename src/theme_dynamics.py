@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date
 from collections import Counter
 from pathlib import Path
 from typing import Iterable
@@ -336,6 +337,7 @@ def build_theme_observation_events(
     calculation_modes: Iterable[str] | None = None,
     limit_dates: int | None = None,
     bucket_minutes: int = CAPTURED_TIME_BUCKET_MINUTES,
+    as_of_trade_date: str | None = None,
 ) -> pd.DataFrame:
     """Build raw theme observation events from physical cached snapshot captures.
 
@@ -343,6 +345,7 @@ def build_theme_observation_events(
     theme_definition_fingerprint. Time buckets are assigned later and are not part of
     raw event identity.
     """
+    cutoff = date.fromisoformat(as_of_trade_date).isoformat() if as_of_trade_date is not None else None
     source_mode = str(source_mode or "SAMPLE").upper()
     if source_mode not in {"SAMPLE", "REAL"}:
         empty = pd.DataFrame()
@@ -353,6 +356,11 @@ def build_theme_observation_events(
     modes = _normalize_modes(calculation_modes)
     catalog = _load_catalog(source_mode, data_dir)
     manifest = build_snapshot_manifest(data_dir=data_dir, source_mode=source_mode, bucket_minutes=bucket_minutes)
+    if cutoff is not None:
+        if "snapshot_date" in catalog.columns:
+            catalog = catalog.loc[pd.to_datetime(catalog["snapshot_date"], errors="coerce").le(pd.Timestamp(cutoff))].copy()
+        if "trade_date" in manifest.columns:
+            manifest = manifest.loc[pd.to_datetime(manifest["trade_date"], errors="coerce").le(pd.Timestamp(cutoff))].copy()
     manifest_lookup = _manifest_by_date(manifest)
     rows: list[dict] = []
     warnings: list[str] = []
@@ -378,6 +386,16 @@ def build_theme_observation_events(
         if not trade_date:
             continue
         snapshot_df = _load_snapshot(source_mode, trade_date, data_dir)
+        if cutoff is not None and not snapshot_df.empty:
+            if not {"trade_date", "captured_at"}.issubset(snapshot_df.columns):
+                warnings.append(f"{trade_date}: 缺少可验证的记录日期，已排除。")
+                continue
+            for column in ("trade_date", "captured_at"):
+                dates = pd.to_datetime(snapshot_df[column], errors="coerce").dt.strftime("%Y-%m-%d")
+                valid = dates.eq(trade_date)
+                if not valid.all():
+                    warnings.append(f"{trade_date}: 已排除日期不一致或不可验证的记录。")
+                snapshot_df = snapshot_df.loc[valid].copy()
         industry = _industry_frame(snapshot_df)
         if industry.empty:
             warnings.append(f"{trade_date}: 缺少可用行业资金流 snapshot event。")
@@ -688,6 +706,7 @@ def build_theme_observation_cube(
     calculation_modes: Iterable[str] | None = None,
     limit_dates: int | None = None,
     bucket_minutes: int = CAPTURED_TIME_BUCKET_MINUTES,
+    as_of_trade_date: str | None = None,
 ) -> pd.DataFrame:
     events = build_theme_observation_events(
         taxonomy=taxonomy,
@@ -696,6 +715,7 @@ def build_theme_observation_cube(
         calculation_modes=calculation_modes,
         limit_dates=limit_dates,
         bucket_minutes=bucket_minutes,
+        as_of_trade_date=as_of_trade_date,
     )
     canonical = materialize_canonical_observations(events, policy=CANONICAL_BUCKET_POLICY)
     if canonical.empty:

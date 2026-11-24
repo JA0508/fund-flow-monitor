@@ -9,6 +9,7 @@ import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
 from src.chart import build_flow_chart
+from src.daily_brief import render_daily_brief
 from src.brief_templates import (
     build_brief_compliance_report,
     build_brief_metadata,
@@ -320,6 +321,16 @@ def _mark_brief_theme_user_selected() -> None:
 
 def _research_navigation_changed() -> None:
     st.session_state["research_navigation_only"] = True
+
+
+def _open_calendar_brief(day: str, sample_mode: bool) -> None:
+    if sample_mode:
+        st.session_state["selected_sample_snapshot_date"] = day
+    else:
+        st.session_state["snapshot_date_mode"] = "选择历史日期"
+        st.session_state["selected_history_snapshot_date"] = day
+    st.session_state["daily_navigation"] = "我的关注"
+    _research_navigation_changed()
 
 
 def _prepare_research_navigation() -> bool:
@@ -667,17 +678,18 @@ def main() -> None:
             elif latest_snapshot_date and not can_fetch:
                 st.caption(f"非交易时间自动展示最新缓存：{latest_snapshot_date}")
 
-        display_mode = st.selectbox("数据展示模式", ("基金观察池", "原始板块"), index=0)
+        advanced_settings = st.expander("高级设置", expanded=False)
+        display_mode = advanced_settings.selectbox("数据展示模式", ("基金观察池", "原始板块"), index=0)
         theme_mode_label = None
         theme_mode = "strict_representative"
         if display_mode == "基金观察池":
-            theme_mode_label = st.selectbox("主题口径", ("严格代表口径", "代表口径", "广度观察"), index=0)
+            theme_mode_label = advanced_settings.selectbox("主题口径", ("严格代表口径", "代表口径", "广度观察"), index=0)
             theme_mode = {
                 "严格代表口径": "strict_representative",
                 "代表口径": "representative",
                 "广度观察": "breadth",
             }[theme_mode_label]
-        with st.expander("多日趋势设置", expanded=False):
+        with advanced_settings:
             multi_day_mode_label = st.selectbox(
                 "多日趋势口径",
                 ("严格代表口径", "代表口径", "广度观察"),
@@ -690,19 +702,19 @@ def main() -> None:
             "广度观察": "breadth",
         }[multi_day_mode_label]
         sector_options = (DEFAULT_SECTOR_TYPE,) if sample_mode else SECTOR_TYPES
-        sector_type = st.selectbox("板块类型", sector_options, index=0)
-        refresh_interval = st.selectbox(
+        sector_type = advanced_settings.selectbox("板块类型", sector_options, index=0)
+        refresh_interval = advanced_settings.selectbox(
             "刷新间隔",
             (15, 30, 60),
             index=(15, 30, 60).index(REFRESH_INTERVAL_SECONDS),
         )
-        top_in = st.number_input("净流入 Top N", min_value=1, max_value=30, value=DEFAULT_TOP_IN, step=1)
-        top_out = st.number_input("净流出 Top N", min_value=1, max_value=40, value=DEFAULT_TOP_OUT, step=1)
+        top_in = advanced_settings.number_input("净流入 Top N", min_value=1, max_value=30, value=DEFAULT_TOP_IN, step=1)
+        top_out = advanced_settings.number_input("净流出 Top N", min_value=1, max_value=40, value=DEFAULT_TOP_OUT, step=1)
         demo_mode = False
         concept_assist_enabled = False
         concept_manual_refresh = False
         if not sample_mode:
-            demo_mode = st.toggle("启用 DEMO 模式", value=False)
+            demo_mode = advanced_settings.toggle("启用 DEMO 模式", value=False)
             st.caption("DEMO 仅用于 UI 调试，不代表真实行情。")
             st.markdown("### 概念资金流辅助")
             concept_assist_enabled = st.toggle("启用概念资金流辅助", value=False)
@@ -1019,7 +1031,19 @@ def main() -> None:
     )
     brief_radar_summary = summarize_theme_radar_for_brief(radar_theme_df)
     brief_intraday_summary = summarize_intraday_for_brief(intraday_summary, intraday_hotspot_pool_df)
-    brief_multi_day_summary = summarize_multi_day_for_brief(multi_day_summary, multi_day_trend_pool_df)
+    brief_daily_theme_df = build_daily_theme_snapshots(
+        active_catalog_df,
+        data_dir=active_catalog_dir,
+        mode=multi_day_mode,
+        source_mode="SAMPLE" if sample_mode else "REAL",
+        as_of_trade_date=selected_snapshot_date or header_date,
+    )
+    brief_multi_day_pool = build_multi_day_trend_pool(
+        calculate_multi_day_theme_metrics(brief_daily_theme_df), top_n=12
+    )
+    brief_multi_day_summary = summarize_multi_day_for_brief(
+        build_multi_day_trend_summary(brief_multi_day_pool), brief_multi_day_pool
+    )
     brief_holding_summary = summarize_holding_pool_for_brief(fund_summary_df)
     brief_coverage_summary = summarize_taxonomy_coverage_for_brief(coverage_report, taxonomy_consistency)
     observation_brief = build_observation_brief(
@@ -1062,14 +1086,41 @@ def main() -> None:
     render_header(header_date, latest_time)
     real_cache_summary = build_real_cache_summary()
     collector_audit_summary = build_collector_audit_summary()
-    render_daily_status(data_status, real_cache_summary, collector_audit_summary)
-    render_portfolio_intro_card(portfolio_intro_context, compact=not portfolio_mode)
-    render_public_demo_guide(data_status, source_label, compact=not portfolio_mode)
-    tab_curve, tab_radar, tab_intraday, tab_multi_day, tab_holdings, tab_brief, tab_rank, tab_data = st.tabs(
-        ("实时曲线", "主题雷达", "日内热点", "多日趋势", "持仓相关池", "观察简报", "排行榜", "数据说明"),
+    today_tab, watch_tab, calendar_tab = st.tabs(
+        ("今日", "我的关注", "观察日历"),
         on_change=_research_navigation_changed,
-        key="research_tab",
+        key="daily_navigation",
     )
+    with calendar_tab:
+        st.caption("SAMPLE 合成样例日期" if sample_mode else "本地真实缓存日期，不代表已验证的源行情日期。")
+        calendar_day = st.date_input(
+            "观察日期", value=pd.Timestamp(selected_snapshot_date or header_date).date(),
+            key="observation_calendar_day", on_change=_research_navigation_changed,
+        )
+        calendar_date = calendar_day.isoformat()
+        calendar_catalog = sample_catalog_df if sample_mode else snapshot_catalog_df
+        calendar_dates = set(calendar_catalog["snapshot_date"].astype(str)) if not calendar_catalog.empty else set()
+        st.caption("尚未接入经来源核实的事件清单；此处空白不表示当天没有事件。")
+        if calendar_date in calendar_dates:
+            st.button(
+                "查看当天关注简报", key="open_calendar_brief",
+                on_click=_open_calendar_brief, args=(calendar_date, sample_mode),
+            )
+        else:
+            st.info("当天没有可用缓存，不能生成当天行情简报。")
+    with today_tab:
+        render_daily_status(data_status, real_cache_summary, collector_audit_summary)
+        tab_curve = st.expander("查看已保存曲线", expanded=False)
+        tab_data = st.expander("数据详情", expanded=False)
+    with watch_tab:
+        tab_radar = st.container()
+        tab_brief = st.expander("完整研究简报（可选）", expanded=False)
+        with st.expander("更多研究工具", expanded=False):
+            tab_intraday, tab_multi_day, tab_holdings, tab_rank = st.tabs(
+                ("日内快照", "历史趋势", "主题暴露示例", "板块排序"),
+                on_change=_research_navigation_changed,
+                key="research_tab",
+            )
 
     with tab_curve:
         render_status_bar(
@@ -1116,12 +1167,7 @@ def main() -> None:
         )
 
     with tab_radar:
-        render_compact_notice(
-            "基金主题观察",
-            "主题雷达将原始板块资金流归并为基金观察主题，只描述已展示或已缓存的资金流状态，不构成投资建议。",
-            tone="info",
-        )
-        render_theme_taxonomy_status(taxonomy, taxonomy_warnings, coverage_report, taxonomy_consistency)
+        st.caption("仅描述已保存的主题状态，不构成投资建议。")
         with st.container(border=True):
             st.markdown("<div class='radar-section-title'>先查看一个主题的观察结论</div>", unsafe_allow_html=True)
             evidence_theme_options = get_theme_observation_theme_options(watchlist_radar_df, radar_theme_df)
@@ -1132,7 +1178,7 @@ def main() -> None:
                 )
             else:
                 evidence_theme = st.selectbox(
-                    "选择主题查看计算证据",
+                    "关注主题",
                     evidence_theme_options,
                     index=0,
                     key="theme_radar_evidence_theme",
@@ -1163,15 +1209,28 @@ def main() -> None:
                 st.caption(research_snapshot["history_scope_notice"])
                 if research_snapshot["limitations"]:
                     st.caption("观察限制：" + "；".join(research_snapshot["limitations"][:3]))
-                render_theme_observation_evidence_cards(evidence)
+                daily_brief = render_daily_brief(
+                    selected_snapshot_date or header_date, data_status, research_snapshot
+                )
+                with st.expander("所选日期短简报", expanded=False):
+                    st.markdown(daily_brief)
+                    render_brief_download(
+                        daily_brief,
+                        selected_snapshot_date or header_date,
+                        validate_brief_text(daily_brief),
+                        file_name=f"daily-brief-{selected_snapshot_date or header_date}.md",
+                        label="下载短简报",
+                    )
                 with st.expander("查看成员输入与阈值映射", expanded=False):
+                    render_theme_observation_evidence_cards(evidence)
                     render_theme_observation_contribution_table(evidence)
                     st.markdown("<div class='radar-section-title'>状态阈值</div>", unsafe_allow_html=True)
                     render_theme_observation_threshold_table(evidence)
 
-        st.markdown("<div class='radar-section-title'>全市场主题概览</div>", unsafe_allow_html=True)
-        render_market_temperature_card(build_market_temperature(radar_theme_df))
+        st.markdown("<div class='radar-section-title'>我的关注状态</div>", unsafe_allow_html=True)
         render_theme_radar_cards(watchlist_radar_df, max_cards=8)
+        with st.expander("全市场背景", expanded=False):
+            render_market_temperature_card(build_market_temperature(radar_theme_df))
         if concept_assist_enabled:
             st.markdown(
                 f"<div class='small-note'>概念状态：{concept_data_status} ｜ {concept_status_note}。概念资金流用于辅助观察，不与行业资金流直接相加。</div>",
@@ -1180,9 +1239,9 @@ def main() -> None:
             if concept_error:
                 render_concept_error_box(concept_error, has_cache=concept_cache_summary.get("has_concept_cache", False))
             render_theme_concept_cards(watchlist_concept_df, max_cards=8)
-        else:
-            render_theme_concept_cards(pd.DataFrame(), max_cards=8)
-        render_divergence_cards(watchlist_divergence_df, max_cards=5)
+        if not watchlist_divergence_df.empty:
+            with st.expander("核心与广度对照", expanded=False):
+                render_divergence_cards(watchlist_divergence_df, max_cards=5)
     with tab_intraday:
         st.markdown(
             f"<div class='concept-note'>本页基于所选数据日期 <b>{selected_snapshot_date or '--'}</b> 的本地 CSV 资金流快照，观察主题资金在日内的变化。"
@@ -1754,6 +1813,7 @@ def main() -> None:
                         taxonomy=taxonomy,
                         source_mode=active_source_mode,
                         data_dir=active_catalog_dir,
+                        as_of_trade_date=selected_snapshot_date or header_date,
                     )
                     brief_dynamics_evidence = build_theme_dynamics_evidence(
                         brief_dynamics_cube,
@@ -1807,6 +1867,7 @@ def main() -> None:
                             bucket_minutes=(1, 5, 10),
                             taxonomy=taxonomy,
                             data_dir=active_catalog_dir,
+                            as_of_trade_date=selected_snapshot_date or header_date,
                         )
                         same_sign_range = brief_relationship_robustness.get("same_sign_observed_share_range", {})
                         aligned_range = brief_relationship_robustness.get("aligned_observation_count_range", {})
@@ -1857,23 +1918,16 @@ def main() -> None:
                     )
                     theme_history_brief_context = build_theme_history_brief_context(
                         None,
-                        source_type="SAMPLE" if data_status == "SAMPLE" else "ALL",
+                        source_type="SAMPLE" if data_status == "SAMPLE" else "LOCAL",
                         theme_mode="代表口径",
                     )
                 else:
-                    brief_sources = get_warehouse_available_source_types(brief_history_conn)
-                    if data_status == "SAMPLE" and "SAMPLE" in brief_sources:
-                        brief_history_source = "SAMPLE"
-                    elif len(brief_sources) > 1:
-                        brief_history_source = "ALL"
-                    elif brief_sources:
-                        brief_history_source = brief_sources[0]
-                    else:
-                        brief_history_source = "ALL"
+                    brief_history_source = "SAMPLE" if data_status == "SAMPLE" else "LOCAL"
                     brief_history_mode = normalize_theme_history_mode("代表口径")
                     brief_sector_history = load_sector_history_from_warehouse(
                         brief_history_conn,
                         source_type=brief_history_source,
+                        end_date=selected_snapshot_date or header_date,
                         latest_per_day=True,
                     )
                     brief_theme_history = build_theme_history_from_sector_history(
@@ -1969,6 +2023,7 @@ def main() -> None:
             render_concept_hotspots(concept_hotspots_df, max_rows=10)
 
     with tab_data:
+        render_theme_taxonomy_status(taxonomy, taxonomy_warnings, coverage_report, taxonomy_consistency)
         with st.expander("作品集演示与截图指南", expanded=portfolio_mode):
             render_demo_walkthrough_cards(demo_walkthrough_steps)
             render_screenshot_checklist(screenshot_checklist)

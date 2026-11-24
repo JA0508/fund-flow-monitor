@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pandas as pd
 
 from src.history_evidence import (
@@ -68,7 +70,13 @@ def build_daily_theme_snapshots(
     data_dir: str = "data/ticks",
     mode: str = "strict_representative",
     source_mode: str = "REAL",
+    as_of_trade_date: str | None = None,
 ) -> pd.DataFrame:
+    if as_of_trade_date is not None:
+        cutoff = date.fromisoformat(as_of_trade_date).isoformat()
+        if catalog_df is not None and "snapshot_date" in catalog_df.columns:
+            dates = pd.to_datetime(catalog_df["snapshot_date"], errors="coerce")
+            catalog_df = catalog_df.loc[dates.le(pd.Timestamp(cutoff))].copy()
     if catalog_df is None or catalog_df.empty:
         empty = pd.DataFrame()
         empty.attrs["warnings"] = []
@@ -91,6 +99,17 @@ def build_daily_theme_snapshots(
             continue
         try:
             ticks = load_snapshot_by_date(snapshot_date, data_dir=data_dir)
+            if as_of_trade_date is not None and not ticks.empty:
+                row_dates = pd.to_datetime(ticks.get("trade_date"), errors="coerce")
+                capture_dates = pd.to_datetime(ticks.get("captured_at"), errors="coerce")
+                if isinstance(row_dates, pd.Series) and isinstance(capture_dates, pd.Series):
+                    valid = row_dates.dt.strftime("%Y-%m-%d").eq(snapshot_date) & capture_dates.dt.strftime("%Y-%m-%d").eq(snapshot_date)
+                    if not valid.all():
+                        warnings.append(f"{snapshot_date}: 已排除日期不一致或不可验证的记录")
+                    ticks = ticks.loc[valid].copy()
+                else:
+                    warnings.append(f"{snapshot_date}: 缺少可验证的记录日期")
+                    continue
             industry = _industry_ticks(ticks)
             latest = _latest_frame_for_date(industry)
             if latest.empty:
@@ -144,6 +163,8 @@ def build_multi_day_provenance(
     bucket_minutes: int = 1,
 ) -> dict:
     manifest = build_snapshot_manifest(data_dir=data_dir, source_mode=source_mode, bucket_minutes=bucket_minutes)
+    if catalog_df is not None and "snapshot_date" in catalog_df.columns and not manifest.empty:
+        manifest = manifest.loc[manifest["trade_date"].isin(catalog_df["snapshot_date"].astype(str))].copy()
     summary = build_historical_coverage_summary(manifest)
     readiness = classify_historical_evidence_readiness(summary)
     catalog_dates = (

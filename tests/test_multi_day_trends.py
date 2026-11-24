@@ -125,3 +125,26 @@ def test_single_available_date_does_not_crash(tmp_path: Path) -> None:
     assert daily["snapshot_date"].nunique() == 1
     assert not metrics.empty
     assert not pool.empty
+
+
+def test_daily_snapshots_exclude_dates_after_brief_cutoff(tmp_path: Path) -> None:
+    for day in ("2026-06-01", "2026-06-02"):
+        _write_snapshot(tmp_path, day, [_tick(day, "半导体", 10)])
+    catalog = build_snapshot_catalog(str(tmp_path))
+    daily = build_daily_theme_snapshots(
+        catalog, data_dir=str(tmp_path), as_of_trade_date="2026-06-01"
+    )
+    assert set(daily["snapshot_date"]) == {"2026-06-01"}
+    assert len(catalog) == 2
+
+
+def test_daily_snapshot_rejects_later_rows_in_old_file(tmp_path: Path) -> None:
+    _write_snapshot(tmp_path, "2026-06-01", [
+        _tick("2026-06-01", "半导体", 10),
+        _tick("2026-06-02", "半导体", 999),
+    ])
+    daily = build_daily_theme_snapshots(
+        build_snapshot_catalog(str(tmp_path)), data_dir=str(tmp_path),
+        as_of_trade_date="2026-06-01",
+    )
+    assert daily["main_net_inflow_billion"].max() == 10

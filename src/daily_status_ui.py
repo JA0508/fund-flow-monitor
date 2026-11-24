@@ -7,7 +7,8 @@ def render_daily_status(view_mode: str, cache: dict, audit: dict) -> None:
     """Display existing cache evidence without upgrading it to readiness."""
     st.subheader("每日数据状态")
     if view_mode in {"SAMPLE", "DEMO"}:
-        st.info(f"当前展示 {view_mode}，不代表真实行情；下方单独列出本地真实缓存状态。")
+        st.info(f"当前展示 {view_mode}，不代表真实行情。真实缓存与采集记录不在此视图展示。")
+        return
     states = {
         "today": "今日日期（未验证可用性）",
         "historical": "历史缓存",

@@ -4,16 +4,25 @@ from streamlit.testing.v1 import AppTest
 def test_daily_entry_exposes_missing_evidence_without_claiming_ready():
     app = AppTest.from_string('''
 from src.daily_status_ui import render_daily_status
-render_daily_status("SAMPLE", {"staleness_status": "today", "latest_snapshot_date": "2026-10-22"}, {"latest_run_status": "fetch_error"})
+render_daily_status("CACHE", {"staleness_status": "today", "latest_snapshot_date": "2026-10-22"}, {"latest_run_status": "fetch_error"})
 ''').run()
     assert not app.exception
-    assert "SAMPLE" in app.info[0].value
-    assert "不代表" in app.info[0].value
     text = "\n".join(item.value for item in app.text)
     assert "2026-10-22" in text
     assert "fetch_error" in text
     assert "未提供" in text
     assert "不证明" in app.caption[0].value
+
+
+def test_sample_daily_entry_does_not_mix_real_cache_metadata():
+    app = AppTest.from_string('''
+from src.daily_status_ui import render_daily_status
+render_daily_status("SAMPLE", {"latest_snapshot_date": "private-date"}, {"latest_run_status": "private-run"})
+''').run()
+    assert not app.exception
+    assert "SAMPLE" in app.info[0].value
+    assert "不代表真实行情" in app.info[0].value
+    assert not app.text
 
 
 def test_daily_entry_shows_future_cache_and_capture_source():

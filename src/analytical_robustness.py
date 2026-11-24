@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import statistics
+from datetime import date
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
@@ -194,6 +195,7 @@ def build_canonical_cube_for_spec(
     taxonomy: dict | None = None,
     data_dir: str | None = None,
     limit_dates: int | None = None,
+    as_of_trade_date: str | None = None,
 ) -> pd.DataFrame:
     taxonomy = taxonomy or load_theme_taxonomy()
     events = build_theme_observation_events(
@@ -202,6 +204,7 @@ def build_canonical_cube_for_spec(
         data_dir=data_dir,
         calculation_modes=THEME_DYNAMICS_MODES,
         limit_dates=limit_dates,
+        as_of_trade_date=as_of_trade_date,
         bucket_minutes=normalize_bucket_minutes(specification.get("captured_time_bucket_minutes")),
     )
     events = attach_continuity_columns(events)
@@ -216,10 +219,14 @@ def build_canonical_cube_for_spec(
     return canonical
 
 
-def _provider_lineage_metadata(source_mode: str, data_dir: str | None = None, bucket_minutes: int = CAPTURED_TIME_BUCKET_MINUTES) -> dict:
+def _provider_lineage_metadata(source_mode: str, data_dir: str | None = None, bucket_minutes: int = CAPTURED_TIME_BUCKET_MINUTES, as_of_trade_date: str | None = None) -> dict:
     mode = str(source_mode or "SAMPLE").upper()
     directory = data_dir or (SAMPLE_DATA_DIR if mode == "SAMPLE" else "data/ticks")
     manifest = build_snapshot_manifest(directory, source_mode=mode, bucket_minutes=normalize_bucket_minutes(bucket_minutes))
+    if as_of_trade_date is not None:
+        cutoff = date.fromisoformat(as_of_trade_date).isoformat()
+        if "trade_date" in manifest.columns:
+            manifest = manifest.loc[pd.to_datetime(manifest["trade_date"], errors="coerce").le(pd.Timestamp(cutoff))].copy()
     summary = build_provider_lineage_summary(manifest)
     return {
         "source_mode": mode,
@@ -582,7 +589,10 @@ def compare_relationship_specifications(
     materialization_policies: Iterable[str] | None = None,
     taxonomy: dict | None = None,
     data_dir: str | None = None,
+    as_of_trade_date: str | None = None,
 ) -> dict:
+    if as_of_trade_date is not None:
+        as_of_trade_date = date.fromisoformat(as_of_trade_date).isoformat()
     taxonomy = taxonomy or load_theme_taxonomy()
     left, right = normalize_theme_pair(theme_a, theme_b)
     buckets = parse_bucket_minutes(bucket_minutes)
@@ -594,13 +604,13 @@ def compare_relationship_specifications(
     ]
     results = []
     for spec in specs:
-        cube = build_canonical_cube_for_spec(spec, taxonomy=taxonomy, data_dir=data_dir)
+        cube = build_canonical_cube_for_spec(spec, taxonomy=taxonomy, data_dir=data_dir, as_of_trade_date=as_of_trade_date)
         results.append(summarize_relationship_variant(cube, left, right, spec, taxonomy))
     return {
         "robustness_available": bool(results),
         "theme_pair": f"{left}::{right}",
         "source_mode": str(source_mode).upper(),
-        "provider_lineage": _provider_lineage_metadata(source_mode, data_dir=data_dir, bucket_minutes=buckets[0] if buckets else CAPTURED_TIME_BUCKET_MINUTES),
+        "provider_lineage": _provider_lineage_metadata(source_mode, data_dir=data_dir, bucket_minutes=buckets[0] if buckets else CAPTURED_TIME_BUCKET_MINUTES, as_of_trade_date=as_of_trade_date),
         "continuity_universe": results[0].get("continuity_universe") if results else build_continuity_summary(pd.DataFrame()),
         "continuity_universe_consistent": len({json.dumps(item.get("continuity_universe", {}), sort_keys=True, default=str) for item in results}) <= 1 if results else True,
         "default_specification": build_default_analytical_specification(source_mode, calculation_mode, taxonomy),
