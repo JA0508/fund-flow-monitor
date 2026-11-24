@@ -2,6 +2,14 @@ import ast
 from pathlib import Path
 
 
+def test_watch_state_precedes_evidence_details():
+    source = (Path(__file__).resolve().parents[1] / "app.py").read_text()
+    watch = source.split("    with tab_radar:", 1)[1].split("    with tab_intraday:", 1)[0]
+    assert 'st.metric("当前状态"' in watch
+    assert watch.index('st.metric("当前状态"') < watch.index('st.expander("查看成员输入与阈值映射"')
+    assert 'st.container(border=True)' not in watch
+
+
 def test_sidebar_adapts_to_small_devices():
     tree = ast.parse((Path(__file__).resolve().parents[1] / "app.py").read_text())
     config = next(node for node in ast.walk(tree) if isinstance(node, ast.Call)

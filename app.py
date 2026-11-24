@@ -1180,8 +1180,7 @@ def main() -> None:
 
     with tab_radar:
         st.caption("仅描述已保存的主题状态，不构成投资建议。")
-        with st.container(border=True):
-            st.markdown("<div class='radar-section-title'>先查看一个主题的观察结论</div>", unsafe_allow_html=True)
+        with st.container():
             evidence_theme_options = get_theme_observation_theme_options(watchlist_radar_df, radar_theme_df)
             if not evidence_theme_options:
                 st.markdown(
@@ -1207,18 +1206,10 @@ def main() -> None:
                     as_of_captured_time=latest_time,
                 )
                 research_snapshot = build_theme_research_snapshot(evidence)
-                snapshot_body = (
-                    f"{research_snapshot['theme_name']} 当前状态：{research_snapshot['observed_state']}；"
-                    f"{research_snapshot['member_coverage_label']} "
-                    f"快照覆盖：{research_snapshot['history_readiness_label']}。"
-                )
-                render_compact_notice(
-                    "主题观察结论",
-                    snapshot_body,
-                    tone="info" if research_snapshot["research_snapshot_available"] else "warning",
-                )
+                st.metric("当前状态", research_snapshot["observed_state"])
+                st.caption(f"{selected_snapshot_date or header_date} · {latest_time or '捕获时间未提供'} · {data_status}")
                 st.caption(research_snapshot["source_notice"])
-                st.caption(research_snapshot["history_scope_notice"])
+                st.caption("快照覆盖：" + research_snapshot["history_readiness_label"])
                 if research_snapshot["limitations"]:
                     st.caption("观察限制：" + "；".join(research_snapshot["limitations"][:3]))
                 daily_brief = render_daily_brief(
@@ -1234,6 +1225,8 @@ def main() -> None:
                         label="下载短简报",
                     )
                 with st.expander("查看成员输入与阈值映射", expanded=False):
+                    st.caption(research_snapshot["member_coverage_label"])
+                    st.caption(research_snapshot["history_scope_notice"])
                     render_theme_observation_evidence_cards(evidence)
                     render_theme_observation_contribution_table(evidence)
                     st.markdown("<div class='radar-section-title'>状态阈值</div>", unsafe_allow_html=True)
