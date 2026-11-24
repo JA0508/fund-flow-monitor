@@ -1110,6 +1110,16 @@ def main() -> None:
             )
         else:
             st.info("当天没有可用缓存，不能生成当天行情简报。")
+        cached_dates = pd.to_datetime(sorted(calendar_dates), errors="coerce")
+        past_dates = cached_dates[cached_dates <= pd.Timestamp(trade_date)]
+        if len(past_dates):
+            latest_cached_date = past_dates.max().strftime("%Y-%m-%d")
+            st.button(
+                f"打开最近缓存简报 · {latest_cached_date}",
+                key="open_latest_calendar_brief",
+                on_click=_open_calendar_brief, args=(latest_cached_date, sample_mode),
+                help="只按缓存日期查找，不表示今日行情或来源日期已验证。",
+            )
     with today_tab:
         render_daily_status(data_status, real_cache_summary, collector_audit_summary)
         tab_curve = st.expander("查看已保存曲线", expanded=False)

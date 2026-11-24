@@ -29,3 +29,7 @@ def test_calendar_opens_selected_sample_brief_and_rejects_missing_date(monkeypat
     assert not app.exception
     assert not any(button.key == "open_calendar_brief" for button in app.button)
     assert any("当天没有可用缓存" in item.value for item in app.info)
+    app.button(key="open_latest_calendar_brief").click().run()
+    assert not app.exception
+    assert app.session_state["daily_navigation"] == "我的关注"
+    assert app.session_state["selected_sample_snapshot_date"] == selected
