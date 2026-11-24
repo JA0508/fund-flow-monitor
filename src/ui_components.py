@@ -27,9 +27,13 @@ def inject_global_css() -> None:
         .stApp { background: #050505; color: #e5e7eb; }
         [data-testid="stSidebar"] { background: #0b0b0b; }
         [data-testid="stHeader"] { background: rgba(5, 5, 5, 0); }
-        .block-container { padding-top: .7rem; max-width: 1720px; }
-        .main-title { text-align: center; font-size: 31px; font-weight: 800; margin: 0; color: #f0c65a; line-height: 1.15; }
-        .time-title { text-align: center; font-size: 22px; color: #26e07f; margin: 0.15rem 0 0.45rem; font-weight: 750; line-height: 1.15; }
+        .block-container { padding-top: 1.5rem; max-width: 1280px; padding-bottom: 3rem; }
+        .main-title { text-align: left; font-size: 26px; font-weight: 650; margin: 0; color: #f3f4f6; line-height: 1.4; overflow-wrap: anywhere; }
+        .time-title { text-align: left; font-size: 14px; color: #aab2c0; margin: .4rem 0 1.4rem; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; }
+        .stApp { letter-spacing: 0; }
+        [data-testid="stSidebar"] h2 { font-size: 18px; font-weight: 650; }
+        [data-testid="stSidebar"] h3 { font-size: 14px; font-weight: 600; }
+        button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid #8ac9ed !important; outline-offset: 3px; }
         .compact-status { border: 1px solid rgba(255,255,255,.12); background: #080808; color: #d1d5db; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.7; margin: 0.2rem 0 0.45rem; text-align: center; }
         .compact-status b { color: #f3f4f6; font-weight: 750; }
         .status-group + .status-group::before { content: " ｜ "; color: #6b7280; }
@@ -90,14 +94,14 @@ def inject_global_css() -> None:
         .amount-in { color: #ffb703 !important; font-weight: 800; }
         .amount-out { color: #2ec4b6 !important; font-weight: 800; }
         .rank-empty { color: #8b949e; padding: 18px; }
-        .radar-section-title { font-size: 19px; font-weight: 850; margin: 14px 0 8px; color: #e5e7eb; }
+        .radar-section-title { font-size: 18px; font-weight: 650; margin: 20px 0 12px; color: #e5e7eb; }
         .temperature-grid { display: grid; grid-template-columns: 1.35fr repeat(4, minmax(0, .8fr)); gap: 10px; margin: 8px 0 12px; }
-        .radar-card { background: #080808; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 12px 14px; min-height: 116px; }
-        .radar-card-title { color: #f3f4f6; font-size: 16px; font-weight: 850; margin-bottom: 8px; }
+        .radar-card { background: #111111; border: 1px solid #303030; border-radius: 8px; padding: 18px; min-height: 116px; min-width: 0; overflow-wrap: anywhere; }
+        .radar-card-title { color: #f3f4f6; font-size: 15px; font-weight: 600; margin-bottom: 12px; }
         .radar-card-label { color: #8b949e; font-size: 12px; }
-        .radar-card-value { color: #e5e7eb; font-size: 20px; font-weight: 850; margin: 2px 0 4px; }
-        .radar-reason { color: #aab2c0; font-size: 12.5px; line-height: 1.55; margin-top: 8px; }
-        .radar-meta { color: #8b949e; font-size: 12px; line-height: 1.5; }
+        .radar-card-value { color: #e5e7eb; font-size: 24px; font-weight: 650; margin: 2px 0 10px; font-variant-numeric: tabular-nums; }
+        .radar-reason { color: #bdc3cb; font-size: 13px; line-height: 1.7; margin-top: 12px; padding-top: 10px; border-top: 1px solid #303030; }
+        .radar-meta { color: #aab2c0; font-size: 12px; line-height: 1.7; }
         .radar-positive-strong, .radar-positive-weak { color: #ffb703 !important; }
         .radar-negative-strong, .radar-negative-weak { color: #2ec4b6 !important; }
         .radar-neutral { color: #c9d1d9 !important; }
@@ -137,8 +141,9 @@ def inject_global_css() -> None:
         .brief-warning { color: #ffd166; font-weight: 850; }
         .footer-note { color: #6b7280; text-align: center; font-size: 12px; margin: 18px 0 4px; }
         .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
-        .stTabs [data-baseweb="tab"] { background: #080808; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 8px 8px 0 0; color: #aab2c0; padding: 8px 14px; }
-        .stTabs [aria-selected="true"] { color: #f0c65a !important; background: #0b0f14 !important; }
+        .stTabs [data-baseweb="tab"] { background: transparent; border: 0; border-radius: 0; color: #aab2c0; padding: 12px 16px; min-height: 44px; }
+        .stTabs [aria-selected="true"] { color: #f3f4f6 !important; background: #171717 !important; }
+        @media (max-width: 600px) { .block-container { padding-left: 1rem; padding-right: 1rem; } .radar-card { padding: 14px; } .stTabs [data-baseweb="tab"] { padding: 10px 12px; } }
         pre, code { background: #0b0f14 !important; color: #d1d5db !important; border-color: rgba(255,255,255,.08) !important; }
         @media (max-width: 900px) { .main-title { font-size: 25px; } .compact-status { text-align: left; } .status-group { display: block; } .status-group + .status-group::before { content: ""; } .temperature-grid { grid-template-columns: 1fr 1fr; } .trust-grid { grid-template-columns: 1fr; } .holding-overview { grid-template-columns: 1fr 1fr; } .hotspot-overview { grid-template-columns: 1fr 1fr; } .demo-guide-grid { grid-template-columns: 1fr; } }
         </style>
